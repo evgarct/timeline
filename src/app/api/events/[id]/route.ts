@@ -15,7 +15,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const body = { ...(await request.json()), id: (await params).id };
   const parsed = timelineEventSchema.safeParse(body);
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
-  return Response.json(await updateEvent(userId, parsed.data));
+  try {
+    return Response.json(await updateEvent(userId, parsed.data));
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "event_save_failed" }, { status: 400 });
+  }
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {

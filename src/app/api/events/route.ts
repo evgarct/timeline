@@ -13,6 +13,10 @@ export async function POST(request: Request) {
   if (!userId) return Response.json({ error: "Unauthorized" }, { status: 401 });
   const parsed = timelineEventSchema.safeParse(await request.json());
   if (!parsed.success) return Response.json({ error: parsed.error.flatten() }, { status: 400 });
-  return Response.json(await createEvent(userId, parsed.data), { status: 201 });
+  try {
+    return Response.json(await createEvent(userId, parsed.data), { status: 201 });
+  } catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : "event_save_failed" }, { status: 400 });
+  }
 }
 

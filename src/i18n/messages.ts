@@ -42,7 +42,21 @@ const messages = {
     schedule: "Периодичность задач",
     uploadReport: "Загрузить отчёт",
     reviewReport: "Проверить распознанные данные",
-    save: "Сохранить"
+    save: "Сохранить",
+    cancel: "Отмена",
+    preparingUpload: "Подготавливаем фотографии…",
+    convertingUpload: "Конвертируем изображение…",
+    uploading: "Загружаем…",
+    uploadFailed: "Не удалось загрузить файл. Попробуйте ещё раз.",
+    unsupportedFormat: "Поддерживаются HEIC, HEIF, JPEG и PNG.",
+    fileTooLarge: "Размер файла не должен превышать 25 МБ.",
+    tooManyPhotos: "Можно загрузить не больше 12 фотографий.",
+    openGallery: "Открыть галерею",
+    photoCount: "Фотографий: {count}",
+    openReport: "Открыть оригинал отчёта",
+    deleteConfirmTitle: "Удалить событие?",
+    deleteConfirmDescription: "Файлы будут сразу удалены из приватного хранилища. Это действие нельзя отменить.",
+    deleteFailed: "Не удалось удалить событие."
   },
   en: {
     brand: "Fitness Timeline",
@@ -85,7 +99,21 @@ const messages = {
     schedule: "Task schedule",
     uploadReport: "Upload report",
     reviewReport: "Review extracted data",
-    save: "Save"
+    save: "Save",
+    cancel: "Cancel",
+    preparingUpload: "Preparing photos…",
+    convertingUpload: "Converting image…",
+    uploading: "Uploading…",
+    uploadFailed: "The upload failed. Try again.",
+    unsupportedFormat: "HEIC, HEIF, JPEG and PNG are supported.",
+    fileTooLarge: "Files must be 25 MB or smaller.",
+    tooManyPhotos: "You can upload up to 12 photos.",
+    openGallery: "Open gallery",
+    photoCount: "Photos: {count}",
+    openReport: "Open original report",
+    deleteConfirmTitle: "Delete this event?",
+    deleteConfirmDescription: "Its files will be removed from private storage immediately. This cannot be undone.",
+    deleteFailed: "Could not delete the event."
   },
   cs: {
     brand: "Fitness Timeline",
@@ -128,7 +156,21 @@ const messages = {
     schedule: "Plán úkolů",
     uploadReport: "Nahrát report",
     reviewReport: "Zkontrolovat rozpoznaná data",
-    save: "Uložit"
+    save: "Uložit",
+    cancel: "Zrušit",
+    preparingUpload: "Připravujeme fotky…",
+    convertingUpload: "Převádíme obrázek…",
+    uploading: "Nahráváme…",
+    uploadFailed: "Soubor se nepodařilo nahrát. Zkuste to znovu.",
+    unsupportedFormat: "Podporujeme HEIC, HEIF, JPEG a PNG.",
+    fileTooLarge: "Soubor může mít maximálně 25 MB.",
+    tooManyPhotos: "Můžete nahrát maximálně 12 fotografií.",
+    openGallery: "Otevřít galerii",
+    photoCount: "Fotografií: {count}",
+    openReport: "Otevřít původní report",
+    deleteConfirmTitle: "Smazat událost?",
+    deleteConfirmDescription: "Soubory budou ihned odstraněny ze soukromého úložiště. Tuto akci nelze vrátit.",
+    deleteFailed: "Událost se nepodařilo smazat."
   }
 } as const;
 
