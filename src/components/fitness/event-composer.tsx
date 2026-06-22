@@ -3,10 +3,11 @@
 import { useRef, useState } from "react";
 import { Camera, Images, LoaderCircle, Upload } from "lucide-react";
 import { toast } from "sonner";
-import { upload } from "@vercel/blob/client";
 import type { EventType, InBodyMetric, TimelineEvent } from "@/domain/events";
+import { MAX_PROGRESS_PHOTOS, MAX_UPLOAD_BYTES, type StoredMediaType } from "@/domain/media";
 import { parseInBodyText } from "@/domain/inbody-parser";
 import type { Copy } from "@/i18n/messages";
+import { inspectFileType, prepareOcrImage, prepareProgressPhoto } from "@/lib/image-processing";
 import { Button } from "@/components/ui/button";
 import {
   Drawer,
@@ -32,13 +33,11 @@ const titles: Record<EventType, keyof Pick<Copy, "workout" | "measurements" | "p
 export function EventComposer({
   type,
   copy,
-  userId,
   onClose,
   onSaved
 }: {
   type: EventType | null;
   copy: Copy;
-  userId: string;
   onClose: () => void;
   onSaved: (event: TimelineEvent) => void;
 }) {
@@ -48,6 +47,7 @@ export function EventComposer({
   const [metrics, setMetrics] = useState<InBodyMetric[]>([]);
   const [ocrPending, setOcrPending] = useState(false);
   const [savePending, setSavePending] = useState(false);
+  const [uploadStage, setUploadStage] = useState<"preparingUpload" | "convertingUpload" | "uploading" | null>(null);
   const [muscleGroup, setMuscleGroup] = useState("Push");
   const [occurredAt, setOccurredAt] = useState(new Date().toISOString().slice(0, 16));
   const [note, setNote] = useState("");
@@ -62,7 +62,7 @@ export function EventComposer({
     try {
       const { createWorker } = await import("tesseract.js");
       const worker = await createWorker("eng");
-      const result = await worker.recognize(file);
+      const result = await worker.recognize(await prepareOcrImage(file));
       await worker.terminate();
       setMetrics(parseInBodyText(result.data.text));
     } catch {
@@ -74,33 +74,100 @@ export function EventComposer({
 
   function chooseFiles(selected: FileList | null) {
     const next = selected ? Array.from(selected) : [];
+    if (next.length > MAX_PROGRESS_PHOTOS) {
+      toast.error(copy.tooManyPhotos);
+      return;
+    }
+    if (next.some((file) => file.size <= 0 || file.size > MAX_UPLOAD_BYTES)) {
+      toast.error(copy.fileTooLarge);
+      return;
+    }
     setFiles(next);
     if (type === "inbody" && next[0]) void runOcr(next[0]);
+  }
+
+  async function requestUpload(body: unknown) {
+    const response = await fetch("/api/uploads/presign", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if (!response.ok) throw new Error(response.status === 503 ? "storage_not_configured" : "upload_failed");
+    return response.json() as Promise<{
+      assetId: string;
+      uploads: Array<{ role: "full" | "thumbnail" | "original"; url: string; contentType: string }>;
+    }>;
+  }
+
+  async function putUpload(url: string, contentType: string, body: Blob) {
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: { "content-type": contentType },
+      body
+    });
+    if (!response.ok) throw new Error("upload_failed");
+  }
+
+  async function completeUpload(assetId: string) {
+    const response = await fetch("/api/uploads/complete", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ assetId })
+    });
+    if (!response.ok) throw new Error("upload_failed");
+  }
+
+  async function uploadProgressPhoto(file: File, index: number) {
+    setUploadStage("convertingUpload");
+    const prepared = await prepareProgressPhoto(file);
+    setUploadStage("uploading");
+    const ticket = await requestUpload({
+      kind: "progress_photo",
+      fileName: file.name,
+      sourceSize: file.size,
+      sourceMimeType: file.type,
+      full: { size: prepared.full.size, width: prepared.width, height: prepared.height },
+      thumbnail: { size: prepared.thumbnail.size }
+    });
+    const full = ticket.uploads.find((upload) => upload.role === "full");
+    const thumbnail = ticket.uploads.find((upload) => upload.role === "thumbnail");
+    if (!full || !thumbnail) throw new Error("upload_failed");
+    await Promise.all([
+      putUpload(full.url, full.contentType, prepared.full),
+      putUpload(thumbnail.url, thumbnail.contentType, prepared.thumbnail)
+    ]);
+    await completeUpload(ticket.assetId);
+    return {
+      id: crypto.randomUUID(),
+      assetId: ticket.assetId,
+      width: prepared.width,
+      height: prepared.height,
+      alt: `${copy.progressPhoto} ${index + 1}`
+    };
+  }
+
+  async function uploadInBody(file: File) {
+    setUploadStage("preparingUpload");
+    const detectedType = await inspectFileType(file);
+    if (!detectedType) throw new Error("unsupported_format");
+    setUploadStage("uploading");
+    const ticket = await requestUpload({
+      kind: "inbody",
+      fileName: file.name,
+      size: file.size,
+      mimeType: detectedType
+    });
+    const original = ticket.uploads.find((upload) => upload.role === "original");
+    if (!original) throw new Error("upload_failed");
+    await putUpload(original.url, original.contentType, file);
+    await completeUpload(ticket.assetId);
+    return { assetId: ticket.assetId, mimeType: detectedType as StoredMediaType };
   }
 
   async function save() {
     if (!type) return;
     setSavePending(true);
     try {
-      const blobs: Array<{ pathname: string; url: string }> = [];
-      if (files.length) {
-        const uploaded = await Promise.all(files.map(async (file) => {
-          const pathname = `users/${userId}/${type}/${crypto.randomUUID()}-${file.name}`;
-          try {
-            const blob = await upload(pathname, file, {
-              access: "private",
-              handleUploadUrl: "/api/uploads",
-              multipart: file.size > 4 * 1024 * 1024
-            });
-            return { pathname: blob.pathname, url: `/api/media?pathname=${encodeURIComponent(blob.pathname)}` };
-          } catch (error) {
-            if (process.env.NODE_ENV === "production") throw error;
-            return { pathname: URL.createObjectURL(file), url: URL.createObjectURL(file) };
-          }
-        }));
-        blobs.push(...uploaded);
-      }
-
       const base = {
         id: crypto.randomUUID(),
         occurredAt: new Date(occurredAt),
@@ -115,25 +182,25 @@ export function EventComposer({
         if (!Object.keys(values).length) throw new Error("measurement-required");
         event = { ...base, type, values };
       } else if (type === "progress_photo") {
-        if (!blobs.length) throw new Error("photo-required");
+        if (!files.length) throw new Error("photo-required");
+        const photos = [];
+        for (const [index, file] of files.entries()) {
+          photos.push(await uploadProgressPhoto(file, index));
+        }
         event = {
           ...base,
           type,
-          photos: blobs.map((blob, index) => ({
-            id: crypto.randomUUID(),
-            url: blob.url,
-            originalUrl: blob.pathname,
-            alt: `Progress photo ${index + 1}`
-          }))
+          photos
         };
       } else {
-        if (!blobs[0] || !files[0] || !metrics.length) throw new Error("inbody-required");
+        if (!files[0] || !metrics.length) throw new Error("inbody-required");
+        const uploaded = await uploadInBody(files[0]);
         event = {
           ...base,
           type,
           source: {
-            url: blobs[0].pathname,
-            mimeType: files[0].type as "application/pdf" | "image/heic" | "image/heif" | "image/jpeg" | "image/png",
+            assetId: uploaded.assetId,
+            mimeType: uploaded.mimeType,
             fileName: files[0].name
           },
           metrics,
@@ -153,10 +220,14 @@ export function EventComposer({
       setFiles([]);
       setMetrics([]);
       onClose();
-    } catch {
-      toast.error("Upload failed. Check storage configuration and try again.");
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "upload_failed";
+      if (code === "file_too_large") toast.error(copy.fileTooLarge);
+      else if (code === "unsupported_format") toast.error(copy.unsupportedFormat);
+      else toast.error(copy.uploadFailed);
     } finally {
       setSavePending(false);
+      setUploadStage(null);
     }
   }
 
@@ -238,7 +309,9 @@ export function EventComposer({
                   ref={galleryRef}
                   className="sr-only"
                   type="file"
-                  accept={type === "inbody" ? "image/heic,image/heif,image/jpeg,image/png,application/pdf" : "image/heic,image/heif,image/jpeg,image/png"}
+                  accept={type === "inbody"
+                    ? ".heic,.heif,.jpg,.jpeg,.png,.pdf,image/heic,image/heif,image/jpeg,image/png,application/pdf"
+                    : ".heic,.heif,.jpg,.jpeg,.png,image/heic,image/heif,image/jpeg,image/png"}
                   multiple={type === "progress_photo"}
                   onChange={(event) => chooseFiles(event.target.files)}
                 />
@@ -252,6 +325,12 @@ export function EventComposer({
                 />
                 {files.length ? (
                   <p className="text-xs text-muted-foreground">{files.map((file) => file.name).join(", ")}</p>
+                ) : null}
+                {uploadStage ? (
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground" role="status">
+                    <LoaderCircle className="animate-spin" />
+                    {copy[uploadStage]}
+                  </p>
                 ) : null}
               </Field>
             ) : null}
@@ -286,10 +365,10 @@ export function EventComposer({
         <DrawerFooter>
           <Button size="lg" onClick={() => void save()} disabled={savePending}>
             {savePending ? <LoaderCircle data-icon="inline-start" className="animate-spin" /> : <Upload data-icon="inline-start" />}
-            {copy.save}
+            {uploadStage ? copy[uploadStage] : copy.save}
           </Button>
           <DrawerClose asChild>
-            <Button variant="ghost">Cancel</Button>
+            <Button variant="ghost">{copy.cancel}</Button>
           </DrawerClose>
         </DrawerFooter>
       </DrawerContent>

@@ -1,7 +1,8 @@
-import { ArrowLeft, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, MoreHorizontal, Pencil } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MediaStrip } from "@/components/fitness/media-strip";
+import { DeleteEventButton } from "@/components/fitness/delete-event-button";
 import { Button } from "@/components/ui/button";
 import { getEvent } from "@/data/repository";
 import { isLocale } from "@/i18n/config";
@@ -47,7 +48,7 @@ export default async function EventPage({
           </p>
         </div>
 
-        {event.type === "progress_photo" ? <MediaStrip photos={event.photos} large priority /> : null}
+        {event.type === "progress_photo" ? <MediaStrip photos={event.photos} large priority openLabel={copy.openGallery} /> : null}
 
         {event.type === "workout" ? (
           <div className="surface rounded-xl p-4">
@@ -68,14 +69,24 @@ export default async function EventPage({
         ) : null}
 
         {event.type === "inbody" ? (
-          <dl className="surface divide-y overflow-hidden rounded-xl">
-            {event.metrics.map((metric) => (
-              <div key={metric.key} className="flex items-center justify-between px-4 py-3">
-                <dt className="text-sm text-muted-foreground">{metric.label}</dt>
-                <dd className="text-sm font-medium">{metric.value}{metric.unit ? ` ${metric.unit}` : ""}</dd>
-              </div>
-            ))}
-          </dl>
+          <>
+            <dl className="surface divide-y overflow-hidden rounded-xl">
+              {event.metrics.map((metric) => (
+                <div key={metric.key} className="flex items-center justify-between px-4 py-3">
+                  <dt className="text-sm text-muted-foreground">{metric.label}</dt>
+                  <dd className="text-sm font-medium">{metric.value}{metric.unit ? ` ${metric.unit}` : ""}</dd>
+                </div>
+              ))}
+            </dl>
+            {event.source.url ? (
+              <Button asChild variant="outline" size="lg">
+                <a href={event.source.url} target="_blank" rel="noreferrer">
+                  <ExternalLink data-icon="inline-start" />
+                  {copy.openReport}
+                </a>
+              </Button>
+            ) : null}
+          </>
         ) : null}
 
         {event.note ? (
@@ -87,7 +98,15 @@ export default async function EventPage({
 
         <div className="flex flex-col gap-2">
           <Button variant="outline" size="lg"><Pencil data-icon="inline-start" />{copy.edit}</Button>
-          <Button variant="destructive" size="lg"><Trash2 data-icon="inline-start" />{copy.delete}</Button>
+          <DeleteEventButton
+            id={event.id}
+            returnHref={`/${locale}/today`}
+            label={copy.delete}
+            cancelLabel={copy.cancel}
+            title={copy.deleteConfirmTitle}
+            description={copy.deleteConfirmDescription}
+            failedLabel={copy.deleteFailed}
+          />
         </div>
       </article>
     </main>

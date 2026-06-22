@@ -14,9 +14,14 @@ export const progressPhotoEventSchema = baseEventSchema.extend({
   type: z.literal("progress_photo"),
   photos: z.array(z.object({
     id: z.string(),
-    url: z.string(),
-    originalUrl: z.string().optional(),
+    assetId: z.string().uuid().optional(),
+    url: z.string().optional(),
+    thumbnailUrl: z.string().optional(),
+    width: z.number().int().positive().optional(),
+    height: z.number().int().positive().optional(),
     alt: z.string()
+  }).refine((photo) => photo.assetId || photo.url, {
+    message: "Photo requires a managed asset or display URL"
   })).min(1).max(12)
 });
 
@@ -58,9 +63,12 @@ export const inbodyMetricSchema = z.object({
 export const inbodyEventSchema = baseEventSchema.extend({
   type: z.literal("inbody"),
   source: z.object({
-    url: z.string(),
+    assetId: z.string().uuid().optional(),
+    url: z.string().optional(),
     mimeType: z.enum(["application/pdf", "image/heic", "image/heif", "image/jpeg", "image/png"]),
     fileName: z.string().min(1)
+  }).refine((source) => source.assetId || source.url, {
+    message: "InBody source requires a managed asset or display URL"
   }),
   metrics: z.array(inbodyMetricSchema).min(1),
   extraction: z.object({
@@ -78,6 +86,7 @@ export const timelineEventSchema = z.discriminatedUnion("type", [
 
 export type TimelineEvent = z.infer<typeof timelineEventSchema>;
 export type InBodyMetric = z.infer<typeof inbodyMetricSchema>;
+export type ProgressPhoto = z.infer<typeof progressPhotoEventSchema>["photos"][number];
 
 export const taskScheduleSchema = z.object({
   id: z.string(),

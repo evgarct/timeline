@@ -35,13 +35,11 @@ function dayLabel(day: string, locale: string) {
 export function TodayScreen({
   locale,
   copy,
-  initialEvents,
-  userId
+  initialEvents
 }: {
   locale: string;
   copy: Copy;
   initialEvents: TimelineEvent[];
-  userId: string;
 }) {
   const [events, setEvents] = useState(initialEvents);
   const [composer, setComposer] = useState<EventType | null>(null);
@@ -88,21 +86,25 @@ export function TodayScreen({
 
         <Section title={copy.current}>
           <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => setComposer("progress_photo")}
-              className="surface col-span-2 overflow-hidden rounded-xl p-2 text-left"
-            >
+            <div className="surface col-span-2 overflow-hidden rounded-xl p-2">
               {latestPhoto?.type === "progress_photo" && isFresh(latestPhoto) ? (
                 <>
-                  <MediaStrip photos={latestPhoto.photos} priority />
-                  <span className="mt-2 flex items-center justify-between px-1 text-xs">
+                  <MediaStrip photos={latestPhoto.photos} priority openLabel={copy.openGallery} />
+                  <button
+                    type="button"
+                    onClick={() => setComposer("progress_photo")}
+                    className="mt-2 flex w-full items-center justify-between px-1 text-left text-xs"
+                  >
                     <strong>{copy.progressPhoto}</strong>
                     <span className="text-muted-foreground">5 days ago</span>
-                  </span>
+                  </button>
                 </>
-              ) : <span className="block p-5 text-sm text-muted-foreground">{copy.stale}</span>}
-            </button>
+              ) : (
+                <button type="button" onClick={() => setComposer("progress_photo")} className="block w-full p-5 text-left text-sm text-muted-foreground">
+                  {copy.stale}
+                </button>
+              )}
+            </div>
             <button type="button" onClick={() => setComposer("measurements")} className="surface min-h-24 rounded-xl p-3 text-left">
               <span className="text-xs font-medium">{copy.measurements}</span>
               <span className="mt-3 block text-xl font-semibold">
@@ -157,7 +159,7 @@ export function TodayScreen({
         </Section>
       </div>
 
-      <EventComposer type={composer} copy={copy} userId={userId} onClose={() => setComposer(null)} onSaved={markSaved} />
+      <EventComposer type={composer} copy={copy} onClose={() => setComposer(null)} onSaved={markSaved} />
     </main>
   );
 }

@@ -13,7 +13,7 @@ function titleFor(event: TimelineEvent, copy: Copy) {
   }[event.type];
 }
 
-function detailsFor(event: TimelineEvent) {
+function detailsFor(event: TimelineEvent, copy: Copy) {
   if (event.type === "workout") return event.muscleGroups.join(" · ");
   if (event.type === "measurements") {
     const pieces = [];
@@ -27,7 +27,7 @@ function detailsFor(event: TimelineEvent) {
       .map((metric) => `${metric.value}${metric.unit ? ` ${metric.unit}` : ""}`)
       .join(" · ");
   }
-  return `${event.photos.length} photos`;
+  return copy.photoCount.replace("{count}", String(event.photos.length));
 }
 
 export function TimelineRow({
@@ -51,10 +51,10 @@ export function TimelineRow({
         <EventIcon type={event.type} />
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-medium">{titleFor(event, copy)}</span>
-          <span className="block truncate text-xs text-muted-foreground">{detailsFor(event)}</span>
+          <span className="block truncate text-xs text-muted-foreground">{detailsFor(event, copy)}</span>
           {event.type === "progress_photo" ? (
             <span className="mt-2 block max-w-48">
-              <MediaStrip photos={event.photos} />
+              <MediaStrip photos={event.photos} openLabel={copy.openGallery} interactive={false} />
             </span>
           ) : null}
         </span>

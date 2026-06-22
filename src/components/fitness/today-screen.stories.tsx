@@ -10,8 +10,7 @@ const meta = {
   args: {
     locale: "ru",
     copy: getMessages("ru"),
-    initialEvents: seedEvents,
-    userId: "storybook-user"
+    initialEvents: seedEvents
   }
 } satisfies Meta<typeof TodayScreen>;
 
