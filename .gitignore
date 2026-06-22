@@ -2,11 +2,12 @@ node_modules/
 .next/
 storybook-static/
 coverage/
+*.tsbuildinfo
 test-results/
 playwright-report/
 .vercel/
 .env*
 !.env.example
 *.log
+.qa-*.png
 .DS_Store
-

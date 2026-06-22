@@ -1,0 +1,9 @@
+*.log
+.qa-*.png
+test-results/
+playwright-report/
+coverage/
+storybook-static/
+tsconfig.tsbuildinfo
+design-qa.md
+
