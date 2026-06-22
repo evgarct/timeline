@@ -32,7 +32,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="ru" className={geist.variable}>
+    <html lang="ru" className={geist.variable} data-scroll-behavior="smooth">
       <body>
         <TooltipProvider>
           {children}

@@ -10,5 +10,5 @@ export default async function TodayPage({ params }: { params: Promise<{ locale: 
   if (!isLocale(locale)) notFound();
   const userId = await getCurrentUserId();
   const events = userId ? await listEvents(userId) : [];
-  return <TodayScreen locale={locale} copy={getMessages(locale)} initialEvents={events} />;
+  return <TodayScreen locale={locale} copy={getMessages(locale)} initialEvents={events} userId={userId ?? ""} />;
 }

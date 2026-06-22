@@ -11,10 +11,11 @@ test("landing opens sign in and reaches Today", async ({ page }) => {
 });
 
 test("Today continues into Timeline and opens an event", async ({ page }) => {
-  await page.goto("/ru/today");
+  await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
   await page.locator("#timeline").scrollIntoViewIfNeeded();
   await expect(page.locator("#timeline")).toBeVisible();
-  await page.getByRole("link", { name: /Фото прогресса/ }).first().click();
+  const progressLinks = page.locator('a[href="/ru/events/90d785fe-aeb1-43ac-8531-af67d5234b89"]');
+  await expect(progressLinks).toHaveCount(2);
+  await progressLinks.nth(1).click();
   await expect(page.getByRole("heading", { name: "Фото прогресса" })).toBeVisible();
 });
-

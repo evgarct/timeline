@@ -10,7 +10,8 @@ const meta = {
   args: {
     locale: "ru",
     copy: getMessages("ru"),
-    initialEvents: seedEvents
+    initialEvents: seedEvents,
+    userId: "storybook-user"
   }
 } satisfies Meta<typeof TodayScreen>;
 
@@ -21,4 +22,3 @@ export const Default: Story = {};
 export const Empty: Story = { args: { initialEvents: [] } };
 export const English: Story = { args: { locale: "en", copy: getMessages("en") } };
 export const Czech: Story = { args: { locale: "cs", copy: getMessages("cs") } };
-

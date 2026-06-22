@@ -7,9 +7,10 @@ import { timelineEventSchema, type TaskSchedule, type TimelineEvent } from "@/do
 
 const memoryEvents = [...seedEvents];
 const memorySchedules = [...seedSchedules];
+const useMemory = process.env.E2E_DEMO_MODE === "true" || !database;
 
 export async function listEvents(userId: string): Promise<TimelineEvent[]> {
-  if (!database) return memoryEvents;
+  if (useMemory || !database) return memoryEvents;
   const rows = await database.select().from(events).where(eq(events.userId, userId)).orderBy(desc(events.occurredAt));
   return rows.map((row) => timelineEventSchema.parse({
     id: row.id,
@@ -27,7 +28,7 @@ export async function getEvent(userId: string, id: string) {
 
 export async function createEvent(userId: string, input: TimelineEvent) {
   const event = timelineEventSchema.parse(input);
-  if (!database) {
+  if (useMemory || !database) {
     memoryEvents.unshift(event);
     return event;
   }
@@ -38,7 +39,7 @@ export async function createEvent(userId: string, input: TimelineEvent) {
 
 export async function updateEvent(userId: string, input: TimelineEvent) {
   const event = timelineEventSchema.parse(input);
-  if (!database) {
+  if (useMemory || !database) {
     const index = memoryEvents.findIndex((item) => item.id === event.id);
     if (index >= 0) memoryEvents[index] = event;
     return event;
@@ -52,7 +53,7 @@ export async function updateEvent(userId: string, input: TimelineEvent) {
 }
 
 export async function deleteEvent(userId: string, id: string) {
-  if (!database) {
+  if (useMemory || !database) {
     const index = memoryEvents.findIndex((event) => event.id === id);
     if (index >= 0) memoryEvents.splice(index, 1);
     return;
@@ -61,7 +62,7 @@ export async function deleteEvent(userId: string, id: string) {
 }
 
 export async function listTaskSchedules(userId: string): Promise<TaskSchedule[]> {
-  if (!database) return memorySchedules;
+  if (useMemory || !database) return memorySchedules;
   const rows = await database.select().from(taskSchedules).where(eq(taskSchedules.userId, userId));
   return rows.map((row) => ({
     id: row.id,
@@ -74,7 +75,7 @@ export async function listTaskSchedules(userId: string): Promise<TaskSchedule[]>
 }
 
 export async function saveTaskSchedule(userId: string, schedule: TaskSchedule) {
-  if (!database) {
+  if (useMemory || !database) {
     const index = memorySchedules.findIndex((item) => item.id === schedule.id);
     if (index >= 0) memorySchedules[index] = schedule;
     return schedule;
@@ -96,7 +97,7 @@ export async function saveTaskSchedule(userId: string, schedule: TaskSchedule) {
 }
 
 export async function resolveMcpUser(tokenHash: string) {
-  if (!database) return tokenHash ? "demo-user" : null;
+  if (useMemory || !database) return tokenHash ? "demo-user" : null;
   const [row] = await database
     .select({ userId: mcpTokens.userId })
     .from(mcpTokens)
@@ -106,7 +107,6 @@ export async function resolveMcpUser(tokenHash: string) {
 }
 
 export async function storeMcpToken(userId: string, tokenHash: string) {
-  if (!database) return;
+  if (useMemory || !database) return;
   await database.insert(mcpTokens).values({ userId, tokenHash, label: "Developer preview" });
 }
-

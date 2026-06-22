@@ -35,11 +35,13 @@ function dayLabel(day: string, locale: string) {
 export function TodayScreen({
   locale,
   copy,
-  initialEvents
+  initialEvents,
+  userId
 }: {
   locale: string;
   copy: Copy;
   initialEvents: TimelineEvent[];
+  userId: string;
 }) {
   const [events, setEvents] = useState(initialEvents);
   const [composer, setComposer] = useState<EventType | null>(null);
@@ -49,16 +51,8 @@ export function TodayScreen({
   const latestMeasurements = latestEvent(events, "measurements");
   const latestInBody = latestEvent(events, "inbody");
 
-  function markSaved(type: EventType) {
-    const placeholder: TimelineEvent =
-      type === "workout"
-        ? { id: crypto.randomUUID(), type, occurredAt: new Date(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, completed: true, muscleGroups: ["Push"] }
-        : type === "measurements"
-          ? { id: crypto.randomUUID(), type, occurredAt: new Date(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, values: { weightKg: 85 } }
-          : type === "progress_photo"
-            ? { id: crypto.randomUUID(), type, occurredAt: new Date(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, photos: initialEvents.find((event) => event.type === "progress_photo")?.photos ?? [] }
-            : { id: crypto.randomUUID(), type, occurredAt: new Date(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, source: { url: "private://pending", mimeType: "image/jpeg", fileName: "InBody.jpg" }, extraction: { method: "local_ocr", reviewed: true }, metrics: [{ key: "weight", label: "Weight", value: 85, unit: "kg", category: "composition" }] };
-    setEvents((current) => [placeholder, ...current]);
+  function markSaved(event: TimelineEvent) {
+    setEvents((current) => [event, ...current.filter((item) => item.id !== event.id)]);
   }
 
   return (
@@ -163,7 +157,7 @@ export function TodayScreen({
         </Section>
       </div>
 
-      <EventComposer type={composer} copy={copy} onClose={() => setComposer(null)} onSaved={markSaved} />
+      <EventComposer type={composer} copy={copy} userId={userId} onClose={() => setComposer(null)} onSaved={markSaved} />
     </main>
   );
 }

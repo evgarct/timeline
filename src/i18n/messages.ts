@@ -9,6 +9,11 @@ const messages = {
     signIn: "Войти",
     email: "Email",
     continue: "Продолжить",
+    otp: "Код из письма",
+    sendCode: "Получить код",
+    verifyCode: "Подтвердить код",
+    codeSent: "Код отправлен на email",
+    authError: "Не удалось выполнить вход",
     today: "Сегодня",
     tasks: "Задачи на сегодня",
     current: "Текущее состояние",
@@ -47,6 +52,11 @@ const messages = {
     signIn: "Sign in",
     email: "Email",
     continue: "Continue",
+    otp: "Email code",
+    sendCode: "Send code",
+    verifyCode: "Verify code",
+    codeSent: "Code sent to your email",
+    authError: "Could not sign in",
     today: "Today",
     tasks: "Today’s tasks",
     current: "Current state",
@@ -85,6 +95,11 @@ const messages = {
     signIn: "Přihlásit se",
     email: "E-mail",
     continue: "Pokračovat",
+    otp: "Kód z e-mailu",
+    sendCode: "Poslat kód",
+    verifyCode: "Ověřit kód",
+    codeSent: "Kód byl odeslán na e-mail",
+    authError: "Přihlášení se nezdařilo",
     today: "Dnes",
     tasks: "Dnešní úkoly",
     current: "Aktuální stav",
@@ -122,4 +137,3 @@ export type Copy = (typeof messages)["ru"];
 export function getMessages(locale: Locale): Copy {
   return messages[locale] as Copy;
 }
-

@@ -20,16 +20,18 @@ export async function POST(request: Request) {
   const response = await handleUpload({
     request,
     body,
-    onBeforeGenerateToken: async (pathname) => ({
-      allowedContentTypes,
-      maximumSizeInBytes: 25 * 1024 * 1024,
-      addRandomSuffix: true,
-      tokenPayload: JSON.stringify({ userId, pathname })
-    }),
+    onBeforeGenerateToken: async (pathname) => {
+      if (!pathname.startsWith(`users/${userId}/`)) throw new Error("Invalid upload namespace");
+      return {
+        allowedContentTypes,
+        maximumSizeInBytes: 25 * 1024 * 1024,
+        addRandomSuffix: true,
+        tokenPayload: JSON.stringify({ userId, pathname })
+      };
+    },
     onUploadCompleted: async () => {
       // The event mutation stores the returned private blob URL after user review.
     }
   });
   return Response.json(response);
 }
-
