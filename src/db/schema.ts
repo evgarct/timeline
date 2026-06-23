@@ -61,3 +61,10 @@ export const mediaAssets = pgTable("media_assets", {
   uniqueIndex("media_assets_user_id_id_idx").on(table.userId, table.id)
 ]);
 
+export const storagePolicies = pgTable("storage_policies", {
+  userId: text("user_id").primaryKey(),
+  limitBytes: integer("limit_bytes"),
+  plan: text("plan").default("default").notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+});
+

@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ChevronDown, Plus, Settings } from "lucide-react";
+import { type CSSProperties, useMemo, useState } from "react";
+import { ChevronDown, Home, Plus, Settings } from "lucide-react";
 import Link from "next/link";
 import type { EventType, TimelineEvent } from "@/domain/events";
 import { groupEventsByDay, isFresh, isScheduleDue, isTaskCompleted, latestEvent } from "@/domain/timeline";
@@ -53,14 +53,42 @@ export function TodayScreen({
     setEvents((current) => [event, ...current.filter((item) => item.id !== event.id)]);
   }
 
+  const wallpaperPhoto = latestPhoto?.type === "progress_photo"
+    ? latestPhoto.photos.find((photo) => photo.url)
+    : undefined;
+  const wallpaperPalette = wallpaperPhoto?.palette;
+  const wallpaperStyle = {
+    "--wallpaper-background": wallpaperPalette?.background ?? "var(--background)",
+    "--wallpaper-accent": wallpaperPalette?.accent ?? "color-mix(in oklab, var(--accent) 70%, white)",
+    "--wallpaper-foreground": wallpaperPalette?.foreground ?? "var(--foreground)"
+  } as CSSProperties;
+
   return (
-    <main className="app-shell px-4 pb-16">
-      <header className="sticky top-0 z-20 -mx-4 flex min-h-16 items-center justify-between bg-background/88 px-4 backdrop-blur-xl">
+    <main className="app-shell relative overflow-hidden px-4 pb-16" style={wallpaperStyle}>
+      {wallpaperPhoto?.url ? (
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-[24rem] overflow-hidden">
+          {/* Private signed URLs expire, so native images are used instead of Next's persistent optimizer cache. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={wallpaperPhoto.thumbnailUrl ?? wallpaperPhoto.url}
+            alt=""
+            className="size-full scale-110 object-cover opacity-30 blur-2xl"
+            loading="eager"
+            fetchPriority="high"
+          />
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,var(--wallpaper-background)_0%,color-mix(in_oklab,var(--wallpaper-accent)_72%,transparent)_42%,var(--background)_100%)] opacity-92" />
+          <div className="absolute inset-0 bg-[linear-gradient(to_bottom,transparent_0%,var(--background)_92%)]" />
+        </div>
+      ) : null}
+      <header className="sticky top-0 z-20 -mx-4 flex min-h-16 items-center justify-between bg-background/84 px-4 backdrop-blur-xl">
         <button type="button" className="flex items-center gap-1 text-base font-semibold">
           {copy.today}
           <ChevronDown aria-hidden="true" />
         </button>
         <div className="flex items-center gap-1">
+          <Button asChild variant="ghost" size="icon">
+            <Link href={`/${locale}`} aria-label={copy.home}><Home /></Link>
+          </Button>
           <LanguageMenu locale={locale} />
           <Button asChild variant="ghost" size="icon">
             <Link href={`/${locale}/settings`} aria-label={copy.settings}><Settings /></Link>
@@ -68,7 +96,7 @@ export function TodayScreen({
         </div>
       </header>
 
-      <div className="flex flex-col gap-8 pt-3">
+      <div className="relative z-10 flex flex-col gap-8 pt-3">
         <Section title={copy.tasks}>
           <div className="surface divide-y overflow-hidden rounded-xl">
             {dueSchedules.map((schedule) => (

@@ -8,4 +8,7 @@
 - Normalize progress photos to metadata-free JPEG full/thumbnail objects, while retaining InBody uploads in their original supported format.
 - Create the private R2 bucket through Dashboard or Wrangler with explicit EU jurisdiction; the Cloudflare MCP bucket API cannot pass the required jurisdiction header.
 - Keep all visible UI text in the RU/EN/CS message dictionaries.
+- Before UI or visual design work, read `docs/DESIGN.md` and use it as the repo design source of truth; after the user approves a UI result, add durable principles or accepted examples there.
 - Run Playwright with `E2E_DEMO_MODE=true`; E2E must never send real Neon OTP emails or write test events to the linked Neon database.
+- Generate Drizzle schema changes with `npm run db:generate` and keep the generated SQL plus `drizzle/meta` snapshot together; do not hand-add migrations without matching metadata.
+- After Next.js build/dev commands, do not commit incidental `next-env.d.ts` route-type import churn unless typed-route configuration intentionally changed.

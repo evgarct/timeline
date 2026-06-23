@@ -11,6 +11,11 @@ export type PreparedProgressPhoto = {
   thumbnail: Blob;
   width: number;
   height: number;
+  palette: {
+    background: string;
+    accent: string;
+    foreground: string;
+  };
 };
 
 async function loadBitmap(file: File) {
@@ -49,10 +54,57 @@ async function renderJpeg(bitmap: ImageBitmap, maxDimension: number) {
   const context = canvas.getContext("2d", { alpha: false });
   if (!context) throw new Error("image_processing_failed");
   context.drawImage(bitmap, 0, 0, dimensions.width, dimensions.height);
+  const palette = extractPalette(context, dimensions.width, dimensions.height);
   const blob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((value) => value ? resolve(value) : reject(new Error("image_processing_failed")), "image/jpeg", JPEG_QUALITY);
   });
-  return { blob, ...dimensions };
+  return { blob, palette, ...dimensions };
+}
+
+function extractPalette(context: CanvasRenderingContext2D, width: number, height: number) {
+  const sampleWidth = Math.max(1, Math.min(24, width));
+  const sampleHeight = Math.max(1, Math.min(24, height));
+  const sample = context.getImageData(0, 0, sampleWidth, sampleHeight).data;
+  let red = 0;
+  let green = 0;
+  let blue = 0;
+  let count = 0;
+  for (let index = 0; index < sample.length; index += 4) {
+    red += sample[index] ?? 0;
+    green += sample[index + 1] ?? 0;
+    blue += sample[index + 2] ?? 0;
+    count += 1;
+  }
+  const average = {
+    red: Math.round(red / count),
+    green: Math.round(green / count),
+    blue: Math.round(blue / count)
+  };
+  return {
+    background: toHex(mix(average, { red: 246, green: 242, blue: 236 }, 0.72)),
+    accent: toHex(mix(average, { red: 255, green: 255, blue: 255 }, 0.52)),
+    foreground: luminance(average) > 0.54 ? "#211d19" : "#f8f4ee"
+  };
+}
+
+function mix(color: { red: number; green: number; blue: number }, target: { red: number; green: number; blue: number }, amount: number) {
+  return {
+    red: Math.round(color.red * (1 - amount) + target.red * amount),
+    green: Math.round(color.green * (1 - amount) + target.green * amount),
+    blue: Math.round(color.blue * (1 - amount) + target.blue * amount)
+  };
+}
+
+function luminance(color: { red: number; green: number; blue: number }) {
+  return (0.2126 * color.red + 0.7152 * color.green + 0.0722 * color.blue) / 255;
+}
+
+function toHex(color: { red: number; green: number; blue: number }) {
+  return `#${hex(color.red)}${hex(color.green)}${hex(color.blue)}`;
+}
+
+function hex(value: number) {
+  return Math.max(0, Math.min(255, value)).toString(16).padStart(2, "0");
 }
 
 export async function inspectFileType(file: File) {
@@ -76,7 +128,8 @@ export async function prepareProgressPhoto(file: File): Promise<PreparedProgress
       full: full.blob,
       thumbnail: thumbnail.blob,
       width: full.width,
-      height: full.height
+      height: full.height,
+      palette: thumbnail.palette
     };
   } finally {
     bitmap.close();

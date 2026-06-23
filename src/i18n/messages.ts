@@ -56,7 +56,13 @@ const messages = {
     openReport: "Открыть оригинал отчёта",
     deleteConfirmTitle: "Удалить событие?",
     deleteConfirmDescription: "Файлы будут сразу удалены из приватного хранилища. Это действие нельзя отменить.",
-    deleteFailed: "Не удалось удалить событие."
+    deleteFailed: "Не удалось удалить событие.",
+    home: "Лендинг",
+    openProduct: "Открыть продукт",
+    storage: "Хранилище",
+    storageUsed: "Использовано {used} из {limit} МБ",
+    storageUnlimited: "Без лимита",
+    storageQuotaExceeded: "Место закончилось. Сейчас доступно 250 МБ."
   },
   en: {
     brand: "Fitness Timeline",
@@ -113,7 +119,13 @@ const messages = {
     openReport: "Open original report",
     deleteConfirmTitle: "Delete this event?",
     deleteConfirmDescription: "Its files will be removed from private storage immediately. This cannot be undone.",
-    deleteFailed: "Could not delete the event."
+    deleteFailed: "Could not delete the event.",
+    home: "Landing",
+    openProduct: "Open product",
+    storage: "Storage",
+    storageUsed: "Used {used} of {limit} MB",
+    storageUnlimited: "Unlimited",
+    storageQuotaExceeded: "Storage is full. The current limit is 250 MB."
   },
   cs: {
     brand: "Fitness Timeline",
@@ -170,7 +182,13 @@ const messages = {
     openReport: "Otevřít původní report",
     deleteConfirmTitle: "Smazat událost?",
     deleteConfirmDescription: "Soubory budou ihned odstraněny ze soukromého úložiště. Tuto akci nelze vrátit.",
-    deleteFailed: "Událost se nepodařilo smazat."
+    deleteFailed: "Událost se nepodařilo smazat.",
+    home: "Landing",
+    openProduct: "Otevřít produkt",
+    storage: "Úložiště",
+    storageUsed: "Využito {used} z {limit} MB",
+    storageUnlimited: "Bez limitu",
+    storageQuotaExceeded: "Úložiště je plné. Aktuální limit je 250 MB."
   }
 } as const;
 

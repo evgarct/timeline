@@ -12,6 +12,9 @@ test("landing opens sign in and reaches Today", async ({ page }) => {
 
 test("Today continues into Timeline and opens an event", async ({ page }) => {
   await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
+  await page.locator('a[href="/ru"]').first().click();
+  await expect(page).toHaveURL(/\/ru$/);
+  await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
   await page.locator("#timeline").scrollIntoViewIfNeeded();
   await expect(page.locator("#timeline")).toBeVisible();
   const progressLinks = page.locator('a[href="/ru/events/90d785fe-aeb1-43ac-8531-af67d5234b89"]');
@@ -61,7 +64,12 @@ test("progress upload normalizes an image and persists managed asset references"
     if (route.request().method() !== "POST") return route.continue();
     const event = route.request().postDataJSON();
     expect(event.photos[0]).toMatchObject({
-      assetId: "73e167ac-67fe-4ffa-9ad3-4beee18a0e8a"
+      assetId: "73e167ac-67fe-4ffa-9ad3-4beee18a0e8a",
+      palette: expect.objectContaining({
+        background: expect.stringMatching(/^#[0-9a-f]{6}$/i),
+        accent: expect.stringMatching(/^#[0-9a-f]{6}$/i),
+        foreground: expect.stringMatching(/^#[0-9a-f]{6}$/i)
+      })
     });
     expect(event.photos[0].url).toBeUndefined();
     await route.fulfill({

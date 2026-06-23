@@ -1,10 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Camera, Images, LoaderCircle, Upload } from "lucide-react";
+import { Images, LoaderCircle, Upload } from "lucide-react";
 import { toast } from "sonner";
 import type { EventType, InBodyMetric, TimelineEvent } from "@/domain/events";
 import { MAX_PROGRESS_PHOTOS, MAX_UPLOAD_BYTES, type StoredMediaType } from "@/domain/media";
+import { dateInputValue, localNoonFromDateInput, readPhotoTakenAt } from "@/domain/photo-metadata";
 import { parseInBodyText } from "@/domain/inbody-parser";
 import type { Copy } from "@/i18n/messages";
 import { inspectFileType, prepareOcrImage, prepareProgressPhoto } from "@/lib/image-processing";
@@ -42,7 +43,6 @@ export function EventComposer({
   onSaved: (event: TimelineEvent) => void;
 }) {
   const galleryRef = useRef<HTMLInputElement>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [metrics, setMetrics] = useState<InBodyMetric[]>([]);
   const [ocrPending, setOcrPending] = useState(false);
@@ -50,6 +50,7 @@ export function EventComposer({
   const [uploadStage, setUploadStage] = useState<"preparingUpload" | "convertingUpload" | "uploading" | null>(null);
   const [muscleGroup, setMuscleGroup] = useState("Push");
   const [occurredAt, setOccurredAt] = useState(new Date().toISOString().slice(0, 16));
+  const [occurredDate, setOccurredDate] = useState(dateInputValue(new Date()));
   const [note, setNote] = useState("");
   const [measurements, setMeasurements] = useState<Record<string, number | undefined>>({});
 
@@ -72,7 +73,7 @@ export function EventComposer({
     }
   }
 
-  function chooseFiles(selected: FileList | null) {
+  async function chooseFiles(selected: FileList | null) {
     const next = selected ? Array.from(selected) : [];
     if (next.length > MAX_PROGRESS_PHOTOS) {
       toast.error(copy.tooManyPhotos);
@@ -83,6 +84,12 @@ export function EventComposer({
       return;
     }
     setFiles(next);
+    if (type === "progress_photo" && next.length) {
+      const dates = (await Promise.all(next.map(readPhotoTakenAt)))
+        .flatMap((value) => value ? [value.date] : [])
+        .sort((left, right) => left.getTime() - right.getTime());
+      if (dates[0]) setOccurredDate(dateInputValue(dates[0]));
+    }
     if (type === "inbody" && next[0]) void runOcr(next[0]);
   }
 
@@ -92,7 +99,10 @@ export function EventComposer({
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body)
     });
-    if (!response.ok) throw new Error(response.status === 503 ? "storage_not_configured" : "upload_failed");
+    if (!response.ok) {
+      const body = await response.json().catch(() => null) as { error?: string } | null;
+      throw new Error(response.status === 503 ? "storage_not_configured" : body?.error ?? "upload_failed");
+    }
     return response.json() as Promise<{
       assetId: string;
       uploads: Array<{ role: "full" | "thumbnail" | "original"; url: string; contentType: string }>;
@@ -142,6 +152,7 @@ export function EventComposer({
       assetId: ticket.assetId,
       width: prepared.width,
       height: prepared.height,
+      palette: prepared.palette,
       alt: `${copy.progressPhoto} ${index + 1}`
     };
   }
@@ -170,7 +181,7 @@ export function EventComposer({
     try {
       const base = {
         id: crypto.randomUUID(),
-        occurredAt: new Date(occurredAt),
+        occurredAt: type === "progress_photo" ? localNoonFromDateInput(occurredDate) : new Date(occurredAt),
         timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         note: note || undefined
       };
@@ -224,6 +235,7 @@ export function EventComposer({
       const code = error instanceof Error ? error.message : "upload_failed";
       if (code === "file_too_large") toast.error(copy.fileTooLarge);
       else if (code === "unsupported_format") toast.error(copy.unsupportedFormat);
+      else if (code === "storage_quota_exceeded") toast.error(copy.storageQuotaExceeded);
       else toast.error(copy.uploadFailed);
     } finally {
       setSavePending(false);
@@ -244,7 +256,11 @@ export function EventComposer({
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="occurred-at">{copy.today}</FieldLabel>
-              <Input id="occurred-at" type="datetime-local" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} />
+              {type === "progress_photo" ? (
+                <Input id="occurred-at" type="date" value={occurredDate} onChange={(event) => setOccurredDate(event.target.value)} />
+              ) : (
+                <Input id="occurred-at" type="datetime-local" value={occurredAt} onChange={(event) => setOccurredAt(event.target.value)} />
+              )}
             </Field>
 
             {type === "workout" ? (
@@ -295,16 +311,10 @@ export function EventComposer({
             {type === "progress_photo" || type === "inbody" ? (
               <Field>
                 <FieldLabel>{type === "inbody" ? copy.uploadReport : copy.progressPhoto}</FieldLabel>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button type="button" variant="outline" size="lg" onClick={() => galleryRef.current?.click()}>
-                    <Images data-icon="inline-start" />
-                    {copy.photos}
-                  </Button>
-                  <Button type="button" variant="outline" size="lg" onClick={() => cameraRef.current?.click()}>
-                    <Camera data-icon="inline-start" />
-                    {copy.camera}
-                  </Button>
-                </div>
+                <Button type="button" variant="outline" size="lg" onClick={() => galleryRef.current?.click()}>
+                  <Images data-icon="inline-start" />
+                  {type === "inbody" ? copy.uploadReport : copy.photos}
+                </Button>
                 <input
                   ref={galleryRef}
                   className="sr-only"
@@ -313,15 +323,7 @@ export function EventComposer({
                     ? ".heic,.heif,.jpg,.jpeg,.png,.pdf,image/heic,image/heif,image/jpeg,image/png,application/pdf"
                     : ".heic,.heif,.jpg,.jpeg,.png,image/heic,image/heif,image/jpeg,image/png"}
                   multiple={type === "progress_photo"}
-                  onChange={(event) => chooseFiles(event.target.files)}
-                />
-                <input
-                  ref={cameraRef}
-                  className="sr-only"
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={(event) => chooseFiles(event.target.files)}
+                  onChange={(event) => void chooseFiles(event.target.files)}
                 />
                 {files.length ? (
                   <p className="text-xs text-muted-foreground">{files.map((file) => file.name).join(", ")}</p>
