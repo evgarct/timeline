@@ -17,8 +17,8 @@ function detailsFor(event: TimelineEvent, copy: Copy) {
   if (event.type === "workout") return event.muscleGroups.join(" · ");
   if (event.type === "measurements") {
     const pieces = [];
-    if (event.values.weightKg) pieces.push(`${event.values.weightKg} kg`);
-    if (event.values.waistCm) pieces.push(`waist ${event.values.waistCm} cm`);
+    if (event.values.weightKg) pieces.push(`${copy.weight} ${event.values.weightKg} kg`);
+    if (event.values.waistCm) pieces.push(`${copy.waist} ${event.values.waistCm} cm`);
     return pieces.join(" · ");
   }
   if (event.type === "inbody") {

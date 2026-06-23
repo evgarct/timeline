@@ -1,6 +1,6 @@
 "use client";
 
-import { Languages } from "lucide-react";
+import { Check, Languages } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,11 +30,10 @@ export function LanguageMenu({ locale }: { locale: string }) {
       <DropdownMenuContent align="end">
         {locales.map((item) => (
           <DropdownMenuItem key={item} onSelect={() => changeLocale(item)}>
-            {item.toUpperCase()} {item === locale ? "✓" : ""}
+            {item.toUpperCase()} {item === locale ? <Check aria-hidden="true" /> : null}
           </DropdownMenuItem>
         ))}
       </DropdownMenuContent>
     </DropdownMenu>
   );
 }
-
