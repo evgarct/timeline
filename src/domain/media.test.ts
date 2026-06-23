@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { progressPhotoEventSchema } from "./events";
 import { detectMediaType, inBodyObjectKey, progressObjectKeys, safeFileName } from "./media";
 
 describe("media detection", () => {
@@ -22,5 +23,27 @@ describe("media detection", () => {
     });
     expect(inBodyObjectKey("user/../other", "asset-id", "pdf"))
       .toBe("users/user%2F..%2Fother/inbody/asset-id/original.pdf");
+  });
+});
+
+describe("progress photo metadata", () => {
+  it("accepts optional palette metadata on managed photos", () => {
+    const parsed = progressPhotoEventSchema.parse({
+      id: "73e167ac-67fe-4ffa-9ad3-4beee18a0e8a",
+      type: "progress_photo",
+      occurredAt: new Date("2026-06-20T12:00:00"),
+      timezone: "Europe/Prague",
+      photos: [{
+        id: "photo",
+        assetId: "90d785fe-aeb1-43ac-8531-af67d5234b89",
+        alt: "Progress photo",
+        palette: {
+          background: "#f6f2ec",
+          accent: "#e8efdc",
+          foreground: "#211d19"
+        }
+      }]
+    });
+    expect(parsed.photos[0]?.palette?.background).toBe("#f6f2ec");
   });
 });

@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, inArray, isNull, lt, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { database } from "@/db/client";
 import { mediaAssets } from "@/db/schema";
 
@@ -88,4 +88,18 @@ export async function listCleanupMedia(cutoff: Date) {
 export async function deleteMediaAssetRows(ids: string[]) {
   if (!database || !ids.length) return;
   await database.delete(mediaAssets).where(inArray(mediaAssets.id, ids));
+}
+
+export async function getMediaStorageUsedBytes(userId: string) {
+  if (!database) return 0;
+  const [row] = await database
+    .select({
+      usedBytes: sql<number>`coalesce(sum(${mediaAssets.sizeBytes} + coalesce(${mediaAssets.thumbnailSizeBytes}, 0)), 0)::int`
+    })
+    .from(mediaAssets)
+    .where(and(
+      eq(mediaAssets.userId, userId),
+      inArray(mediaAssets.status, ["pending", "ready"])
+    ));
+  return row?.usedBytes ?? 0;
 }

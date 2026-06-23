@@ -1,6 +1,6 @@
 import { ArrowLeft, ExternalLink, MoreHorizontal, Pencil } from "lucide-react";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { MediaStrip } from "@/components/fitness/media-strip";
 import { DeleteEventButton } from "@/components/fitness/delete-event-button";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,8 @@ export default async function EventPage({
   if (!isLocale(locale)) notFound();
   const copy = getMessages(locale);
   const userId = await getCurrentUserId();
-  const event = userId ? await getEvent(userId, id) : null;
+  if (!userId) redirect(`/${locale}`);
+  const event = await getEvent(userId, id);
   if (!event) notFound();
 
   const title = {

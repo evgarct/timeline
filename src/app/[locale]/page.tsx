@@ -1,5 +1,6 @@
 import Image from "next/image";
 import { ArrowDown, Menu } from "lucide-react";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AuthDialog } from "@/components/fitness/auth-dialog";
 import { LanguageMenu } from "@/components/fitness/language-menu";
@@ -7,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { isLocale } from "@/i18n/config";
 import { getMessages } from "@/i18n/messages";
 import { isNeonAuthConfigured } from "@/lib/auth/server";
+import { getAuthenticatedUserId } from "@/lib/current-user";
 
 export default async function LandingPage({ params }: { params: Promise<{ locale: string }> }) {
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const copy = getMessages(locale);
+  const userId = await getAuthenticatedUserId();
 
   return (
     <main className="app-shell relative flex min-h-[100dvh] flex-col overflow-hidden px-5 pb-[calc(1.25rem+var(--safe-bottom))]">
@@ -27,8 +30,16 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
         <h1 className="max-w-sm text-[2.6rem] leading-[0.98] font-semibold tracking-[-0.055em]">{copy.hero}</h1>
         <p className="mt-5 max-w-xs text-sm leading-6 text-muted-foreground">{copy.heroBody}</p>
         <div className="mt-auto flex flex-col gap-3 pb-4">
-          <AuthDialog copy={copy} locale={locale} configured={isNeonAuthConfigured} triggerLabel={copy.start} />
-          <AuthDialog copy={copy} locale={locale} configured={isNeonAuthConfigured} triggerLabel={copy.signIn} />
+          {userId ? (
+            <Button asChild size="lg" className="h-12 w-full rounded-xl">
+              <Link href={`/${locale}/today`}>{copy.openProduct}</Link>
+            </Button>
+          ) : (
+            <>
+              <AuthDialog copy={copy} locale={locale} configured={isNeonAuthConfigured} triggerLabel={copy.start} />
+              <AuthDialog copy={copy} locale={locale} configured={isNeonAuthConfigured} triggerLabel={copy.signIn} />
+            </>
+          )}
           <a href="#story" className="mx-auto flex items-center gap-2 py-2 text-xs text-muted-foreground">
             {copy.bodyHistory}
             <ArrowDown />

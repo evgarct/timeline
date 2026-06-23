@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { createPendingMediaAsset } from "@/data/media-repository";
+import { getStorageQuota } from "@/data/storage-repository";
 import { inBodyObjectKey, progressObjectKeys, uploadRequestSchema } from "@/domain/media";
+import { canReserveStorage } from "@/domain/storage";
 import { getCurrentUserId } from "@/lib/current-user";
 import { createUploadUrl, isR2Configured } from "@/lib/r2";
 
@@ -22,6 +24,13 @@ export async function POST(request: Request) {
 
   const id = randomUUID();
   const input = parsed.data;
+  const proposedBytes = input.kind === "progress_photo"
+    ? input.full.size + input.thumbnail.size
+    : input.size;
+  if (!canReserveStorage(await getStorageQuota(userId), proposedBytes)) {
+    return Response.json({ error: "storage_quota_exceeded" }, { status: 413 });
+  }
+
   if (input.kind === "progress_photo") {
     const { objectKey, thumbnailObjectKey } = progressObjectKeys(userId, id);
     await createPendingMediaAsset({

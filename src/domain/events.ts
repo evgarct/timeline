@@ -10,6 +10,12 @@ const baseEventSchema = z.object({
   note: z.string().max(2000).optional()
 });
 
+const photoPaletteSchema = z.object({
+  background: z.string().regex(/^#[0-9a-f]{6}$/i),
+  accent: z.string().regex(/^#[0-9a-f]{6}$/i),
+  foreground: z.string().regex(/^#[0-9a-f]{6}$/i)
+});
+
 export const progressPhotoEventSchema = baseEventSchema.extend({
   type: z.literal("progress_photo"),
   photos: z.array(z.object({
@@ -19,6 +25,7 @@ export const progressPhotoEventSchema = baseEventSchema.extend({
     thumbnailUrl: z.string().optional(),
     width: z.number().int().positive().optional(),
     height: z.number().int().positive().optional(),
+    palette: photoPaletteSchema.optional(),
     alt: z.string()
   }).refine((photo) => photo.assetId || photo.url, {
     message: "Photo requires a managed asset or display URL"

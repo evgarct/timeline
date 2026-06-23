@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { TodayScreen } from "@/components/fitness/today-screen";
 import { listEvents } from "@/data/repository";
 import { isLocale } from "@/i18n/config";
@@ -9,6 +9,7 @@ export default async function TodayPage({ params }: { params: Promise<{ locale: 
   const { locale } = await params;
   if (!isLocale(locale)) notFound();
   const userId = await getCurrentUserId();
-  const events = userId ? await listEvents(userId) : [];
+  if (!userId) redirect(`/${locale}`);
+  const events = await listEvents(userId);
   return <TodayScreen locale={locale} copy={getMessages(locale)} initialEvents={events} />;
 }
