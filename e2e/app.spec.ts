@@ -7,20 +7,44 @@ test("landing opens sign in and reaches Today", async ({ page }) => {
   await page.getByLabel("Email").fill("demo@example.com");
   await page.getByRole("button", { name: "Продолжить" }).click();
   await expect(page).toHaveURL(/\/ru\/today$/);
-  await expect(page.getByText("Задачи на сегодня")).toBeVisible();
+  await expect(page.getByRole("button", { name: /Новая фотосессия/ })).toBeVisible();
 });
 
-test("Today continues into Timeline and opens an event", async ({ page }) => {
+test("Today starts as a photo screen and continues into Timeline", async ({ page }) => {
   await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
-  await page.locator('a[href="/ru"]').first().click();
+  await expect(page.getByRole("button", { name: "Открыть фото" })).toBeVisible();
+  await expect(page.getByText("Timeline")).not.toBeInViewport();
+
+  await page.getByRole("button", { name: "Открыть меню" }).click();
+  await page.getByRole("menuitem", { name: "Лендинг" }).click();
   await expect(page).toHaveURL(/\/ru$/);
+
   await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
   await page.locator("#timeline").scrollIntoViewIfNeeded();
-  await expect(page.locator("#timeline")).toBeVisible();
-  const progressLinks = page.locator('a[href="/ru/events/90d785fe-aeb1-43ac-8531-af67d5234b89"]');
-  await expect(progressLinks).toHaveCount(2);
-  await progressLinks.nth(1).click();
-  await expect(page.getByRole("heading", { name: "Фото прогресса" })).toBeVisible();
+  await expect(page.locator("#timeline")).toBeInViewport();
+  await page.locator('a[href="/ru/events/90d785fe-aeb1-43ac-8531-af67d5234b89"]').first().click();
+  await expect(page.getByRole("heading", { name: "Новая фотосессия" })).toBeVisible();
+});
+
+test("Today photo switches angles and opens the lightbox", async ({ page }) => {
+  await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
+  const photo = page.getByRole("button", { name: "Открыть фото" });
+  await expect(photo.getByAltText("Front progress view")).toBeVisible();
+  await page.getByRole("button", { name: "Листать ракурсы 2" }).click();
+  await expect(photo.getByAltText("Side progress view")).toBeVisible();
+
+  await photo.click();
+  await expect(page.locator(".pswp")).toHaveClass(/pswp--open/);
+  await expect(page.locator(".pswp__button--close")).toBeVisible();
+});
+
+test("Today context reveals body data only after action", async ({ page }) => {
+  await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("body-data-panel")).not.toBeVisible();
+  await page.getByRole("button", { name: "Данные тела" }).click();
+  await expect(page.getByTestId("body-data-panel")).toBeVisible();
+  await expect(page.getByTestId("body-data-panel").getByText("Вес")).toBeVisible();
+  await expect(page.getByTestId("body-data-panel").getByText("Талия")).toBeVisible();
 });
 
 test("progress photos open in a touch-friendly lightbox", async ({ page }) => {
@@ -87,10 +111,10 @@ test("progress upload normalizes an image and persists managed asset references"
   });
 
   await page.goto("/ru/today");
-  await page.getByRole("button", { name: /Фото прогресса/ }).click();
+  await page.getByRole("button", { name: /Новая фотосессия/ }).click();
   await page.locator('input[type="file"][multiple]').setInputFiles("public/demo/progress-front.png");
   await page.getByRole("button", { name: "Сохранить" }).click();
-  await expect(page.getByText("Выполнено")).toBeVisible();
+  await expect.poll(() => uploadedBodies.length).toBe(2);
   expect(uploadedBodies).toHaveLength(2);
   expect(uploadContentTypes).toEqual(["image/jpeg", "image/jpeg"]);
   expect(presignBodies).toHaveLength(1);
