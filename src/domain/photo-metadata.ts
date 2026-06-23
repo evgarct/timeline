@@ -36,8 +36,10 @@ function readJpegExifDate(view: DataView) {
     if (view.getUint8(offset) !== 0xff) return null;
     const marker = view.getUint8(offset + 1);
     const length = view.getUint16(offset + 2);
+    if (length < 2) return null;
     if (marker === 0xe1 && offset + 4 + length <= view.byteLength) {
-      return readExifSegment(view, offset + 4, length - 2);
+      const date = readExifSegment(view, offset + 4, length - 2);
+      if (date) return date;
     }
     offset += 2 + length;
   }

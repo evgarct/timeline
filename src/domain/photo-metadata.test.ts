@@ -8,6 +8,12 @@ describe("photo metadata", () => {
     expect(dateInputValue(result!.date)).toBe("2026-06-20");
   });
 
+  it("continues scanning when a non-Exif APP1 segment appears before EXIF", async () => {
+    const result = await readPhotoTakenAt(fileLike(jpegWithXmpBeforeExifDate("2026:06:19 07:00:00"), 0));
+    expect(result?.source).toBe("exif");
+    expect(dateInputValue(result!.date)).toBe("2026-06-19");
+  });
+
   it("falls back to the file timestamp when EXIF is absent", async () => {
     const result = await readPhotoTakenAt(fileLike(Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]), new Date(2026, 5, 21).getTime()));
     expect(result?.source).toBe("file");
@@ -56,6 +62,22 @@ function jpegWithExifDate(value: string) {
     ...exif,
     0xff,
     0xd9
+  ]);
+}
+
+function jpegWithXmpBeforeExifDate(value: string) {
+  const xmp = new TextEncoder().encode("http://ns.adobe.com/xap/1.0/\0<x:xmpmeta />");
+  const length = xmp.length + 2;
+  const exif = jpegWithExifDate(value);
+  return Uint8Array.from([
+    0xff,
+    0xd8,
+    0xff,
+    0xe1,
+    (length >> 8) & 255,
+    length & 255,
+    ...xmp,
+    ...exif.slice(2)
   ]);
 }
 

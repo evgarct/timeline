@@ -94,12 +94,19 @@ export async function getMediaStorageUsedBytes(userId: string) {
   if (!database) return 0;
   const [row] = await database
     .select({
-      usedBytes: sql<number>`coalesce(sum(${mediaAssets.sizeBytes} + coalesce(${mediaAssets.thumbnailSizeBytes}, 0)), 0)::int`
+      usedBytes: sql<string | number>`coalesce(sum(${mediaAssets.sizeBytes} + coalesce(${mediaAssets.thumbnailSizeBytes}, 0)), 0)`
     })
     .from(mediaAssets)
     .where(and(
       eq(mediaAssets.userId, userId),
       inArray(mediaAssets.status, ["pending", "ready"])
     ));
-  return row?.usedBytes ?? 0;
+  return coerceStorageBytes(row?.usedBytes);
+}
+
+function coerceStorageBytes(value: string | number | undefined) {
+  if (value === undefined) return 0;
+  if (typeof value === "number") return value;
+  const bytes = BigInt(value);
+  return bytes > BigInt(Number.MAX_SAFE_INTEGER) ? Number.MAX_SAFE_INTEGER : Number(bytes);
 }
