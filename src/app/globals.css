@@ -147,17 +147,35 @@ select {
   }
   to {
     opacity: 1;
-    transform: translateX(0) scale(1);
+    transform: translateX(0) scale(1.02);
   }
 }
 
-@keyframes photo-breathe {
+@keyframes photo-ken-burns {
   from {
-    transform: translateX(0) scale(1);
+    transform: scale(1);
   }
   to {
-    transform: translateX(0) scale(1.018);
+    transform: scale(1.02);
   }
+}
+
+@keyframes photo-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.today-photo-motion {
+  opacity: 0;
+  transform: scale(1);
+  transform-origin: 50% 100%;
+  animation:
+    photo-fade-in 200ms ease-out forwards,
+    photo-ken-burns 24s linear 200ms forwards;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -168,6 +186,11 @@ select {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .today-photo-motion {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

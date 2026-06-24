@@ -1,63 +1,63 @@
 import { expect, test } from "@playwright/test";
 
-test("landing opens sign in and reaches Today", async ({ page }) => {
-  await page.goto("/ru");
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("история формы");
-  await page.getByRole("button", { name: "Начать" }).click();
-  await page.getByLabel("Email").fill("demo@example.com");
-  await page.getByRole("button", { name: "Продолжить" }).click();
-  await expect(page).toHaveURL(/\/ru\/today$/);
-  await expect(page.getByRole("button", { name: /Новая фотосессия/ })).toBeVisible();
-});
-
-test("Today starts as a photo screen and continues into Timeline", async ({ page }) => {
+test("Today renders the photo as a fullscreen background layer", async ({ page }) => {
   await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
-  await expect(page.getByRole("button", { name: "Открыть фото" })).toBeVisible();
-  await expect(page.getByText("Timeline")).not.toBeInViewport();
 
-  await page.getByRole("button", { name: "Открыть меню" }).click();
-  await page.getByRole("menuitem", { name: "Лендинг" }).click();
-  await expect(page).toHaveURL(/\/ru$/);
+  const background = page.getByTestId("today-photo-background");
+  const surface = page.getByTestId("today-photo-surface");
 
-  await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
-  await page.locator("#timeline").scrollIntoViewIfNeeded();
-  await expect(page.locator("#timeline")).toBeInViewport();
-  await page.locator('a[href="/ru/events/90d785fe-aeb1-43ac-8531-af67d5234b89"]').first().click();
-  await expect(page.getByRole("heading", { name: "Новая фотосессия" })).toBeVisible();
+  await expect(background).toBeVisible();
+  await expect(surface).toBeVisible();
+  await expect(surface.locator("img")).toHaveCount(0);
+
+  const geometry = await page.evaluate(() => {
+    const background = document.querySelector<HTMLElement>('[data-testid="today-photo-background"]');
+    const title = document.querySelector<HTMLElement>('[data-testid="today-title-overlay"] h1');
+    const sheet = document.querySelector<HTMLElement>('[data-testid="today-action-sheet"]');
+    if (!background || !title || !sheet) throw new Error("missing Today elements");
+    const rect = (element: HTMLElement) => {
+      const value = element.getBoundingClientRect();
+      return {
+        top: value.top,
+        bottom: value.bottom,
+        left: value.left,
+        right: value.right,
+        width: value.width,
+        height: value.height
+      };
+    };
+    const backgroundStyle = getComputedStyle(background);
+    const sheetStyle = getComputedStyle(sheet);
+    const titleStyle = getComputedStyle(title);
+    return {
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      background: rect(background),
+      sheet: rect(sheet),
+      backgroundImage: backgroundStyle.backgroundImage,
+      backgroundPosition: backgroundStyle.backgroundPosition,
+      sheetBackground: sheetStyle.backgroundColor,
+      sheetBackdrop: sheetStyle.backdropFilter,
+      titleFontSize: titleStyle.fontSize
+    };
+  });
+
+  expect(geometry.background.top).toBeLessThanOrEqual(0);
+  expect(geometry.background.bottom).toBeGreaterThanOrEqual(geometry.viewport.height);
+  expect(geometry.backgroundImage).toContain("progress-front.png");
+  expect(geometry.backgroundPosition).toBe("35% 50%");
+  expect(geometry.sheet.top).toBeLessThan(geometry.viewport.height);
+  expect(geometry.background.bottom).toBeGreaterThan(geometry.sheet.top);
+  expect(geometry.sheetBackground).toMatch(/\/ 0\.(6|7)/);
+  expect(geometry.sheetBackdrop).toContain("blur");
+  expect(geometry.titleFontSize).toBe("43px");
 });
 
-test("Today photo switches angles and opens the lightbox", async ({ page }) => {
-  await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
-  const photo = page.getByRole("button", { name: "Открыть фото" });
-  await expect(photo.getByAltText("Front progress view")).toBeVisible();
-  await page.getByRole("button", { name: "Листать ракурсы 2" }).click();
-  await expect(photo.getByAltText("Side progress view")).toBeVisible();
-
-  await photo.click();
-  await expect(page.locator(".pswp")).toHaveClass(/pswp--open/);
-  await expect(page.locator(".pswp__button--close")).toBeVisible();
-});
-
-test("Today context reveals body data only after action", async ({ page }) => {
-  await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
-  await expect(page.getByTestId("body-data-panel")).not.toBeVisible();
-  await page.getByRole("button", { name: "Данные тела" }).click();
-  await expect(page.getByTestId("body-data-panel")).toBeVisible();
-  await expect(page.getByTestId("body-data-panel").getByText("Вес")).toBeVisible();
-  await expect(page.getByTestId("body-data-panel").getByText("Талия")).toBeVisible();
-});
-
-test("progress photos open in a touch-friendly lightbox", async ({ page }) => {
-  await page.goto("/ru/events/90d785fe-aeb1-43ac-8531-af67d5234b89");
-  await page.getByRole("link", { name: /Открыть галерею: Front progress view/ }).click();
-  await expect(page.locator(".pswp")).toHaveClass(/pswp--open/);
-  await expect(page.locator(".pswp__button--close")).toBeVisible();
-});
-
-test("progress upload normalizes an image and persists managed asset references", async ({ page }) => {
+test("progress upload from the Today bottom sheet updates the photo background", async ({ page }) => {
   const uploadedBodies: Buffer[] = [];
   const uploadContentTypes: string[] = [];
   const presignBodies: Array<{ full: { size: number }; thumbnail: { size: number } }> = [];
+  let savedAssetId: string | undefined;
+
   await page.route("**/api/uploads/presign", async (route) => {
     presignBodies.push(route.request().postDataJSON());
     await route.fulfill({
@@ -72,11 +72,13 @@ test("progress upload normalizes an image and persists managed asset references"
       })
     });
   });
+
   await page.route("**/mock-upload/**", async (route) => {
     uploadedBodies.push(route.request().postDataBuffer() ?? Buffer.alloc(0));
     uploadContentTypes.push(route.request().headers()["content-type"] ?? "");
     await route.fulfill({ status: 200 });
   });
+
   await page.route("**/api/uploads/complete", async (route) => {
     await route.fulfill({
       status: 200,
@@ -84,9 +86,11 @@ test("progress upload normalizes an image and persists managed asset references"
       body: JSON.stringify({ assetId: "73e167ac-67fe-4ffa-9ad3-4beee18a0e8a", status: "ready" })
     });
   });
+
   await page.route("**/api/events", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
     const event = route.request().postDataJSON();
+    savedAssetId = event.photos[0].assetId;
     expect(event.photos[0]).toMatchObject({
       assetId: "73e167ac-67fe-4ffa-9ad3-4beee18a0e8a",
       palette: expect.objectContaining({
@@ -103,19 +107,25 @@ test("progress upload normalizes an image and persists managed asset references"
         ...event,
         photos: event.photos.map((photo: object) => ({
           ...photo,
-          url: "/demo/progress-front.png",
-          thumbnailUrl: "/demo/progress-front.png"
+          url: "/demo/progress-side.png",
+          thumbnailUrl: "/demo/progress-side.png"
         }))
       })
     });
   });
 
-  await page.goto("/ru/today");
-  await page.getByRole("button", { name: /Новая фотосессия/ }).click();
-  await page.locator('input[type="file"][multiple]').setInputFiles("public/demo/progress-front.png");
-  await page.getByRole("button", { name: "Сохранить" }).click();
+  await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
+  await page.getByTestId("today-action-progress_photo").click();
+  await page.getByTestId("event-file-input").setInputFiles("public/demo/progress-front.png");
+  await page.getByTestId("event-save-button").click();
+
   await expect.poll(() => uploadedBodies.length).toBe(2);
-  expect(uploadedBodies).toHaveLength(2);
+  await expect(page.getByTestId("event-save-button")).toHaveCount(0);
+  await expect.poll(async () => (
+    await page.getByTestId("today-photo-background").evaluate((element) => getComputedStyle(element).backgroundImage)
+  )).toContain("progress-side.png");
+
+  expect(savedAssetId).toBe("73e167ac-67fe-4ffa-9ad3-4beee18a0e8a");
   expect(uploadContentTypes).toEqual(["image/jpeg", "image/jpeg"]);
   expect(presignBodies).toHaveLength(1);
   expect(presignBodies[0].full.size).toBeGreaterThan(0);

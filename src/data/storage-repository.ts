@@ -18,6 +18,7 @@ export async function getStorageQuota(userId: string): Promise<StorageQuota> {
 }
 
 async function getPolicyLimitBytes(userId: string) {
+  if (process.env.E2E_DEMO_MODE === "true") return undefined;
   if (!database) return undefined;
   const [policy] = await database
     .select({ limitBytes: storagePolicies.limitBytes })

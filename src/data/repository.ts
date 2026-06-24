@@ -17,7 +17,7 @@ const memorySchedules = [...seedSchedules];
 const useMemory = process.env.E2E_DEMO_MODE === "true" || !database;
 
 export async function listEvents(userId: string): Promise<TimelineEvent[]> {
-  if (useMemory || !database) return memoryEvents;
+  if (useMemory || !database) return Promise.all(memoryEvents.map((event) => hydrateEventMedia(userId, event)));
   const rows = await database.select().from(events).where(eq(events.userId, userId)).orderBy(desc(events.occurredAt));
   const parsed = rows.map((row) => timelineEventSchema.parse({
     id: row.id,
@@ -38,7 +38,7 @@ export async function createEvent(userId: string, input: TimelineEvent) {
   const event = timelineEventSchema.parse(input);
   if (useMemory || !database) {
     memoryEvents.unshift(event);
-    return event;
+    return hydrateEventMedia(userId, event);
   }
   const assetIds = await validateManagedMedia(userId, event);
   const { id, type, occurredAt, timezone, note, ...payload } = stripHydratedMedia(event);
@@ -52,7 +52,7 @@ export async function updateEvent(userId: string, input: TimelineEvent) {
   if (useMemory || !database) {
     const index = memoryEvents.findIndex((item) => item.id === event.id);
     if (index >= 0) memoryEvents[index] = event;
-    return event;
+    return hydrateEventMedia(userId, event);
   }
   const assetIds = await validateManagedMedia(userId, event, event.id);
   const { id, type, occurredAt, timezone, note, ...payload } = stripHydratedMedia(event);
