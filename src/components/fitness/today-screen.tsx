@@ -56,6 +56,7 @@ function TodayAction({
     <button
       type="button"
       onClick={() => onSelect(type)}
+      data-testid={`today-action-${type}`}
       className="group flex h-[72px] w-full cursor-pointer items-center gap-4 rounded-[1.35rem] px-0 text-left transition-colors hover:bg-black/[0.025] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/20"
     >
       <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-black/[0.045] text-foreground/48 [&_svg]:size-[22px]">
@@ -116,6 +117,12 @@ export function TodayScreen({
     "--today-photo-bg": palette?.background ?? "oklch(0.23 0.01 70)",
     "--today-photo-accent": palette?.accent ?? "oklch(0.9 0.01 70)"
   } as CSSProperties;
+  const heroPhotoStyle = heroPhoto?.url
+    ? { backgroundImage: `url("${heroPhoto.url}")` } as CSSProperties
+    : undefined;
+  const heroThumbnailStyle = heroPhoto?.thumbnailUrl || heroPhoto?.url
+    ? { backgroundImage: `url("${heroPhoto.thumbnailUrl ?? heroPhoto?.url}")` } as CSSProperties
+    : undefined;
 
   function markSaved(event: TimelineEvent) {
     setEvents((current) => [event, ...current.filter((item) => item.id !== event.id)]);
@@ -126,35 +133,25 @@ export function TodayScreen({
       <section className="relative h-[100svh] overflow-hidden bg-[var(--today-photo-bg)] text-white">
         {heroPhoto?.url ? (
           <>
-            <div className="absolute inset-0 overflow-hidden">
-              {/* Private signed URLs expire, so native images are used instead of Next's persistent optimizer cache. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={heroPhoto.thumbnailUrl ?? heroPhoto.url}
-                alt=""
-                className="size-full scale-110 object-cover object-[35%_center] opacity-50 blur-2xl"
-                loading="eager"
-                fetchPriority="high"
-              />
-            </div>
+            <div
+              aria-hidden="true"
+              className="absolute inset-[-5%] bg-cover bg-[position:35%_center] bg-no-repeat opacity-50 blur-2xl"
+              style={heroThumbnailStyle}
+            />
+
+            <div
+              aria-hidden="true"
+              data-testid="today-photo-background"
+              className="today-photo-motion absolute inset-[-5%] bg-cover bg-[position:35%_center] bg-no-repeat"
+              style={heroPhotoStyle}
+            />
 
             <a
               href={heroPhoto.url}
               data-testid="today-photo-surface"
               aria-label={copy.openPhoto}
-              className="absolute inset-0 cursor-pointer overflow-hidden text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
-            >
-              <span className="today-photo-motion block h-full">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={heroPhoto.url}
-                  alt={heroPhoto.alt}
-                  className="size-full object-cover object-[35%_center]"
-                  loading="eager"
-                  fetchPriority="high"
-                />
-              </span>
-            </a>
+              className="absolute inset-0 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+            />
           </>
         ) : (
           <PhotoFallback copy={copy} onSelect={setComposer} />
@@ -163,12 +160,12 @@ export function TodayScreen({
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[220px] bg-[linear-gradient(to_bottom,rgb(0_0_0/46%),rgb(0_0_0/22%)_48%,transparent_100%)]" />
 
         <div data-testid="today-title-overlay" className="pointer-events-none absolute inset-x-0 top-0 z-20 px-6 pt-[calc(var(--safe-top)+20px)] text-white drop-shadow-sm">
-          <h1 className="text-[52px] font-bold leading-[56px] tracking-normal">{copy.today}</h1>
-          <p className="mt-3 text-[26px] font-medium leading-[30px] text-white/80">{dateLabel(heroDate, locale)}</p>
-          <p className="mt-4 text-[18px] font-normal capitalize leading-[22px] text-white/65">{copy.morning}</p>
+          <h1 className="text-[43px] font-bold leading-[47px] tracking-normal">{copy.today}</h1>
+          <p className="mt-3 text-[24px] font-medium leading-[28px] text-white/80">{dateLabel(heroDate, locale)}</p>
+          <p className="mt-4 text-[17px] font-normal capitalize leading-[21px] text-white/65">{copy.morning}</p>
         </div>
 
-        <div data-testid="today-action-sheet" className="absolute inset-x-0 bottom-0 z-30 h-[calc(286px+var(--safe-bottom))] rounded-t-[36px] bg-white/90 px-6 pb-[var(--safe-bottom)] pt-4 text-foreground shadow-[0_-12px_42px_rgb(0_0_0/12%)] backdrop-blur-xl">
+        <div data-testid="today-action-sheet" className="absolute inset-x-0 bottom-0 z-30 h-[calc(286px+var(--safe-bottom))] rounded-t-[36px] border border-white/24 bg-white/72 px-6 pb-[var(--safe-bottom)] pt-4 text-foreground shadow-[0_-8px_36px_rgb(0_0_0/8%)] backdrop-blur-[34px]">
           <div className="mx-auto mb-[17px] h-[5px] w-12 rounded-full bg-[#C8C8C8]" />
           <div className="flex flex-col gap-4">
             {actionTypes.map((type) => (

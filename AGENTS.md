@@ -12,6 +12,8 @@
 - When the user provides an explicit design specification for implemented UI, update `docs/DESIGN.md` in the same change with the durable product/design principles unless the user labels it as a temporary experiment.
 - For reviewable implementation work, finish by committing, pushing, opening a PR, and verifying the PR head unless the user explicitly asks not to create a PR.
 - Run Playwright with `E2E_DEMO_MODE=true`; E2E must never send real Neon OTP emails or write test events to the linked Neon database.
+- In `E2E_DEMO_MODE`, media/upload/storage paths must avoid linked Neon reads and writes; use in-memory repositories or explicit route mocks for browser tests.
+- Before declaring browser photo upload broken from a local preview, verify the R2 bucket CORS allows the exact preview origin, including host and port for both `localhost` and `127.0.0.1`.
 - Generate Drizzle schema changes with `npm run db:generate` and keep the generated SQL plus `drizzle/meta` snapshot together; do not hand-add migrations without matching metadata.
 - After Next.js build/dev commands, do not commit incidental `next-env.d.ts` route-type import churn unless typed-route configuration intentionally changed.
 - Do not run `npm run typecheck` in parallel with `npm run build`; Next.js can regenerate `.next/types` during build and make `tsc --noEmit` fail on transient missing route-type files.

@@ -317,6 +317,7 @@ export function EventComposer({
                 </Button>
                 <input
                   ref={galleryRef}
+                  data-testid="event-file-input"
                   className="sr-only"
                   type="file"
                   accept={type === "inbody"
@@ -365,7 +366,7 @@ export function EventComposer({
           </FieldGroup>
         </div>
         <DrawerFooter>
-          <Button size="lg" onClick={() => void save()} disabled={savePending}>
+          <Button size="lg" onClick={() => void save()} disabled={savePending} data-testid="event-save-button">
             {savePending ? <LoaderCircle data-icon="inline-start" className="animate-spin" /> : <Upload data-icon="inline-start" />}
             {uploadStage ? copy[uploadStage] : copy.save}
           </Button>
