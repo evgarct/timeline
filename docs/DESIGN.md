@@ -47,8 +47,8 @@ This document is the design source of truth for UI work in this repository. Read
 - Latest progress photo as Today background: use a blurred signed thumbnail/full URL only at render time, with a stored optional palette for pastel gradients.
 - Today mirror screen: the first viewport is a full-height photo-first surface, not a dashboard. The user should see the latest body photo before Timeline, metrics, charts, or navigation.
 - Today and Timeline transition: keep them in one scroll document, with Timeline emerging only after vertical scroll from the Today photo surface.
-- Today photo treatment: show the selected progress-photo angle as a full-screen object-contained image over a softened photo backdrop; avoid aggressive body cropping and avoid card/preview framing.
-- Today angle navigation: use horizontal swipe and small quiet angle controls on the photo surface; do not open a separate gallery just to switch angles.
+- Today photo treatment: the latest progress photo should feel like the screen itself. Prefer full-bleed rendering with top/bottom readability fades and safe full-body framing; avoid visible photo containers, decorative frames, or preview-card treatment.
+- Today angle navigation: keep the collapsed Today surface visually still. Do not show carousel dots or angle controls unless the user is explicitly browsing the photo session.
 - Today motion: use slow, low-amplitude photo motion and soft fade/translate transitions. Avoid bounce, carousel-like speed, flashy effects, and motion that competes with the photo.
 - Today context: photo overlays may show memory-like context such as date, day, time, place, or training phase. Body metrics are hidden until the user explicitly asks for details.
 - Today actions sheet: daily actions sit in an iOS-like glass bottom sheet over the photo. Keep actions calm, row-based, monochrome, and free of warning colors or progress percentages.

@@ -124,6 +124,12 @@ select {
   padding-bottom: var(--safe-bottom);
 }
 
+.today-shell {
+  padding-top: 0;
+  padding-bottom: 0;
+  font-family: var(--font-geist, -apple-system), BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+}
+
 .surface {
   background: color-mix(in oklab, var(--card) 94%, transparent);
   border: 1px solid color-mix(in oklab, var(--border) 84%, transparent);
