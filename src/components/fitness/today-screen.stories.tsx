@@ -19,6 +19,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Default: Story = {};
+export const Empty: Story = { args: { initialEvents: [] } };
 export const NoPhoto: Story = {
   args: {
     initialEvents: seedEvents.filter((event) => event.type !== "progress_photo")
