@@ -48,10 +48,13 @@ This document is the design source of truth for UI work in this repository. Read
 - Today mirror screen: the first viewport is a full-height photo-first surface, not a dashboard. The user should see the latest body photo before Timeline, metrics, charts, or navigation.
 - Today and Timeline transition: keep them in one scroll document, with Timeline emerging only after vertical scroll from the Today photo surface.
 - Today photo treatment: the latest progress photo should feel like the screen itself. Prefer full-bleed rendering with top/bottom readability fades and safe full-body framing; avoid visible photo containers, decorative frames, or preview-card treatment.
+- Today photo-screen composition: the hero photo starts at viewport top and owns the full first viewport, including the area under iOS status bars; apply safe area only to overlay text and controls, never to the photo layer.
+- Today photo crop and motion: use a gentle 10-15% visual zoom with a lower transform origin so the crop removes ceiling before feet; keep Ken Burns motion one-way, slow, and low-amplitude.
 - Today angle navigation: keep the collapsed Today surface visually still. Do not show carousel dots or angle controls unless the user is explicitly browsing the photo session.
 - Today motion: use slow, low-amplitude photo motion and soft fade/translate transitions. Avoid bounce, carousel-like speed, flashy effects, and motion that competes with the photo.
 - Today context: photo overlays may show memory-like context such as date, day, time, place, or training phase. Body metrics are hidden until the user explicitly asks for details.
 - Today actions sheet: daily actions sit in an iOS-like glass bottom sheet over the photo. Keep actions calm, row-based, monochrome, and free of warning colors or progress percentages.
+- Today bottom sheet sizing: default to a low Apple Maps-like sheet around 270-290px above the safe area, with one airy row list instead of separate action cards.
 - Storage usage in Settings: show quota as compact profile metadata, not as a separate billing page.
 - Landing/product bridge: landing primary CTA opens the product for signed-in users; product header keeps a compact link back to landing.
 
