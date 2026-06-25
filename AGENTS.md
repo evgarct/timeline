@@ -9,6 +9,8 @@
 - Create the private R2 bucket through Dashboard or Wrangler with explicit EU jurisdiction; the Cloudflare MCP bucket API cannot pass the required jurisdiction header.
 - Keep all visible UI text in the RU/EN/CS message dictionaries.
 - Before UI or visual design work, read `docs/DESIGN.md` and use it as the repo design source of truth; after the user approves a UI result, add durable principles or accepted examples there.
+- Develop product UI through Storybook first: every new or meaningfully changed screen, component, and state needs an isolated story before app-level verification.
+- Build UI through the design system by default. Reuse shadcn/ui primitives, local shared components, tokens, and established composition patterns before creating bespoke markup or styling.
 - When the user provides an explicit design specification for implemented UI, update `docs/DESIGN.md` in the same change with the durable product/design principles unless the user labels it as a temporary experiment.
 - For reviewable implementation work, finish by committing, pushing, opening a PR, and verifying the PR head unless the user explicitly asks not to create a PR.
 - Run Playwright with `E2E_DEMO_MODE=true`; E2E must never send real Neon OTP emails or write test events to the linked Neon database.
