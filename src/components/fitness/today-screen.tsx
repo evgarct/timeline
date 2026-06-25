@@ -1,6 +1,6 @@
 "use client";
 
-import { type CSSProperties, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { Camera, Check, ChevronDown, Dumbbell, Plus, Ruler } from "lucide-react";
 import type { EventType, TimelineEvent } from "@/domain/events";
 import { groupEventsByDay, isTaskCompleted, latestEvent } from "@/domain/timeline";
@@ -113,8 +113,9 @@ export function TodayScreen({
   const heroPhoto = visiblePhotos[0];
   const heroDate = latestPhoto?.occurredAt ?? new Date();
   const palette = heroPhoto?.palette;
+  const heroBackground = palette?.background ?? "oklch(0.23 0.01 70)";
   const heroStyle = {
-    "--today-photo-bg": palette?.background ?? "oklch(0.23 0.01 70)",
+    "--today-photo-bg": heroBackground,
     "--today-photo-accent": palette?.accent ?? "oklch(0.9 0.01 70)"
   } as CSSProperties;
   const heroPhotoStyle = heroPhoto?.url
@@ -128,9 +129,27 @@ export function TodayScreen({
     setEvents((current) => [event, ...current.filter((item) => item.id !== event.id)]);
   }
 
+  useEffect(() => {
+    const root = document.documentElement;
+    const previousHtmlBackground = root.style.getPropertyValue("--app-html-background");
+    const previousBodyBackground = root.style.getPropertyValue("--app-body-background");
+    root.style.setProperty("--app-html-background", heroBackground);
+    root.style.setProperty("--app-body-background", heroBackground);
+
+    return () => {
+      if (previousHtmlBackground) root.style.setProperty("--app-html-background", previousHtmlBackground);
+      else root.style.removeProperty("--app-html-background");
+      if (previousBodyBackground) root.style.setProperty("--app-body-background", previousBodyBackground);
+      else root.style.removeProperty("--app-body-background");
+    };
+  }, [heroBackground]);
+
   return (
     <main className="app-shell today-shell relative min-h-screen overflow-x-hidden bg-background" style={heroStyle}>
-      <section className="relative h-[100svh] overflow-hidden bg-[var(--today-photo-bg)] text-white">
+      <section
+        data-testid="today-hero"
+        className="relative -mt-[var(--safe-top)] h-[calc(100svh+var(--safe-top))] overflow-hidden bg-[var(--today-photo-bg)] text-white"
+      >
         {heroPhoto?.url ? (
           <>
             <div

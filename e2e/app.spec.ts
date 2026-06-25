@@ -1,5 +1,17 @@
 import { expect, test } from "@playwright/test";
 
+test("raw install document exposes iOS PWA fullscreen metadata", async ({ request }) => {
+  const response = await request.get("/ru");
+  expect(response.ok()).toBe(true);
+
+  const html = await response.text();
+  const head = html.match(/<head>([\s\S]*?)<\/head>/)?.[1] ?? "";
+
+  expect(head).toContain('name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"');
+  expect(head).toContain('name="apple-mobile-web-app-capable" content="yes"');
+  expect(head).toContain('name="apple-mobile-web-app-status-bar-style" content="black-translucent"');
+});
+
 test("Today renders the photo as a fullscreen background layer", async ({ page }) => {
   await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
 
@@ -9,14 +21,18 @@ test("Today renders the photo as a fullscreen background layer", async ({ page }
   await expect(background).toBeVisible();
   await expect(surface).toBeVisible();
   await expect(surface.locator("img")).toHaveCount(0);
+  await expect.poll(async () => (
+    await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--app-html-background").trim())
+  )).toBe("oklch(0.23 0.01 70)");
 
   const geometry = await page.evaluate(() => {
+    document.documentElement.style.setProperty("--safe-top", "47px");
+    const hero = document.querySelector<HTMLElement>('[data-testid="today-hero"]');
     const background = document.querySelector<HTMLElement>('[data-testid="today-photo-background"]');
     const titleOverlay = document.querySelector<HTMLElement>('[data-testid="today-title-overlay"]');
     const title = titleOverlay?.querySelector<HTMLElement>("h1");
     const sheet = document.querySelector<HTMLElement>('[data-testid="today-action-sheet"]');
-    if (!background || !titleOverlay || !title || !sheet) throw new Error("missing Today elements");
-    document.documentElement.style.setProperty("--safe-top", "47px");
+    if (!hero || !background || !titleOverlay || !title || !sheet) throw new Error("missing Today elements");
     const rect = (element: HTMLElement) => {
       const value = element.getBoundingClientRect();
       return {
@@ -34,12 +50,15 @@ test("Today renders the photo as a fullscreen background layer", async ({ page }
     const titleStyle = getComputedStyle(title);
     return {
       viewport: { width: window.innerWidth, height: window.innerHeight },
+      hero: rect(hero),
       background: rect(background),
       titleOverlay: rect(titleOverlay),
+      title: rect(title),
       sheet: rect(sheet),
       backgroundImage: backgroundStyle.backgroundImage,
       backgroundPosition: backgroundStyle.backgroundPosition,
       titleOverlayPaddingTop: titleOverlayStyle.paddingTop,
+      documentBackground: getComputedStyle(document.documentElement).getPropertyValue("--app-html-background").trim(),
       sheetBackground: sheetStyle.backgroundColor,
       sheetBackdrop: sheetStyle.backdropFilter,
       titleFontSize: titleStyle.fontSize,
@@ -49,10 +68,15 @@ test("Today renders the photo as a fullscreen background layer", async ({ page }
     };
   });
 
+  expect(geometry.hero.top).toBeCloseTo(-47, 0);
+  expect(geometry.hero.height).toBeCloseTo(geometry.viewport.height + 47, 0);
   expect(geometry.background.top).toBeLessThanOrEqual(0);
+  expect(geometry.background.top).toBeLessThanOrEqual(geometry.hero.top);
   expect(geometry.background.bottom).toBeGreaterThanOrEqual(geometry.viewport.height);
-  expect(geometry.titleOverlay.top).toBe(0);
+  expect(geometry.titleOverlay.top).toBe(-47);
+  expect(geometry.title.top).toBeGreaterThanOrEqual(16);
   expect(geometry.titleOverlayPaddingTop).toBe("67px");
+  expect(geometry.documentBackground).toBe("oklch(0.23 0.01 70)");
   expect(geometry.viewportMeta).toContain("viewport-fit=cover");
   expect(geometry.appleCapableMeta).toBe("yes");
   expect(geometry.appleStatusBarMeta).toBe("black-translucent");
