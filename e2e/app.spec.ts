@@ -21,6 +21,9 @@ test("Today renders the photo as a fullscreen background layer", async ({ page }
   await expect(background).toBeVisible();
   await expect(surface).toBeVisible();
   await expect(surface.locator("img")).toHaveCount(0);
+  await expect.poll(async () => (
+    await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--app-html-background").trim())
+  )).toBe("oklch(0.23 0.01 70)");
 
   const geometry = await page.evaluate(() => {
     document.documentElement.style.setProperty("--safe-top", "47px");
@@ -55,6 +58,7 @@ test("Today renders the photo as a fullscreen background layer", async ({ page }
       backgroundImage: backgroundStyle.backgroundImage,
       backgroundPosition: backgroundStyle.backgroundPosition,
       titleOverlayPaddingTop: titleOverlayStyle.paddingTop,
+      documentBackground: getComputedStyle(document.documentElement).getPropertyValue("--app-html-background").trim(),
       sheetBackground: sheetStyle.backgroundColor,
       sheetBackdrop: sheetStyle.backdropFilter,
       titleFontSize: titleStyle.fontSize,
@@ -72,6 +76,7 @@ test("Today renders the photo as a fullscreen background layer", async ({ page }
   expect(geometry.titleOverlay.top).toBe(-47);
   expect(geometry.title.top).toBeGreaterThanOrEqual(16);
   expect(geometry.titleOverlayPaddingTop).toBe("67px");
+  expect(geometry.documentBackground).toBe("oklch(0.23 0.01 70)");
   expect(geometry.viewportMeta).toContain("viewport-fit=cover");
   expect(geometry.appleCapableMeta).toBe("yes");
   expect(geometry.appleStatusBarMeta).toBe("black-translucent");

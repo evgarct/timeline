@@ -26,6 +26,10 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --shadow-soft: 0 12px 32px rgb(49 39 30 / 7%);
   --background: oklch(0.975 0.009 75);
+  --app-html-background: var(--background);
+  --app-body-background:
+    radial-gradient(circle at 10% 0%, rgb(255 255 255 / 72%), transparent 38rem),
+    var(--background);
   --foreground: var(--card-foreground);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -90,16 +94,14 @@
 }
 
 html {
-  background: var(--background);
+  background: var(--app-html-background);
   color: var(--foreground);
   scroll-behavior: smooth;
 }
 
 body {
   min-height: 100dvh;
-  background:
-    radial-gradient(circle at 10% 0%, rgb(255 255 255 / 72%), transparent 38rem),
-    var(--background);
+  background: var(--app-body-background);
   font-family: var(--font-geist), -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
   text-rendering: optimizeLegibility;
 }
@@ -233,7 +235,8 @@ select {
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    background: var(--app-body-background);
+    @apply text-foreground;
   }
   html {
     @apply font-sans;
