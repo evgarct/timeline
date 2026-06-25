@@ -130,7 +130,10 @@ export function TodayScreen({
 
   return (
     <main className="app-shell today-shell relative min-h-screen overflow-x-hidden bg-background" style={heroStyle}>
-      <section className="relative h-[100svh] overflow-hidden bg-[var(--today-photo-bg)] text-white">
+      <section
+        data-testid="today-hero"
+        className="relative -mt-[var(--safe-top)] h-[calc(100svh+var(--safe-top))] overflow-hidden bg-[var(--today-photo-bg)] text-white"
+      >
         {heroPhoto?.url ? (
           <>
             <div
