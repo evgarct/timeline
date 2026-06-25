@@ -37,10 +37,13 @@ This document is the design source of truth for UI work in this repository. Read
 ## Components
 
 - Use the existing shadcn/ui primitives and local components before creating new UI.
+- UI development starts in Storybook. Add or update stories for every new or meaningfully changed screen, component, and state before verifying the integrated app.
+- Storybook coverage should include loading/empty/error/success states, mobile-first layout states, important localized variants, and interaction states that can be represented without live services.
+- Prefer component-level Storybook iteration to broad app-level editing so UI work stays focused, reviewable, and cheap to reason about.
 - Forms use `FieldGroup`, `Field`, `FieldLabel`, and shared inputs.
 - Buttons use existing variants and lucide icons with `data-icon`.
 - New user-facing text must be added to RU/EN/CS dictionaries.
-- New UI screens or meaningful states should get Storybook coverage when practical.
+- App/browser verification comes after Storybook coverage and should confirm routing, portals, data wiring, and real viewport behavior.
 
 ## Accepted Patterns
 
@@ -63,6 +66,7 @@ This document is the design source of truth for UI work in this repository. Read
 ## Update Process
 
 - Before UI work: read this file and follow the existing product feel.
+- During UI work: iterate in Storybook against the relevant component or screen states before changing broader app flows.
 - During review: compare the result against this document and the live mobile viewport.
 - After the user says the result is good: add the reusable principle or pattern here with a short concrete example.
 - Do not add one-off implementation details, temporary bugs, or unaccepted experiments.
