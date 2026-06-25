@@ -21,6 +21,7 @@
 - Keep staging seed data in staging only. Do not run `npm run db:seed:staging` against production unless the user explicitly requests it and `ALLOW_PRODUCTION_SEED=true` is intentional.
 - In `E2E_DEMO_MODE`, media/upload/storage paths must avoid linked Neon reads and writes; use in-memory repositories or explicit route mocks for browser tests.
 - Before declaring browser photo upload broken from a local preview, verify the R2 bucket CORS allows the exact preview origin, including host and port for both `localhost` and `127.0.0.1`.
+- For iOS PWA safe-area/status-bar fixes, verify the rendered head includes `viewport-fit=cover`, `apple-mobile-web-app-capable=yes`, and `apple-mobile-web-app-status-bar-style=black-translucent`; do not rely only on intended Next metadata fields.
 - Generate Drizzle schema changes with `npm run db:generate` and keep the generated SQL plus `drizzle/meta` snapshot together; do not hand-add migrations without matching metadata.
 - After Next.js build/dev commands, do not commit incidental `next-env.d.ts` route-type import churn unless typed-route configuration intentionally changed.
 - Do not run `npm run typecheck` in parallel with `npm run build`; Next.js can regenerate `.next/types` during build and make `tsc --noEmit` fail on transient missing route-type files.
