@@ -56,8 +56,9 @@ CRON_SECRET=
 ```
 
 Preview and development deployments should use a separate bucket such as
-`timeline-private-media-staging`, created with the same EU jurisdiction and CORS policy. Do not point
-browser upload smoke tests at the production bucket until staging has passed.
+`timeline-private-media-staging`, configured with the same private access and CORS policy. `jurisdiction: default`
+is acceptable for staging when Cloudflare reports a European location such as `WEUR`. Do not point browser upload
+smoke tests at the production bucket until staging has passed.
 
 The daily Vercel cron calls `/api/uploads/cleanup`. It removes pending uploads older than 24 hours
 and retries objects left in the `deleting` state. Vercel supplies `Authorization: Bearer

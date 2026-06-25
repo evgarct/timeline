@@ -8,13 +8,14 @@ staging resources before production is changed.
 - Production Neon branch: `main` in project `timeline`.
 - Staging Neon branch: create from production before release verification, then run migrations there first.
 - Production R2 bucket: `timeline-private-media`.
-- Staging R2 bucket: `timeline-private-media-staging`, created with EU jurisdiction and private access.
+- Staging R2 bucket: `timeline-private-media-staging`, private, separate from production, and acceptable with
+  `jurisdiction: default` when Cloudflare reports a European location such as `WEUR`.
 
 Do not point Preview deployments at the production database. Do not run upload smoke tests against production until
 staging has passed the same checks.
-Do not create the staging R2 bucket through the current Cloudflare MCP wrapper: it can return `location: WEUR` while
-still creating `jurisdiction: default`. Use Dashboard or `wrangler r2 bucket create timeline-private-media-staging
---jurisdiction eu`, then verify the bucket jurisdiction before using it.
+Staging R2 may be created through the Cloudflare API/MCP wrapper as long as the resulting bucket is private, named
+`timeline-private-media-staging`, and verified before use. Production bucket creation still follows the stricter
+storage policy in `docs/R2_STORAGE.md`.
 
 ## Database gates
 

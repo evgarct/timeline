@@ -15,6 +15,7 @@
 - Before deploying code that depends on Drizzle schema changes, apply migrations and run `npm run db:verify` against staging first, then production before reporting the release as ready.
 - Preview and development environments must use staging Neon resources, not the production Neon branch.
 - Browser upload smoke tests must run against staging Neon plus staging R2 before production; production upload smoke is allowed only after production migrations and schema verification pass.
+- Staging R2 may use `jurisdiction: default` if it is separate from production, private, and verified with the expected CORS policy before browser upload smoke tests.
 - Keep staging seed data in staging only. Do not run `npm run db:seed:staging` against production unless the user explicitly requests it and `ALLOW_PRODUCTION_SEED=true` is intentional.
 - In `E2E_DEMO_MODE`, media/upload/storage paths must avoid linked Neon reads and writes; use in-memory repositories or explicit route mocks for browser tests.
 - Before declaring browser photo upload broken from a local preview, verify the R2 bucket CORS allows the exact preview origin, including host and port for both `localhost` and `127.0.0.1`.
