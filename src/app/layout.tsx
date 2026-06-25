@@ -27,8 +27,11 @@ export const metadata: Metadata = {
   },
   appleWebApp: {
     capable: true,
-    statusBarStyle: "default",
+    statusBarStyle: "black-translucent",
     title: "Timeline"
+  },
+  other: {
+    "apple-mobile-web-app-capable": "yes"
   }
 };
 

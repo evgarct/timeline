@@ -12,9 +12,11 @@ test("Today renders the photo as a fullscreen background layer", async ({ page }
 
   const geometry = await page.evaluate(() => {
     const background = document.querySelector<HTMLElement>('[data-testid="today-photo-background"]');
-    const title = document.querySelector<HTMLElement>('[data-testid="today-title-overlay"] h1');
+    const titleOverlay = document.querySelector<HTMLElement>('[data-testid="today-title-overlay"]');
+    const title = titleOverlay?.querySelector<HTMLElement>("h1");
     const sheet = document.querySelector<HTMLElement>('[data-testid="today-action-sheet"]');
-    if (!background || !title || !sheet) throw new Error("missing Today elements");
+    if (!background || !titleOverlay || !title || !sheet) throw new Error("missing Today elements");
+    document.documentElement.style.setProperty("--safe-top", "47px");
     const rect = (element: HTMLElement) => {
       const value = element.getBoundingClientRect();
       return {
@@ -28,21 +30,32 @@ test("Today renders the photo as a fullscreen background layer", async ({ page }
     };
     const backgroundStyle = getComputedStyle(background);
     const sheetStyle = getComputedStyle(sheet);
+    const titleOverlayStyle = getComputedStyle(titleOverlay);
     const titleStyle = getComputedStyle(title);
     return {
       viewport: { width: window.innerWidth, height: window.innerHeight },
       background: rect(background),
+      titleOverlay: rect(titleOverlay),
       sheet: rect(sheet),
       backgroundImage: backgroundStyle.backgroundImage,
       backgroundPosition: backgroundStyle.backgroundPosition,
+      titleOverlayPaddingTop: titleOverlayStyle.paddingTop,
       sheetBackground: sheetStyle.backgroundColor,
       sheetBackdrop: sheetStyle.backdropFilter,
-      titleFontSize: titleStyle.fontSize
+      titleFontSize: titleStyle.fontSize,
+      viewportMeta: document.querySelector<HTMLMetaElement>('meta[name="viewport"]')?.content ?? "",
+      appleCapableMeta: document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-capable"]')?.content ?? "",
+      appleStatusBarMeta: document.querySelector<HTMLMetaElement>('meta[name="apple-mobile-web-app-status-bar-style"]')?.content ?? ""
     };
   });
 
   expect(geometry.background.top).toBeLessThanOrEqual(0);
   expect(geometry.background.bottom).toBeGreaterThanOrEqual(geometry.viewport.height);
+  expect(geometry.titleOverlay.top).toBe(0);
+  expect(geometry.titleOverlayPaddingTop).toBe("67px");
+  expect(geometry.viewportMeta).toContain("viewport-fit=cover");
+  expect(geometry.appleCapableMeta).toBe("yes");
+  expect(geometry.appleStatusBarMeta).toBe("black-translucent");
   expect(geometry.backgroundImage).toContain("progress-front.png");
   expect(geometry.backgroundPosition).toBe("35% 50%");
   expect(geometry.sheet.top).toBeLessThan(geometry.viewport.height);
