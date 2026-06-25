@@ -13,6 +13,24 @@ export default defineConfig({
     environment: "jsdom",
     setupFiles: ["./vitest.setup.ts"],
     exclude: ["e2e/**", "node_modules/**"],
-    coverage: { reporter: ["text", "html"] }
+    coverage: {
+      provider: "v8",
+      reporter: ["text", "html"],
+      include: [
+        "src/app/api/uploads/**/*.ts",
+        "src/data/**/*.ts",
+        "src/domain/**/*.ts"
+      ],
+      exclude: [
+        "**/*.test.ts",
+        "src/data/seed.ts"
+      ],
+      thresholds: {
+        lines: 45,
+        functions: 50,
+        branches: 30,
+        statements: 40
+      }
+    }
   }
 });

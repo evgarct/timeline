@@ -55,6 +55,10 @@ R2_BUCKET_NAME=timeline-private-media
 CRON_SECRET=
 ```
 
+Preview and development deployments should use a separate bucket such as
+`timeline-private-media-staging`, created with the same EU jurisdiction and CORS policy. Do not point
+browser upload smoke tests at the production bucket until staging has passed.
+
 The daily Vercel cron calls `/api/uploads/cleanup`. It removes pending uploads older than 24 hours
 and retries objects left in the `deleting` state. Vercel supplies `Authorization: Bearer
 <CRON_SECRET>` to cron requests.
@@ -64,5 +68,6 @@ and retries objects left in the `deleting` state. Vercel supplies `Authorization
 1. Enable R2 and create/configure the bucket.
 2. Add R2 and cron secrets to the target deployment environment.
 3. Apply Drizzle migrations.
-4. Deploy the application.
-5. Verify a real upload, page reload, gallery open, and event deletion against the target bucket.
+4. Run `npm run db:verify` against the target database.
+5. Deploy the application.
+6. Verify a real upload, page reload, gallery open, and event deletion against the target bucket.
