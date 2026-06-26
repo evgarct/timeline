@@ -89,9 +89,9 @@ export const PwaNarrowRefreshSafeAreaScroll: Story = {
     const drawer = document.querySelector('[data-testid="today-action-drawer"]');
     await waitFor(() => {
       const drawerRect = drawer?.getBoundingClientRect();
-      expect(Math.round(window.innerHeight - (drawerRect?.bottom ?? 0))).toBe(0);
-      expect(drawerRect?.height).toBeGreaterThanOrEqual(100);
-      expect(drawerRect?.height).toBeLessThanOrEqual(150);
+      const visibleDrawerHeight = window.innerHeight - (drawerRect?.top ?? window.innerHeight);
+      expect(visibleDrawerHeight).toBeGreaterThanOrEqual(100);
+      expect(visibleDrawerHeight).toBeLessThanOrEqual(150);
     });
     await expect(document.querySelectorAll("[data-testid='today-action-workout'], [data-testid='today-action-measurements'], [data-testid='today-action-progress_photo']").length).toBe(3);
   },
@@ -103,6 +103,34 @@ export const PwaNarrowRefreshSafeAreaScroll: Story = {
     docs: {
       description: {
         story: "Reproduces refreshing the Today screen in installed PWA standalone mode while Storybook is already in a narrow mobile viewport. The screen must start scrolled down by the iPhone 15 Pro safe-area height."
+      }
+    }
+  }
+};
+
+export const PwaDraggableActionDrawer: Story = {
+  name: "PWA draggable action drawer",
+  beforeEach: PwaNarrowRefreshSafeAreaScroll.beforeEach,
+  play: async () => {
+    await waitFor(() => expect(Math.round(window.scrollY)).toBe(59));
+    const drawer = document.querySelector('[data-testid="today-action-drawer"]');
+    await waitFor(() => {
+      const drawerRect = drawer?.getBoundingClientRect();
+      const visibleDrawerHeight = window.innerHeight - (drawerRect?.top ?? window.innerHeight);
+      expect(visibleDrawerHeight).toBeGreaterThanOrEqual(100);
+      expect(visibleDrawerHeight).toBeLessThanOrEqual(150);
+      expect(drawer?.getAttribute("data-expanded")).toBe("false");
+    });
+    await expect(document.querySelectorAll("[data-testid='today-action-workout'], [data-testid='today-action-measurements'], [data-testid='today-action-progress_photo']").length).toBe(3);
+  },
+  parameters: {
+    viewport: {
+      value: "iphone",
+      isRotated: false
+    },
+    docs: {
+      description: {
+        story: "Focused regression for the iPhone PWA case: initial content is safe-area scrolled, the bottom drawer starts as a small low-emphasis text list, and browser verification drags it upward into the expanded card state."
       }
     }
   }

@@ -13,6 +13,7 @@
 - When a UI bug is reproducible in Storybook, add or update a focused story that reproduces that exact case before signing off on the fix.
 - Build UI through the design system by default. Reuse shadcn/ui primitives, local shared components, tokens, and established composition patterns before creating bespoke markup or styling.
 - Persistent bottom drawers and drawer previews should use the local shadcn/Vaul `Drawer` primitive before custom fixed panels, and Storybook geometry checks should prove their bottom position is unchanged by PWA initial scroll offsets.
+- For draggable drawer previews, verify both the collapsed snap point and an actual mouse or touch drag to the expanded snap point in Storybook/browser checks.
 - For mobile-first app surfaces, use Ant Design Mobile primitives where they provide native mobile structure, but import their CSS from the root global stylesheet and keep wrappers Storybook-backed.
 - Avoid Ant Design Mobile components that read `window` during render on server-rendered app surfaces unless they are guarded behind a client-only boundary.
 - When the user provides an explicit design specification for implemented UI, update `docs/DESIGN.md` in the same change with the durable product/design principles unless the user labels it as a temporary experiment.

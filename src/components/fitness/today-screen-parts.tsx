@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import { useState, type CSSProperties, type ReactNode } from "react";
 import { Camera, Check, ChevronDown, Dumbbell, Plus, Ruler } from "lucide-react";
 import { List } from "antd-mobile/es/components/list/list";
 import { ListItem } from "antd-mobile/es/components/list/list-item";
@@ -14,6 +14,8 @@ import { LanguageMenu } from "./language-menu";
 import { TimelineRow } from "./timeline-row";
 
 export const todayActionTypes: EventType[] = ["workout", "measurements", "progress_photo"];
+const collapsedDrawerSnapPoint = 0.16;
+const expandedDrawerSnapPoint = 0.44;
 
 export const titleKeys: Record<EventType, keyof Pick<Copy, "workout" | "measurements" | "progressPhoto" | "inbody">> = {
   workout: "workout",
@@ -177,6 +179,9 @@ export function TodayActionDrawer({
   events: TimelineEvent[];
   onSelect: (type: EventType) => void;
 }) {
+  const [activeSnapPoint, setActiveSnapPoint] = useState<number | string | null>(collapsedDrawerSnapPoint);
+  const isExpanded = activeSnapPoint === expandedDrawerSnapPoint;
+
   return (
     <Drawer
       open
@@ -184,9 +189,14 @@ export function TodayActionDrawer({
       dismissible={false}
       noBodyStyles
       disablePreventScroll
+      snapPoints={[collapsedDrawerSnapPoint, expandedDrawerSnapPoint]}
+      activeSnapPoint={activeSnapPoint}
+      setActiveSnapPoint={setActiveSnapPoint}
+      snapToSequentialPoint
     >
       <DrawerContent
         showOverlay={false}
+        data-expanded={isExpanded ? "true" : "false"}
         data-testid="today-action-drawer"
         className="today-action-drawer rounded-t-[36px] border-white/24 bg-white/72 px-5 pb-0 pt-0 text-foreground shadow-[0_-8px_36px_rgb(0_0_0/8%)] backdrop-blur-[34px]"
       >
