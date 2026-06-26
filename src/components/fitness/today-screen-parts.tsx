@@ -9,6 +9,7 @@ import type { EventType, TimelineEvent } from "@/domain/events";
 import { groupEventsByDay, isTaskCompleted } from "@/domain/timeline";
 import type { Copy } from "@/i18n/messages";
 import { Button } from "@/components/ui/button";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { LanguageMenu } from "./language-menu";
 import { TimelineRow } from "./timeline-row";
 
@@ -167,7 +168,7 @@ export function TodayHero({
   );
 }
 
-export function TodayActionSheet({
+export function TodayActionDrawer({
   copy,
   events,
   onSelect
@@ -177,25 +178,39 @@ export function TodayActionSheet({
   onSelect: (type: EventType) => void;
 }) {
   return (
-    <div data-testid="today-action-sheet" className="today-action-sheet absolute inset-x-0 bottom-0 z-30 rounded-t-[36px] border border-white/24 bg-white/72 px-6 pt-4 text-foreground shadow-[0_-8px_36px_rgb(0_0_0/8%)] backdrop-blur-[34px]">
-      <div className="mx-auto mb-[17px] h-[5px] w-12 rounded-full bg-[#C8C8C8]" />
-      <List mode="default" className="today-action-list" style={{ "--border-top": "0", "--border-bottom": "0", "--border-inner": "0" }}>
-        {todayActionTypes.map((type) => (
-          <TodayActionItem
-            key={type}
-            type={type}
-            title={copy[titleKeys[type]]}
-            completed={isTaskCompleted(type, events)}
-            copy={copy}
-            onSelect={onSelect}
-          />
-        ))}
-      </List>
-      <a href="#timeline" aria-label={copy.scrollTimeline} className="sr-only">
-        <ChevronDown aria-hidden="true" className="size-4" />
-      </a>
-      <SafeArea position="bottom" />
-    </div>
+    <Drawer
+      open
+      modal={false}
+      dismissible={false}
+      noBodyStyles
+      disablePreventScroll
+    >
+      <DrawerContent
+        showOverlay={false}
+        data-testid="today-action-drawer"
+        className="today-action-drawer rounded-t-[36px] border-white/24 bg-white/72 px-5 pb-0 pt-0 text-foreground shadow-[0_-8px_36px_rgb(0_0_0/8%)] backdrop-blur-[34px]"
+      >
+        <DrawerHeader className="sr-only">
+          <DrawerTitle>{copy.tasks}</DrawerTitle>
+        </DrawerHeader>
+        <List mode="default" className="today-action-list" style={{ "--border-top": "0", "--border-bottom": "0", "--border-inner": "0" }}>
+          {todayActionTypes.map((type) => (
+            <TodayActionItem
+              key={type}
+              type={type}
+              title={copy[titleKeys[type]]}
+              completed={isTaskCompleted(type, events)}
+              copy={copy}
+              onSelect={onSelect}
+            />
+          ))}
+        </List>
+        <a href="#timeline" aria-label={copy.scrollTimeline} className="sr-only">
+          <ChevronDown aria-hidden="true" className="size-4" />
+        </a>
+        <SafeArea position="bottom" />
+      </DrawerContent>
+    </Drawer>
   );
 }
 

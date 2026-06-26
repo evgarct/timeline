@@ -86,6 +86,14 @@ export const PwaNarrowRefreshSafeAreaScroll: Story = {
     const title = document.querySelector('[data-testid="today-title-overlay"] h1');
     await expect(title?.getBoundingClientRect().top).toBeGreaterThanOrEqual(19);
     await expect(title?.getBoundingClientRect().top).toBeLessThanOrEqual(21);
+    const drawer = document.querySelector('[data-testid="today-action-drawer"]');
+    await waitFor(() => {
+      const drawerRect = drawer?.getBoundingClientRect();
+      expect(Math.round(window.innerHeight - (drawerRect?.bottom ?? 0))).toBe(0);
+      expect(drawerRect?.height).toBeGreaterThanOrEqual(100);
+      expect(drawerRect?.height).toBeLessThanOrEqual(150);
+    });
+    await expect(document.querySelectorAll("[data-testid='today-action-workout'], [data-testid='today-action-measurements'], [data-testid='today-action-progress_photo']").length).toBe(3);
   },
   parameters: {
     viewport: {

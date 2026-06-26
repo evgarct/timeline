@@ -4,7 +4,7 @@ import { seedEvents } from "@/data/seed";
 import type { TimelineEvent } from "@/domain/events";
 import { latestEvent } from "@/domain/timeline";
 import { getMessages } from "@/i18n/messages";
-import { TodayActionSheet, TodayHero, TodayTimelineSection, groupTodayEvents } from "./today-screen-parts";
+import { TodayActionDrawer, TodayHero, TodayTimelineSection, groupTodayEvents } from "./today-screen-parts";
 
 const copy = getMessages("ru");
 const latestPhoto = latestEvent(seedEvents, "progress_photo");
@@ -48,17 +48,17 @@ export const HeroEmpty: Story = {
   )
 };
 
-export const Actions: Story = {
+export const ActionDrawer: Story = {
   render: () => (
     <main className="app-shell today-shell min-h-[420px] bg-[var(--today-photo-bg)] text-foreground" style={heroStyle}>
       <div className="relative min-h-[420px] overflow-hidden">
-        <TodayActionSheet copy={copy} events={seedEvents} onSelect={() => undefined} />
+        <TodayActionDrawer copy={copy} events={seedEvents} onSelect={() => undefined} />
       </div>
     </main>
   )
 };
 
-export const ActionsCompleted: Story = {
+export const ActionDrawerCompleted: Story = {
   render: () => {
     const completedEvents = [
       ...seedEvents,
@@ -84,7 +84,7 @@ export const ActionsCompleted: Story = {
     return (
       <main className="app-shell today-shell min-h-[420px] bg-[var(--today-photo-bg)] text-foreground" style={heroStyle}>
         <div className="relative min-h-[420px] overflow-hidden">
-          <TodayActionSheet copy={copy} events={completedEvents} onSelect={() => undefined} />
+          <TodayActionDrawer copy={copy} events={completedEvents} onSelect={() => undefined} />
         </div>
       </main>
     );

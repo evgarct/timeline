@@ -138,8 +138,11 @@ select {
   font-family: var(--font-geist, -apple-system), BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
 }
 
-.today-action-sheet {
-  min-height: calc(286px + var(--safe-bottom));
+.today-action-drawer {
+  height: calc(140px + var(--safe-bottom));
+  min-height: calc(140px + var(--safe-bottom));
+  max-height: calc(140px + var(--safe-bottom));
+  overflow: hidden;
 }
 
 .today-title-overlay {
@@ -158,45 +161,61 @@ select {
 .today-action-list.adm-list {
   --padding-left: 0;
   --padding-right: 0;
-  --prefix-width: 2.5rem;
-  --prefix-padding-right: 1rem;
+  --prefix-width: 2rem;
+  --prefix-padding-right: 0;
   --active-background-color: rgb(0 0 0 / 2.5%);
+  margin-top: 0.75rem;
   background: transparent;
 }
 
 .today-action-list .adm-list-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
   background: transparent;
+}
+
+.today-action-list .adm-list-body-inner {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
 }
 
 .today-action-list .adm-list-item {
-  min-height: 72px;
-  padding-left: 0;
-  border-radius: 1.35rem;
-  background: transparent;
+  min-height: 82px;
+  padding-left: 0.35rem;
+  border-radius: 1.1rem;
+  background: rgb(255 255 255 / 32%);
 }
 
 .today-action-list .adm-list-item-content {
-  min-height: 72px;
+  min-height: 82px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   padding-right: 0;
+  text-align: center;
 }
 
 .today-action-list .adm-list-item-content-main {
   padding-block: 0;
   color: var(--foreground);
-  font-size: 18px;
+  font-size: 13px;
   font-weight: 600;
-  line-height: 22px;
+  line-height: 15px;
 }
 
 .today-action-list .adm-list-item-description {
-  margin-top: 0.25rem;
+  margin-top: 0.15rem;
   color: color-mix(in oklab, var(--foreground) 55%, transparent);
-  font-size: 15px;
+  font-size: 11px;
   font-weight: 400;
-  line-height: 18px;
+  line-height: 13px;
+}
+
+.today-action-list .adm-list-item-content-prefix {
+  padding-right: 0;
+}
+
+.today-action-list .adm-list-item-content-extra {
+  display: none;
 }
 
 #timeline {

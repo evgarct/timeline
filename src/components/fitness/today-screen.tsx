@@ -5,7 +5,7 @@ import type { EventType, TimelineEvent } from "@/domain/events";
 import { latestEvent } from "@/domain/timeline";
 import type { Copy } from "@/i18n/messages";
 import { EventComposer } from "./event-composer";
-import { TodayActionSheet, TodayHero, TodayTimelineSection, groupTodayEvents } from "./today-screen-parts";
+import { TodayActionDrawer, TodayHero, TodayTimelineSection, groupTodayEvents } from "./today-screen-parts";
 
 const IPHONE_15_PRO_SAFE_AREA_TOP = 59;
 
@@ -104,7 +104,7 @@ export function TodayScreen({
         heroThumbnailUrl={heroPhoto?.thumbnailUrl ?? heroPhoto?.url}
         onSelect={setComposer}
       >
-        <TodayActionSheet copy={copy} events={events} onSelect={setComposer} />
+        <TodayActionDrawer copy={copy} events={events} onSelect={setComposer} />
       </TodayHero>
       <TodayTimelineSection locale={locale} copy={copy} grouped={grouped} onSelect={setComposer} />
 

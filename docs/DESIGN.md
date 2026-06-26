@@ -59,8 +59,9 @@ This document is the design source of truth for UI work in this repository. Read
 - Today motion: use slow, low-amplitude photo motion and soft fade/translate transitions. Avoid bounce, carousel-like speed, flashy effects, and motion that competes with the photo.
 - Today context: photo overlays may show memory-like context such as date, day, time, place, or training phase. Body metrics are hidden until the user explicitly asks for details.
 - Today actions sheet: daily actions sit in an iOS-like glass bottom sheet over the photo. Keep actions calm, row-based, monochrome, and free of warning colors or progress percentages.
-- Today bottom sheet sizing: default to a low Apple Maps-like sheet around 270-290px above the safe area, with one airy row list instead of separate action cards.
+- Today bottom drawer sizing: default to a compact 100-150px preview above the safe area, with all daily action items visible in that preview.
 - Today bottom sheet material: keep the sheet translucent enough that the photo still reads underneath it; prefer stronger blur and lighter opacity over a flat white container.
+- Today drawer preview: the first viewport bottom drawer is pinned to the viewport bottom; PWA initial safe-area scroll may crop the photo but must not move the drawer.
 - Storage usage in Settings: show quota as compact profile metadata, not as a separate billing page.
 - Landing/product bridge: landing primary CTA opens the product for signed-in users; product header keeps a compact link back to landing.
 
