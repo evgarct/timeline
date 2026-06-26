@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "antd-mobile/es/global/global.css";
+@import "antd-mobile/es/components/list/list.css";
+@import "antd-mobile/es/components/safe-area/safe-area.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -22,8 +25,9 @@
   --input: var(--border);
   --ring: oklch(0.42 0.015 70);
   --radius: 1rem;
-  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--ios-status-area));
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ios-status-area: 0px;
   --shadow-soft: 0 12px 32px rgb(49 39 30 / 7%);
   --background: oklch(0.975 0.009 75);
   --app-html-background: var(--background);
@@ -97,6 +101,7 @@ html {
   background: var(--app-html-background);
   color: var(--foreground);
   scroll-behavior: smooth;
+  scroll-padding-top: var(--safe-top);
 }
 
 body {
@@ -130,6 +135,63 @@ select {
   padding-top: 0;
   padding-bottom: 0;
   font-family: var(--font-geist, -apple-system), BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+}
+
+.today-action-sheet {
+  min-height: calc(286px + var(--safe-bottom));
+}
+
+.today-title-overlay {
+  top: var(--safe-top);
+  padding-top: calc(var(--safe-top) + 20px);
+}
+
+.today-action-list.adm-list {
+  --padding-left: 0;
+  --padding-right: 0;
+  --prefix-width: 2.5rem;
+  --prefix-padding-right: 1rem;
+  --active-background-color: rgb(0 0 0 / 2.5%);
+  background: transparent;
+}
+
+.today-action-list .adm-list-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: transparent;
+}
+
+.today-action-list .adm-list-item {
+  min-height: 72px;
+  padding-left: 0;
+  border-radius: 1.35rem;
+  background: transparent;
+}
+
+.today-action-list .adm-list-item-content {
+  min-height: 72px;
+  padding-right: 0;
+}
+
+.today-action-list .adm-list-item-content-main {
+  padding-block: 0;
+  color: var(--foreground);
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 22px;
+}
+
+.today-action-list .adm-list-item-description {
+  margin-top: 0.25rem;
+  color: color-mix(in oklab, var(--foreground) 55%, transparent);
+  font-size: 15px;
+  font-weight: 400;
+  line-height: 18px;
+}
+
+#timeline {
+  scroll-margin-top: var(--safe-top);
 }
 
 .surface {
@@ -193,6 +255,14 @@ select {
   .today-photo-motion {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  @media (max-width: 480px) and (orientation: portrait) {
+    :root {
+      --ios-status-area: 59px;
+    }
   }
 }
 

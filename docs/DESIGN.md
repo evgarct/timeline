@@ -37,6 +37,7 @@ This document is the design source of truth for UI work in this repository. Read
 ## Components
 
 - Use the existing shadcn/ui primitives and local components before creating new UI.
+- For mobile-first product surfaces, prefer Ant Design Mobile primitives for native mobile structure such as safe areas, lists, sheets, and touch-first controls, then theme them through local tokens so they still match the Fitness Timeline visual language.
 - UI development starts in Storybook. Add or update stories for every new or meaningfully changed screen, component, and state before verifying the integrated app.
 - Storybook coverage should include loading/empty/error/success states, mobile-first layout states, important localized variants, and interaction states that can be represented without live services.
 - Prefer component-level Storybook iteration to broad app-level editing so UI work stays focused, reviewable, and cheap to reason about.
