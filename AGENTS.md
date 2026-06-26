@@ -25,6 +25,7 @@
 - In `E2E_DEMO_MODE`, media/upload/storage paths must avoid linked Neon reads and writes; use in-memory repositories or explicit route mocks for browser tests.
 - Before declaring browser photo upload broken from a local preview, verify the R2 bucket CORS allows the exact preview origin, including host and port for both `localhost` and `127.0.0.1`.
 - For iOS PWA safe-area/status-bar fixes, verify the raw install-time head includes `viewport-fit=cover`, `apple-mobile-web-app-capable=yes`, and `apple-mobile-web-app-status-bar-style=black-translucent`; also verify rendered geometry proves the fullscreen surface extends upward by `safe-area-inset-top`, not just that overlay controls are padded.
+- Safe-area UI should use Ant Design Mobile `SafeArea` as the primary design-system primitive; custom CSS variables are allowed only as fallback or compensation around that primitive.
 - When a safe-area fix requires an initial scroll offset, verify the actual mobile `window.scrollY` after first render; CSS `scroll-padding`, `scroll-margin`, or element geometry alone does not prove the page was scrolled.
 - If the initial scroll is intended to visually crop only the photo/background, compensate foreground overlay padding by the same offset and verify the foreground text position is unchanged.
 - For installed-app-only behavior, detect PWA standalone mode with `matchMedia("(display-mode: standalone)")` and iOS `navigator.standalone`; do not substitute touch-device detection.

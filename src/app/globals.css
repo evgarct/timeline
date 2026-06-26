@@ -143,8 +143,16 @@ select {
 }
 
 .today-title-overlay {
-  top: var(--safe-top);
-  padding-top: calc(var(--safe-top) + var(--today-initial-scroll-offset) + 20px);
+  top: 0;
+  padding-top: var(--today-initial-scroll-offset);
+}
+
+.today-title-safe-area {
+  padding-top: var(--safe-top);
+}
+
+.today-title-content {
+  padding-top: 20px;
 }
 
 .today-action-list.adm-list {

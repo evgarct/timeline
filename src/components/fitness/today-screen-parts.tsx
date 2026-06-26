@@ -155,9 +155,12 @@ export function TodayHero({
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[220px] bg-[linear-gradient(to_bottom,rgb(0_0_0/46%),rgb(0_0_0/22%)_48%,transparent_100%)]" />
 
       <div data-testid="today-title-overlay" className="today-title-overlay pointer-events-none absolute inset-x-0 z-20 px-6 text-white drop-shadow-sm">
-        <h1 className="text-[43px] font-bold leading-[47px] tracking-normal">{copy.today}</h1>
-        <p className="mt-3 text-[24px] font-medium leading-[28px] text-white/80">{dateLabel(heroDate, locale)}</p>
-        <p className="mt-4 text-[17px] font-normal capitalize leading-[21px] text-white/65">{copy.morning}</p>
+        <SafeArea position="top" className="today-title-safe-area" />
+        <div className="today-title-content">
+          <h1 className="text-[43px] font-bold leading-[47px] tracking-normal">{copy.today}</h1>
+          <p className="mt-3 text-[24px] font-medium leading-[28px] text-white/80">{dateLabel(heroDate, locale)}</p>
+          <p className="mt-4 text-[17px] font-normal capitalize leading-[21px] text-white/65">{copy.morning}</p>
+        </div>
       </div>
       {children}
     </section>
