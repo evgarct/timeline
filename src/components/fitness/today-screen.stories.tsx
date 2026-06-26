@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { expect, waitFor } from "storybook/test";
 import { seedEvents } from "@/data/seed";
 import type { TimelineEvent } from "@/domain/events";
 import { getMessages } from "@/i18n/messages";
@@ -51,3 +52,86 @@ export const CompletedActions: Story = {
 };
 export const English: Story = { args: { locale: "en", copy: getMessages("en") } };
 export const Czech: Story = { args: { locale: "cs", copy: getMessages("cs") } };
+
+export const PwaNarrowRefreshSafeAreaScroll: Story = {
+  name: "PWA narrow refresh safe-area scroll",
+  beforeEach: () => {
+    const previousMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = ((query: string) => {
+      if (query === "(display-mode: standalone)") {
+        return {
+          matches: true,
+          media: query,
+          onchange: null,
+          addListener: () => undefined,
+          removeListener: () => undefined,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          dispatchEvent: () => true
+        };
+      }
+
+      return previousMatchMedia(query);
+    }) as typeof window.matchMedia;
+
+    window.scrollTo(0, 0);
+
+    return () => {
+      window.matchMedia = previousMatchMedia;
+      window.scrollTo(0, 0);
+    };
+  },
+  play: async () => {
+    await waitFor(() => expect(Math.round(window.scrollY)).toBe(59));
+    const title = document.querySelector('[data-testid="today-title-overlay"] h1');
+    await expect(title?.getBoundingClientRect().top).toBeGreaterThanOrEqual(19);
+    await expect(title?.getBoundingClientRect().top).toBeLessThanOrEqual(21);
+    const drawer = document.querySelector('[data-testid="today-action-drawer"]');
+    await waitFor(() => {
+      const drawerRect = drawer?.getBoundingClientRect();
+      const visibleDrawerHeight = window.innerHeight - (drawerRect?.top ?? window.innerHeight);
+      expect(visibleDrawerHeight).toBeGreaterThanOrEqual(100);
+      expect(visibleDrawerHeight).toBeLessThanOrEqual(150);
+    });
+    await expect(document.querySelectorAll("[data-testid='today-action-workout'], [data-testid='today-action-measurements'], [data-testid='today-action-progress_photo']").length).toBe(3);
+  },
+  parameters: {
+    viewport: {
+      value: "iphone",
+      isRotated: false
+    },
+    docs: {
+      description: {
+        story: "Reproduces refreshing the Today screen in installed PWA standalone mode while Storybook is already in a narrow mobile viewport. The screen must start scrolled down by the iPhone 15 Pro safe-area height."
+      }
+    }
+  }
+};
+
+export const PwaDraggableActionDrawer: Story = {
+  name: "PWA draggable action drawer",
+  beforeEach: PwaNarrowRefreshSafeAreaScroll.beforeEach,
+  play: async () => {
+    await waitFor(() => expect(Math.round(window.scrollY)).toBe(59));
+    const drawer = document.querySelector('[data-testid="today-action-drawer"]');
+    await waitFor(() => {
+      const drawerRect = drawer?.getBoundingClientRect();
+      const visibleDrawerHeight = window.innerHeight - (drawerRect?.top ?? window.innerHeight);
+      expect(visibleDrawerHeight).toBeGreaterThanOrEqual(100);
+      expect(visibleDrawerHeight).toBeLessThanOrEqual(150);
+      expect(drawer?.getAttribute("data-expanded")).toBe("false");
+    });
+    await expect(document.querySelectorAll("[data-testid='today-action-workout'], [data-testid='today-action-measurements'], [data-testid='today-action-progress_photo']").length).toBe(3);
+  },
+  parameters: {
+    viewport: {
+      value: "iphone",
+      isRotated: false
+    },
+    docs: {
+      description: {
+        story: "Focused regression for the iPhone PWA case: initial content is safe-area scrolled, the bottom drawer starts as a small low-emphasis text list, and browser verification drags it upward into the expanded card state."
+      }
+    }
+  }
+};

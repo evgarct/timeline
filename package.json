@@ -55,6 +55,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@neondatabase/auth": "^0.4.2-beta",
     "@neondatabase/serverless": "^1.1.0",
+    "antd-mobile": "^5.42.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.4.0",

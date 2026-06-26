@@ -10,7 +10,12 @@
 - Keep all visible UI text in the RU/EN/CS message dictionaries.
 - Before UI or visual design work, read `docs/DESIGN.md` and use it as the repo design source of truth; after the user approves a UI result, add durable principles or accepted examples there.
 - Develop product UI through Storybook first: every new or meaningfully changed screen, component, and state needs an isolated story before app-level verification.
+- When a UI bug is reproducible in Storybook, add or update a focused story that reproduces that exact case before signing off on the fix.
 - Build UI through the design system by default. Reuse shadcn/ui primitives, local shared components, tokens, and established composition patterns before creating bespoke markup or styling.
+- Persistent bottom drawers and drawer previews should use the local shadcn/Vaul `Drawer` primitive before custom fixed panels, and Storybook geometry checks should prove their bottom position is unchanged by PWA initial scroll offsets.
+- For draggable drawer previews, verify both the collapsed snap point and an actual mouse or touch drag to the expanded snap point in Storybook/browser checks.
+- For mobile-first app surfaces, use Ant Design Mobile primitives where they provide native mobile structure, but import their CSS from the root global stylesheet and keep wrappers Storybook-backed.
+- Avoid Ant Design Mobile components that read `window` during render on server-rendered app surfaces unless they are guarded behind a client-only boundary.
 - When the user provides an explicit design specification for implemented UI, update `docs/DESIGN.md` in the same change with the durable product/design principles unless the user labels it as a temporary experiment.
 - For reviewable implementation work, finish by committing, pushing, opening a PR, and verifying the PR head unless the user explicitly asks not to create a PR.
 - Run Playwright with `E2E_DEMO_MODE=true`; E2E must never send real Neon OTP emails or write test events to the linked Neon database.
@@ -22,6 +27,10 @@
 - In `E2E_DEMO_MODE`, media/upload/storage paths must avoid linked Neon reads and writes; use in-memory repositories or explicit route mocks for browser tests.
 - Before declaring browser photo upload broken from a local preview, verify the R2 bucket CORS allows the exact preview origin, including host and port for both `localhost` and `127.0.0.1`.
 - For iOS PWA safe-area/status-bar fixes, verify the raw install-time head includes `viewport-fit=cover`, `apple-mobile-web-app-capable=yes`, and `apple-mobile-web-app-status-bar-style=black-translucent`; also verify rendered geometry proves the fullscreen surface extends upward by `safe-area-inset-top`, not just that overlay controls are padded.
+- Safe-area UI should use Ant Design Mobile `SafeArea` as the primary design-system primitive; custom CSS variables are allowed only as fallback or compensation around that primitive.
+- When a safe-area fix requires an initial scroll offset, verify the actual mobile `window.scrollY` after first render; CSS `scroll-padding`, `scroll-margin`, or element geometry alone does not prove the page was scrolled.
+- If the initial scroll is intended to visually crop only the photo/background, compensate foreground overlay padding by the same offset and verify the foreground text position is unchanged.
+- For installed-app-only behavior, detect PWA standalone mode with `matchMedia("(display-mode: standalone)")` and iOS `navigator.standalone`; do not substitute touch-device detection.
 - Generate Drizzle schema changes with `npm run db:generate` and keep the generated SQL plus `drizzle/meta` snapshot together; do not hand-add migrations without matching metadata.
 - After Next.js build/dev commands, do not commit incidental `next-env.d.ts` route-type import churn unless typed-route configuration intentionally changed.
 - Do not run `npm run typecheck` in parallel with `npm run build`; Next.js can regenerate `.next/types` during build and make `tsc --noEmit` fail on transient missing route-type files.

@@ -37,6 +37,7 @@ This document is the design source of truth for UI work in this repository. Read
 ## Components
 
 - Use the existing shadcn/ui primitives and local components before creating new UI.
+- For mobile-first product surfaces, prefer Ant Design Mobile primitives for native mobile structure such as safe areas, lists, sheets, and touch-first controls, then theme them through local tokens so they still match the Fitness Timeline visual language.
 - UI development starts in Storybook. Add or update stories for every new or meaningfully changed screen, component, and state before verifying the integrated app.
 - Storybook coverage should include loading/empty/error/success states, mobile-first layout states, important localized variants, and interaction states that can be represented without live services.
 - Prefer component-level Storybook iteration to broad app-level editing so UI work stays focused, reviewable, and cheap to reason about.
@@ -58,8 +59,10 @@ This document is the design source of truth for UI work in this repository. Read
 - Today motion: use slow, low-amplitude photo motion and soft fade/translate transitions. Avoid bounce, carousel-like speed, flashy effects, and motion that competes with the photo.
 - Today context: photo overlays may show memory-like context such as date, day, time, place, or training phase. Body metrics are hidden until the user explicitly asks for details.
 - Today actions sheet: daily actions sit in an iOS-like glass bottom sheet over the photo. Keep actions calm, row-based, monochrome, and free of warning colors or progress percentages.
-- Today bottom sheet sizing: default to a low Apple Maps-like sheet around 270-290px above the safe area, with one airy row list instead of separate action cards.
+- Today bottom drawer sizing: default to a compact 100-150px preview above the safe area, with all daily action items visible in that preview.
+- Today bottom drawer behavior: the compact preview should read as a quiet text list; dragging it upward should smoothly expand it into full action cards with icons, status details, and stronger material styling.
 - Today bottom sheet material: keep the sheet translucent enough that the photo still reads underneath it; prefer stronger blur and lighter opacity over a flat white container.
+- Today drawer preview: the first viewport bottom drawer is pinned to the viewport bottom; PWA initial safe-area scroll may crop the photo but must not move the drawer.
 - Storage usage in Settings: show quota as compact profile metadata, not as a separate billing page.
 - Landing/product bridge: landing primary CTA opens the product for signed-in users; product header keeps a compact link back to landing.
 
