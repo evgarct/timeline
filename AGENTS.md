@@ -10,6 +10,7 @@
 - Keep all visible UI text in the RU/EN/CS message dictionaries.
 - Before UI or visual design work, read `docs/DESIGN.md` and use it as the repo design source of truth; after the user approves a UI result, add durable principles or accepted examples there.
 - Develop product UI through Storybook first: every new or meaningfully changed screen, component, and state needs an isolated story before app-level verification.
+- When a UI bug is reproducible in Storybook, add or update a focused story that reproduces that exact case before signing off on the fix.
 - Build UI through the design system by default. Reuse shadcn/ui primitives, local shared components, tokens, and established composition patterns before creating bespoke markup or styling.
 - For mobile-first app surfaces, use Ant Design Mobile primitives where they provide native mobile structure, but import their CSS from the root global stylesheet and keep wrappers Storybook-backed.
 - Avoid Ant Design Mobile components that read `window` during render on server-rendered app surfaces unless they are guarded behind a client-only boundary.

@@ -22,8 +22,7 @@ function initialSafeAreaScrollOffset() {
 function shouldApplyInitialSafeAreaScroll() {
   if (window.location.hash) return false;
   if (Math.abs(window.scrollY) > 1) return false;
-  if (!window.matchMedia("(max-width: 480px) and (orientation: portrait)").matches) return false;
-  return navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+  return window.matchMedia("(max-width: 480px) and (orientation: portrait)").matches;
 }
 
 export function TodayScreen({

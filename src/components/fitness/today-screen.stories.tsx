@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import { expect, waitFor } from "storybook/test";
 import { seedEvents } from "@/data/seed";
 import type { TimelineEvent } from "@/domain/events";
 import { getMessages } from "@/i18n/messages";
@@ -51,3 +52,26 @@ export const CompletedActions: Story = {
 };
 export const English: Story = { args: { locale: "en", copy: getMessages("en") } };
 export const Czech: Story = { args: { locale: "cs", copy: getMessages("cs") } };
+
+export const NarrowRefreshSafeAreaScroll: Story = {
+  name: "Narrow refresh safe-area scroll",
+  beforeEach: () => {
+    window.scrollTo(0, 0);
+
+    return () => window.scrollTo(0, 0);
+  },
+  play: async () => {
+    await waitFor(() => expect(Math.round(window.scrollY)).toBe(59));
+  },
+  parameters: {
+    viewport: {
+      value: "iphone",
+      isRotated: false
+    },
+    docs: {
+      description: {
+        story: "Reproduces refreshing the Today screen while Storybook is already in a narrow mobile viewport. The screen must start scrolled down by the iPhone 15 Pro safe-area height."
+      }
+    }
+  }
+};
