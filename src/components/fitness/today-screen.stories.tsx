@@ -53,12 +53,33 @@ export const CompletedActions: Story = {
 export const English: Story = { args: { locale: "en", copy: getMessages("en") } };
 export const Czech: Story = { args: { locale: "cs", copy: getMessages("cs") } };
 
-export const NarrowRefreshSafeAreaScroll: Story = {
-  name: "Narrow refresh safe-area scroll",
+export const PwaNarrowRefreshSafeAreaScroll: Story = {
+  name: "PWA narrow refresh safe-area scroll",
   beforeEach: () => {
+    const previousMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = ((query: string) => {
+      if (query === "(display-mode: standalone)") {
+        return {
+          matches: true,
+          media: query,
+          onchange: null,
+          addListener: () => undefined,
+          removeListener: () => undefined,
+          addEventListener: () => undefined,
+          removeEventListener: () => undefined,
+          dispatchEvent: () => true
+        };
+      }
+
+      return previousMatchMedia(query);
+    }) as typeof window.matchMedia;
+
     window.scrollTo(0, 0);
 
-    return () => window.scrollTo(0, 0);
+    return () => {
+      window.matchMedia = previousMatchMedia;
+      window.scrollTo(0, 0);
+    };
   },
   play: async () => {
     await waitFor(() => expect(Math.round(window.scrollY)).toBe(59));
@@ -70,7 +91,7 @@ export const NarrowRefreshSafeAreaScroll: Story = {
     },
     docs: {
       description: {
-        story: "Reproduces refreshing the Today screen while Storybook is already in a narrow mobile viewport. The screen must start scrolled down by the iPhone 15 Pro safe-area height."
+        story: "Reproduces refreshing the Today screen in installed PWA standalone mode while Storybook is already in a narrow mobile viewport. The screen must start scrolled down by the iPhone 15 Pro safe-area height."
       }
     }
   }

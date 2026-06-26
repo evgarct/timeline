@@ -19,9 +19,15 @@ function initialSafeAreaScrollOffset() {
   return Math.max(IPHONE_15_PRO_SAFE_AREA_TOP, ...safeTopValues);
 }
 
+function isStandalonePwa() {
+  const navigatorWithStandalone = navigator as Navigator & { standalone?: boolean };
+  return window.matchMedia("(display-mode: standalone)").matches || navigatorWithStandalone.standalone === true;
+}
+
 function shouldApplyInitialSafeAreaScroll() {
   if (window.location.hash) return false;
   if (Math.abs(window.scrollY) > 1) return false;
+  if (!isStandalonePwa()) return false;
   return window.matchMedia("(max-width: 480px) and (orientation: portrait)").matches;
 }
 
