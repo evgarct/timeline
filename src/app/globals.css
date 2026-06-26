@@ -28,6 +28,7 @@
   --safe-top: max(env(safe-area-inset-top, 0px), var(--ios-status-area));
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --ios-status-area: 0px;
+  --today-initial-scroll-offset: 0px;
   --shadow-soft: 0 12px 32px rgb(49 39 30 / 7%);
   --background: oklch(0.975 0.009 75);
   --app-html-background: var(--background);
@@ -143,7 +144,7 @@ select {
 
 .today-title-overlay {
   top: var(--safe-top);
-  padding-top: calc(var(--safe-top) + 20px);
+  padding-top: calc(var(--safe-top) + var(--today-initial-scroll-offset) + 20px);
 }
 
 .today-action-list.adm-list {

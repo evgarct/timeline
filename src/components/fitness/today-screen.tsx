@@ -74,13 +74,24 @@ export function TodayScreen({
   }, [heroBackground]);
 
   useEffect(() => {
+    const root = document.documentElement;
+    const previousScrollOffset = root.style.getPropertyValue("--today-initial-scroll-offset");
+    let appliedScrollOffset = false;
     const frame = window.requestAnimationFrame(() => {
       if (!shouldApplyInitialSafeAreaScroll()) return;
       const offset = initialSafeAreaScrollOffset();
-      if (offset > 0) window.scrollTo(0, offset);
+      if (offset <= 0) return;
+      root.style.setProperty("--today-initial-scroll-offset", `${offset}px`);
+      appliedScrollOffset = true;
+      window.scrollTo(0, offset);
     });
 
-    return () => window.cancelAnimationFrame(frame);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      if (!appliedScrollOffset) return;
+      if (previousScrollOffset) root.style.setProperty("--today-initial-scroll-offset", previousScrollOffset);
+      else root.style.removeProperty("--today-initial-scroll-offset");
+    };
   }, []);
 
   return (

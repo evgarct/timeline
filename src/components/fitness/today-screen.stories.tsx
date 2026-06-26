@@ -83,6 +83,9 @@ export const PwaNarrowRefreshSafeAreaScroll: Story = {
   },
   play: async () => {
     await waitFor(() => expect(Math.round(window.scrollY)).toBe(59));
+    const title = document.querySelector('[data-testid="today-title-overlay"] h1');
+    await expect(title?.getBoundingClientRect().top).toBeGreaterThanOrEqual(19);
+    await expect(title?.getBoundingClientRect().top).toBeLessThanOrEqual(21);
   },
   parameters: {
     viewport: {
