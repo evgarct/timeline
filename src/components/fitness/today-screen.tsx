@@ -7,6 +7,25 @@ import type { Copy } from "@/i18n/messages";
 import { EventComposer } from "./event-composer";
 import { TodayActionSheet, TodayHero, TodayTimelineSection, groupTodayEvents } from "./today-screen-parts";
 
+const IPHONE_15_PRO_SAFE_AREA_TOP = 59;
+
+function initialSafeAreaScrollOffset() {
+  const rootStyle = getComputedStyle(document.documentElement);
+  const scrollPaddingTop = Number.parseFloat(rootStyle.scrollPaddingTop);
+  if (Number.isFinite(scrollPaddingTop) && scrollPaddingTop > 0) return scrollPaddingTop;
+
+  const safeTop = rootStyle.getPropertyValue("--safe-top");
+  const safeTopValues = safeTop.match(/\d+(\.\d+)?px/g)?.map((value) => Number.parseFloat(value)) ?? [];
+  return Math.max(IPHONE_15_PRO_SAFE_AREA_TOP, ...safeTopValues);
+}
+
+function shouldApplyInitialSafeAreaScroll() {
+  if (window.location.hash) return false;
+  if (Math.abs(window.scrollY) > 1) return false;
+  if (!window.matchMedia("(max-width: 480px) and (orientation: portrait)").matches) return false;
+  return navigator.maxTouchPoints > 0 || "ontouchstart" in window;
+}
+
 export function TodayScreen({
   locale,
   copy,
@@ -48,6 +67,16 @@ export function TodayScreen({
       else root.style.removeProperty("--app-body-background");
     };
   }, [heroBackground]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      if (!shouldApplyInitialSafeAreaScroll()) return;
+      const offset = initialSafeAreaScrollOffset();
+      if (offset > 0) window.scrollTo(0, offset);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
 
   return (
     <main className="app-shell today-shell relative min-h-screen overflow-x-hidden bg-background" style={heroStyle}>

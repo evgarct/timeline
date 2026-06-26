@@ -24,6 +24,7 @@
 - In `E2E_DEMO_MODE`, media/upload/storage paths must avoid linked Neon reads and writes; use in-memory repositories or explicit route mocks for browser tests.
 - Before declaring browser photo upload broken from a local preview, verify the R2 bucket CORS allows the exact preview origin, including host and port for both `localhost` and `127.0.0.1`.
 - For iOS PWA safe-area/status-bar fixes, verify the raw install-time head includes `viewport-fit=cover`, `apple-mobile-web-app-capable=yes`, and `apple-mobile-web-app-status-bar-style=black-translucent`; also verify rendered geometry proves the fullscreen surface extends upward by `safe-area-inset-top`, not just that overlay controls are padded.
+- When a safe-area fix requires an initial scroll offset, verify the actual mobile `window.scrollY` after first render; CSS `scroll-padding`, `scroll-margin`, or element geometry alone does not prove the page was scrolled.
 - Generate Drizzle schema changes with `npm run db:generate` and keep the generated SQL plus `drizzle/meta` snapshot together; do not hand-add migrations without matching metadata.
 - After Next.js build/dev commands, do not commit incidental `next-env.d.ts` route-type import churn unless typed-route configuration intentionally changed.
 - Do not run `npm run typecheck` in parallel with `npm run build`; Next.js can regenerate `.next/types` during build and make `tsc --noEmit` fail on transient missing route-type files.
