@@ -13,7 +13,8 @@ final class TodayStore {
 
     private(set) var state: State = .idle
     private(set) var events: [TimelineEvent] = []
-    private(set) var steps: StepCountState = .idle
+    private(set) var steps: StepCountState = .value(12_000)
+    private(set) var isRefreshingSteps = false
 
     private let repository: any TimelineRepository
     private let stepProvider: any StepCountProviding
@@ -46,24 +47,26 @@ final class TodayStore {
 
     func refresh() async {
         if events.isEmpty { state = .loading }
-        async let remoteEvents = repository.events()
-        async let stepState = stepProvider.todaySteps()
         do {
-            events = try await remoteEvents.sorted { $0.base.occurredAt > $1.base.occurredAt }
-            steps = await stepState
+            events = try await repository.events().sorted { $0.base.occurredAt > $1.base.occurredAt }
             state = .loaded
         } catch TimelineRepositoryError.unauthorized {
             state = .failed(String(localized: "today.error.session"))
-            steps = await stepState
         } catch {
             state = .failed(String(localized: "today.error.network"))
-            steps = await stepState
         }
+    }
+
+    func refreshSteps() async {
+        guard !isRefreshingSteps else { return }
+        isRefreshingSteps = true
+        defer { isRefreshingSteps = false }
+        steps = await stepProvider.todaySteps()
     }
 
     func reset() {
         events = []
-        steps = .idle
+        steps = .value(12_000)
         state = .idle
     }
 }

@@ -8,6 +8,9 @@ struct TodayView: View {
     @State private var galleryPresented = false
     @State private var settingsPresented = false
     @State private var unavailableAction: UnavailableAction?
+    @State private var goalEditorPresented = false
+    @State private var goalDraft = "12000"
+    @AppStorage("activity.stepGoal") private var stepGoal = 12_000
 
     enum UnavailableAction: String, Identifiable {
         case compare, share
@@ -16,15 +19,24 @@ struct TodayView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    hero(height: proxy.size.height + proxy.safeAreaInsets.top)
-                    timelineDetails
+            let heroHeight = proxy.size.height + proxy.safeAreaInsets.top
+            ZStack(alignment: .top) {
+                fixedPhotoBackground(height: heroHeight)
+
+                ScrollView {
+                    LazyVStack(spacing: 0) {
+                        heroChrome(height: heroHeight)
+                        timelineDetails
+                    }
+                    .scrollTargetLayout()
                 }
-                .scrollTargetLayout()
+                .ignoresSafeArea(edges: .top)
+                .refreshable {
+                    async let timeline: Void = store.refresh()
+                    async let steps: Void = store.refreshSteps()
+                    _ = await (timeline, steps)
+                }
             }
-            .ignoresSafeArea(edges: .top)
-            .refreshable { await store.refresh() }
             .background(Color.black)
         }
         .sheet(isPresented: $galleryPresented) {
@@ -40,34 +52,48 @@ struct TodayView: View {
                 dismissButton: .default(Text("common.ok"))
             )
         }
+        .alert("activity.goal.title", isPresented: $goalEditorPresented) {
+            TextField("activity.goal.placeholder", text: $goalDraft)
+                .keyboardType(.numberPad)
+            Button("common.cancel", role: .cancel) {}
+            Button("common.save") { saveStepGoal() }
+        } message: {
+            Text("activity.goal.message")
+        }
         .task { if store.state == .idle { await store.refresh() } }
     }
 
     @ViewBuilder
-    private func hero(height: CGFloat) -> some View {
+    private func fixedPhotoBackground(height: CGFloat) -> some View {
+        ZStack {
+            Color.black
+            VStack(spacing: 0) {
+                photoPager
+                    .frame(height: max(520, height - 178))
+                    .clipped()
+                Spacer(minLength: 0)
+            }
+            LinearGradient(
+                stops: [
+                    .init(color: .black.opacity(0.48), location: 0),
+                    .init(color: .clear, location: 0.22),
+                    .init(color: .clear, location: 0.66),
+                    .init(color: .black.opacity(0.9), location: 0.82),
+                    .init(color: .black, location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+        }
+        .frame(height: height)
+        .ignoresSafeArea()
+        .allowsHitTesting(false)
+    }
+
+    @ViewBuilder
+    private func heroChrome(height: CGFloat) -> some View {
         VStack(spacing: 0) {
             ZStack {
-                Color.black
-
-                VStack(spacing: 0) {
-                    photoPager
-                        .frame(height: max(520, height - 178))
-                        .clipped()
-                    Spacer(minLength: 0)
-                }
-
-                LinearGradient(
-                    stops: [
-                        .init(color: .black.opacity(0.48), location: 0),
-                        .init(color: .clear, location: 0.22),
-                        .init(color: .clear, location: 0.66),
-                        .init(color: .black.opacity(0.9), location: 0.82),
-                        .init(color: .black, location: 1)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-
                 VStack(spacing: 0) {
                     header
                     Spacer()
@@ -78,6 +104,8 @@ struct TodayView: View {
                 .padding(.bottom, 8)
             }
             .frame(height: height)
+            .contentShape(Rectangle())
+            .simultaneousGesture(photoSelectionGesture)
 
             // Keep the next timeline heading entirely below the initial viewport,
             // including the system tab bar's overlay region on compact iPhones.
@@ -181,28 +209,77 @@ struct TodayView: View {
 
     private var summaryGlass: some View {
         HStack(spacing: 0) {
-            SummaryColumn(
+            MetricSummaryColumn(
                 title: "summary.nutrition",
-                value: String(localized: "summary.empty"),
-                caption: String(localized: "summary.nutrition.soon")
+                value: "2 083",
+                unit: String(localized: "summary.calories.unit"),
+                target: String(localized: "summary.nutrition.target"),
+                progress: 2_083.0 / 2_200.0,
+                footer: String(localized: "summary.nutrition.macros")
             )
             Divider().overlay(.white.opacity(0.22)).padding(.vertical, 8)
-            SummaryColumn(
-                title: "summary.activity",
-                value: stepsValue,
-                caption: stepsCaption
-            )
-            Button { unavailableAction = .share } label: {
-                Image(systemName: "square.and.arrow.up").frame(width: 30, height: 30)
+            Button { Task { await store.refreshSteps() } } label: {
+                MetricSummaryColumn(
+                    title: "summary.activity",
+                    value: stepsValue,
+                    unit: String(localized: "summary.steps.unit.short"),
+                    target: stepTargetText,
+                    progress: stepProgress,
+                    footer: stepProgressText,
+                    accessory: store.isRefreshingSteps ? "arrow.triangle.2.circlepath" : "square.and.arrow.up"
+                )
+                .contentShape(Rectangle())
             }
-            .buttonStyle(.glass)
-            .controlSize(.small)
-            .accessibilityLabel("action.share")
+            .buttonStyle(.plain)
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.55)
+                    .onEnded { _ in
+                        goalDraft = String(stepGoal)
+                        goalEditorPresented = true
+                    }
+            )
+            .accessibilityLabel("activity.refresh.accessibility")
+            .accessibilityHint("activity.goal.accessibilityHint")
+            .accessibilityIdentifier("today.activity")
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .frame(height: 112)
+        .frame(height: 128)
         .glassEffect(.regular, in: .rect(cornerRadius: 30))
+    }
+
+    private var photoSelectionGesture: some Gesture {
+        DragGesture(minimumDistance: 24)
+            .onEnded { value in
+                guard abs(value.translation.width) > abs(value.translation.height), store.latestPhotos.count > 1 else { return }
+                withAnimation(.snappy) {
+                    if value.translation.width < 0 {
+                        selectedPhoto = min(selectedPhoto + 1, store.latestPhotos.count - 1)
+                    } else {
+                        selectedPhoto = max(selectedPhoto - 1, 0)
+                    }
+                }
+            }
+    }
+
+    private func saveStepGoal() {
+        guard let value = Int(goalDraft.filter(\.isNumber)), (1...100_000).contains(value) else { return }
+        stepGoal = value
+    }
+
+    private var stepTargetText: String {
+        String(format: String(localized: "summary.steps.target.format"), stepGoal.formatted())
+    }
+
+    private var stepProgress: Double {
+        guard case let .value(value) = store.steps, stepGoal > 0 else { return 0 }
+        return min(Double(value) / Double(stepGoal), 1)
+    }
+
+    private var stepProgressText: String {
+        guard case let .value(value) = store.steps, stepGoal > 0 else { return stepsCaption }
+        let percentage = Int((Double(value) / Double(stepGoal) * 100).rounded())
+        return String(format: String(localized: "summary.steps.progress.format"), percentage)
     }
 
     private var stepsValue: String {
@@ -239,28 +316,51 @@ struct TodayView: View {
     }
 }
 
-private struct SummaryColumn: View {
+private struct MetricSummaryColumn: View {
     let title: LocalizedStringKey
     let value: String
-    let caption: String
+    let unit: String
+    let target: String
+    let progress: Double
+    let footer: String
+    var accessory: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title)
-                .font(.system(size: 12, weight: .medium))
-                .tracking(0.5)
-                .textCase(.uppercase)
-                .foregroundStyle(.secondary)
-            Text(value)
-                .font(.system(size: 30, weight: .regular, design: .serif))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(caption)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                    .tracking(0.5)
+                    .textCase(.uppercase)
+                    .foregroundStyle(.secondary)
+                Spacer(minLength: 4)
+                if let accessory {
+                    Image(systemName: accessory)
+                        .font(.system(size: 13, weight: .medium))
+                        .frame(width: 28, height: 28)
+                        .glassEffect(.regular, in: .circle)
+                }
+            }
+            HStack(alignment: .lastTextBaseline, spacing: 5) {
+                Text(value)
+                    .font(.system(size: 32, weight: .regular, design: .serif))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+                Text(unit).font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            Text(target)
                 .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+            ProgressView(value: progress)
+                .tint(.white)
+                .scaleEffect(x: 1, y: 0.7, anchor: .center)
+            Text(footer)
+                .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
     }
 }
 
