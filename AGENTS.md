@@ -3,6 +3,7 @@
 - The native SwiftUI iPhone app is the primary product. The Next.js app remains the backend, MCP surface, and web companion.
 - `Documentation/` is the canonical product, architecture, design, feature, and AI knowledge base. Keep it synchronized with native behavior.
 - Develop native UI with deterministic SwiftUI `#Preview` states and iOS UI tests. Storybook remains mandatory only for changed web UI.
+- Before installing a production iOS build, inspect the signed app's Info.plist and reject truncated xcconfig URLs such as `https:`; write literal URLs in xcconfig as `https:/$()/host` because `//` begins a comment.
 - The iOS project is generated from `project.yml`; do not commit the generated `.xcodeproj`.
 
 - Keep Today and Timeline in one scroll document; do not create a separate Timeline route or navigation item.

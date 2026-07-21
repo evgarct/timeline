@@ -18,4 +18,4 @@ Timeline JSON is decoded into a closed native enum. Unknown future event types a
 
 ## Configuration
 
-`FORM_AUTH_BASE_URL` and `FORM_API_BASE_URL` are supplied through ignored `Config/Form.local.xcconfig`. Production signing values and secrets remain outside Git.
+`FORM_AUTH_BASE_URL` and `FORM_API_BASE_URL` are supplied through ignored `Config/Form.local.xcconfig`. Because `//` starts a comment in xcconfig syntax, HTTPS values must escape the first slash as `https:/$()/host`. The signed app must be inspected to prove both resulting Info.plist values are complete HTTPS URLs before device delivery. Production signing values and secrets remain outside Git.

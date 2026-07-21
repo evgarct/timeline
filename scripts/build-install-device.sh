@@ -44,8 +44,8 @@ fi
 
 for key in FormAuthBaseURL FormAPIBaseURL; do
   value="$(plutil -extract "$key" raw -o - "$app/Info.plist" 2>/dev/null || true)"
-  if [[ -z "$value" ]]; then
-    echo "Built app is missing $key. Configure Config/Form.local.xcconfig." >&2
+  if [[ ! "$value" =~ ^https://[^/]+ ]]; then
+    echo "Built app has an invalid $key ('$value'). Use https:/\$()/host in xcconfig." >&2
     exit 5
   fi
 done
