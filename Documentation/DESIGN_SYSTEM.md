@@ -7,8 +7,11 @@ Form is warm, monochrome, editorial, private, and photo-first. Avoid fitness gra
 ## Today
 
 - The latest vertical photo owns the first viewport and extends under all safe areas.
+- Treat the iPhone 15 Pro portrait viewport (393 × 852 points) as the primary composition: preserve nearly the full vertical photo, keep its subject clear, and reserve only the compact action and summary shelf at the bottom.
 - Readability comes from restrained black fades, not an opaque photo container.
 - Date and actions overlay the photo; measurements emerge below in the same scroll document.
+- The first Details heading must be completely outside the initial viewport, including behind the system tab bar; it appears only after an intentional upward scroll.
+- Match the approved reference with 18-point side gutters, an editorial serif date, compact uppercase labels, and tightly grouped system controls.
 - System Liquid Glass is used for interactive chrome and grouped summary surfaces. Do not reproduce it with custom blur stacks.
 - Use large serif system typography for dates and key values, SF Symbols for icons, and Dynamic Type everywhere else.
 

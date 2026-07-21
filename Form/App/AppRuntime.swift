@@ -45,9 +45,16 @@ final class AppRuntime {
         let session = FormSession()
         let auth = NeonAuthenticationClient(baseURL: configuration.authBaseURL, session: session)
         let repository = RemoteTimelineRepository(baseURL: configuration.apiBaseURL, session: session)
+        #if DEBUG
+        let steps: any StepCountProviding = ProcessInfo.processInfo.arguments.contains("-ui-testing-no-healthkit")
+            ? PreviewStepCountProvider(state: .value(9_420))
+            : HealthKitStepCountProvider()
+        #else
+        let steps: any StepCountProviding = HealthKitStepCountProvider()
+        #endif
         return AppRuntime(
             authentication: auth,
-            todayStore: TodayStore(repository: repository, steps: HealthKitStepCountProvider())
+            todayStore: TodayStore(repository: repository, steps: steps)
         )
     }
 
