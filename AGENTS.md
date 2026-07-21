@@ -1,5 +1,10 @@
 # Fitness Timeline repository rules
 
+- The native SwiftUI iPhone app is the primary product. The Next.js app remains the backend, MCP surface, and web companion.
+- `Documentation/` is the canonical product, architecture, design, feature, and AI knowledge base. Keep it synchronized with native behavior.
+- Develop native UI with deterministic SwiftUI `#Preview` states and iOS UI tests. Storybook remains mandatory only for changed web UI.
+- The iOS project is generated from `project.yml`; do not commit the generated `.xcodeproj`.
+
 - Keep Today and Timeline in one scroll document; do not create a separate Timeline route or navigation item.
 - New product capabilities must be represented as Timeline event types unless the user explicitly changes this product rule.
 - Treat progress photos and InBody originals as private data. Never place real user uploads or medical reports under `public/` or in test fixtures.

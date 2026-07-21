@@ -1,0 +1,103 @@
+import Foundation
+import Observation
+
+@MainActor
+@Observable
+final class AppRuntime {
+    enum SessionState: Equatable {
+        case restoring
+        case signedOut
+        case signedIn
+        case unavailable(String)
+    }
+
+    private(set) var sessionState: SessionState = .restoring
+    let todayStore: TodayStore
+    let authentication: any AuthenticationClient
+
+    init(
+        authentication: any AuthenticationClient,
+        todayStore: TodayStore,
+        sessionState: SessionState = .restoring
+    ) {
+        self.authentication = authentication
+        self.todayStore = todayStore
+        self.sessionState = sessionState
+    }
+
+    static func live(bundle: Bundle = .main) -> AppRuntime {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-today") {
+            return AppRuntime(
+                authentication: PreviewAuthenticationClient(signedIn: true),
+                todayStore: TodayStore(repository: PreviewTimelineRepository(), steps: PreviewStepCountProvider()),
+                sessionState: .signedIn
+            )
+        }
+        #endif
+        guard let configuration = FormConfiguration(bundle: bundle) else {
+            return AppRuntime(
+                authentication: PreviewAuthenticationClient(),
+                todayStore: TodayStore(repository: PreviewTimelineRepository(), steps: PreviewStepCountProvider())
+            )
+        }
+        let session = FormSession()
+        let auth = NeonAuthenticationClient(baseURL: configuration.authBaseURL, session: session)
+        let repository = RemoteTimelineRepository(baseURL: configuration.apiBaseURL, session: session)
+        return AppRuntime(
+            authentication: auth,
+            todayStore: TodayStore(repository: repository, steps: HealthKitStepCountProvider())
+        )
+    }
+
+    func restore() async {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-ui-testing-today") {
+            await todayStore.refresh()
+            return
+        }
+        #endif
+        do {
+            sessionState = try await authentication.hasSession() ? .signedIn : .signedOut
+            if sessionState == .signedIn { await todayStore.refresh() }
+        } catch {
+            sessionState = .signedOut
+        }
+    }
+
+    func signedIn() async {
+        sessionState = .signedIn
+        await todayStore.refresh()
+    }
+
+    func signOut() async {
+        try? await authentication.signOut()
+        sessionState = .signedOut
+        todayStore.reset()
+    }
+
+    func refresh() async {
+        guard sessionState == .signedIn else { return }
+        await todayStore.refresh()
+    }
+}
+
+struct FormConfiguration: Sendable {
+    let authBaseURL: URL
+    let apiBaseURL: URL
+
+    init?(bundle: Bundle) {
+        guard
+            let auth = bundle.object(forInfoDictionaryKey: "FormAuthBaseURL") as? String,
+            let api = bundle.object(forInfoDictionaryKey: "FormAPIBaseURL") as? String,
+            !auth.isEmpty,
+            !api.isEmpty,
+            let authBaseURL = URL(string: auth),
+            let apiBaseURL = URL(string: api),
+            authBaseURL.scheme == "https",
+            apiBaseURL.scheme == "https"
+        else { return nil }
+        self.authBaseURL = authBaseURL
+        self.apiBaseURL = apiBaseURL
+    }
+}
