@@ -11,3 +11,11 @@ playwright-report/
 *.log
 .qa-*.png
 .DS_Store
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.xcodeproj/
+.xcodegen/
+*.xcresult
+Config/Form.local.xcconfig

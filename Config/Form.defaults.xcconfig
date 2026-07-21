@@ -1,0 +1,4 @@
+FORM_AUTH_BASE_URL =
+FORM_API_BASE_URL =
+
+#include? "Form.local.xcconfig"
