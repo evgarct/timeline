@@ -58,3 +58,26 @@ final result: passed
 ## Final result
 
 Passed. The portrait subject remains visible from head to feet, photo controls and the compact nutrition/activity shelf occupy the lower edge, the editorial date and 18-point gutters track the reference, and no Details content is visible before scrolling.
+
+---
+
+# Native activity and fixed-photo interaction
+
+## Sources and state
+
+- Visual truth: `C:\Users\PC\iCloudPhotos\Photos\AA5CA0F8-C7A0-462D-8362-CB7BFFF00515.png`
+- Initial implementation: `C:\Users\PC\.codex\visualizations\2026\07\21\019f85a1-0511-76e1-be59-c4b9801abd95\Form-activity-initial.png`
+- Scrolled implementation: `C:\Users\PC\.codex\visualizations\2026\07\21\019f85a1-0511-76e1-be59-c4b9801abd95\Form-activity-scrolled.png`
+- Full comparison: `C:\Users\PC\.codex\visualizations\2026\07\21\019f85a1-0511-76e1-be59-c4b9801abd95\Form-activity-comparison.jpg`
+- Viewport: iPhone 15 Pro, iOS 26.5, portrait (393 × 852 points).
+- State: production test account with eight private portrait photos; initial activity 12,000 of 12,000.
+
+## Findings and iteration history
+
+- The first interaction implementation exposed the activity region as a gesture-only accessibility button, so XCTest could long-press it but could not prove tap-driven refresh. Replaced it with a native `Button` plus a simultaneous system long-press gesture.
+- The initial and post-scroll screenshots confirm the photo pixels remain stationary while header, actions, summary, and Details move through the foreground scroll document.
+- No remaining P0/P1/P2 differences. The summary contains the reference's current values, units, targets, progress tracks, macro footer, goal percentage, divider, and action icon. Serif values, uppercase labels, gutters, monochrome palette, system icons, photo crop, and localized copy are consistent with the accepted direction.
+
+Focused region comparison was not needed because the full-height side-by-side image keeps the complete summary legible; the separate post-scroll capture is the focused motion-state evidence.
+
+final result: passed

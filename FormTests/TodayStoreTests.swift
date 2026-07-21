@@ -29,6 +29,10 @@ final class TodayStoreTests: XCTestCase {
 
         XCTAssertEqual(store.latestPhotos, [photo])
         XCTAssertEqual(store.latestMeasurements?.weightKg, 80)
+        XCTAssertEqual(store.steps, .value(12_000))
+
+        await store.refreshSteps()
+
         XCTAssertEqual(store.steps, .value(1234))
         XCTAssertEqual(store.state, .loaded)
     }
