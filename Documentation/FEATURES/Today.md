@@ -18,3 +18,7 @@ After session restoration, the app loads `/api/events` and today's HealthKit ste
 - HealthKit unavailable: show no fabricated value and keep the rest usable.
 
 Compare and share controls remain visible for spatial continuity but explain that the feature is not yet available.
+
+## First viewport contract
+
+On iPhone 15 Pro, the photo and its controls form the complete initial viewport. The compact nutrition/activity summary sits immediately above the system tab bar. Timeline details remain fully below that viewport and become visible only after scrolling. UI tests protect this boundary, while private visual QA uses real portrait media from the dedicated test account without adding it to the repository.

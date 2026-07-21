@@ -18,7 +18,7 @@ struct TodayView: View {
         GeometryReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
-                    hero(height: proxy.size.height)
+                    hero(height: proxy.size.height + proxy.safeAreaInsets.top)
                     timelineDetails
                 }
                 .scrollTargetLayout()
@@ -45,21 +45,45 @@ struct TodayView: View {
 
     @ViewBuilder
     private func hero(height: CGFloat) -> some View {
-        ZStack {
-            photoPager
-            LinearGradient(colors: [.black.opacity(0.45), .clear, .black.opacity(0.78)], startPoint: .top, endPoint: .bottom)
+        VStack(spacing: 0) {
+            ZStack {
+                Color.black
 
-            VStack(spacing: 0) {
-                header
-                Spacer()
-                photoActions
-                summaryGlass
+                VStack(spacing: 0) {
+                    photoPager
+                        .frame(height: max(520, height - 178))
+                        .clipped()
+                    Spacer(minLength: 0)
+                }
+
+                LinearGradient(
+                    stops: [
+                        .init(color: .black.opacity(0.48), location: 0),
+                        .init(color: .clear, location: 0.22),
+                        .init(color: .clear, location: 0.66),
+                        .init(color: .black.opacity(0.9), location: 0.82),
+                        .init(color: .black, location: 1)
+                    ],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+
+                VStack(spacing: 0) {
+                    header
+                    Spacer()
+                    photoActions
+                    summaryGlass
+                }
+                .padding(.horizontal, 18)
+                .padding(.bottom, 8)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 10)
-            .padding(.bottom, 12)
+            .frame(height: height)
+
+            // Keep the next timeline heading entirely below the initial viewport,
+            // including the system tab bar's overlay region on compact iPhones.
+            Color.black.frame(height: 84)
         }
-        .frame(height: height)
+        .frame(height: height + 84)
         .clipped()
         .accessibilityIdentifier("today.hero")
     }
@@ -85,7 +109,10 @@ struct TodayView: View {
                     AsyncImage(url: photo.url ?? photo.thumbnailUrl) { phase in
                         switch phase {
                         case let .success(image):
-                            image.resizable().scaledToFill()
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
                         case .failure:
                             Color.black.overlay { Image(systemName: "photo.badge.exclamationmark").font(.largeTitle) }
                         default:
@@ -102,45 +129,54 @@ struct TodayView: View {
 
     private var header: some View {
         HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("today.label").font(.subheadline).textCase(.uppercase)
+            VStack(alignment: .leading, spacing: 0) {
+                Text("today.label")
+                    .font(.system(size: 15, weight: .medium))
+                    .tracking(0.7)
+                    .textCase(.uppercase)
                 Text((store.latestPhotoDate ?? .now).formatted(.dateTime.day().month(.wide)))
-                    .font(.system(size: 44, weight: .regular, design: .serif))
+                    .font(.system(size: 52, weight: .regular, design: .serif))
+                    .tracking(-1.2)
             }
             Spacer()
             Button { settingsPresented = true } label: {
-                Image(systemName: "ellipsis").frame(width: 32, height: 32)
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 18, weight: .semibold))
+                    .frame(width: 42, height: 42)
             }
             .buttonStyle(.glass)
-            .controlSize(.small)
             .accessibilityLabel("action.menu")
         }
-        .padding(.top, 52)
+        .padding(.top, 58)
+        .padding(.horizontal, 4)
     }
 
     private var photoActions: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 7) {
             if store.latestPhotos.count > 1 {
                 Text("\(selectedPhoto + 1) / \(store.latestPhotos.count)")
                     .font(.footnote.monospacedDigit())
             }
             GlassEffectContainer(spacing: 12) {
-                HStack {
+                HStack(spacing: 10) {
                     Button { unavailableAction = .compare } label: {
                         Label("action.compare", systemImage: "chart.bar.xaxis")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.glass)
+                    .controlSize(.regular)
                     Button { galleryPresented = true } label: {
                         Label("action.allPhotos", systemImage: "rectangle.on.rectangle")
                             .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.glass)
+                    .controlSize(.regular)
                     .disabled(store.latestPhotos.isEmpty)
                 }
             }
         }
-        .padding(.bottom, 14)
+        .padding(.horizontal, 2)
+        .padding(.bottom, 8)
     }
 
     private var summaryGlass: some View {
@@ -163,9 +199,10 @@ struct TodayView: View {
             .controlSize(.small)
             .accessibilityLabel("action.share")
         }
-        .padding(18)
-        .frame(height: 156)
-        .glassEffect(.regular, in: .rect(cornerRadius: 28))
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .frame(height: 112)
+        .glassEffect(.regular, in: .rect(cornerRadius: 30))
     }
 
     private var stepsValue: String {
@@ -185,6 +222,7 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 24) {
             Text("today.details")
                 .font(.system(size: 40, design: .serif))
+                .accessibilityIdentifier("today.details")
             if let values = store.latestMeasurements {
                 MeasurementRows(values: values)
             } else {
@@ -207,10 +245,20 @@ private struct SummaryColumn: View {
     let caption: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption).textCase(.uppercase).foregroundStyle(.secondary)
-            Text(value).font(.system(size: 28, design: .serif)).lineLimit(1).minimumScaleFactor(0.7)
-            Text(caption).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+        VStack(alignment: .leading, spacing: 3) {
+            Text(title)
+                .font(.system(size: 12, weight: .medium))
+                .tracking(0.5)
+                .textCase(.uppercase)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(size: 30, weight: .regular, design: .serif))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(caption)
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }

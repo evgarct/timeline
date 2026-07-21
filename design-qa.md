@@ -38,3 +38,23 @@ Landing, Today/Timeline, and progress-photo detail were inspected independently 
 
 final result: passed
 
+---
+
+# Native Today photo-first polish
+
+## Sources
+
+- Reference: `C:\Users\PC\iCloudPhotos\Photos\AA5CA0F8-C7A0-462D-8362-CB7BFFF00515.png`
+- Implementation capture: `C:\Users\PC\.codex\visualizations\2026\07\21\019f85a1-0511-76e1-be59-c4b9801abd95\Form-Today-polish-final.png`
+- Combined comparison: `C:\Users\PC\.codex\visualizations\2026\07\21\019f85a1-0511-76e1-be59-c4b9801abd95\Form-Today-comparison.jpg`
+- Viewport: iPhone 15 Pro, iOS 26.5, portrait (393 × 852 points).
+
+## Iteration history
+
+1. The first implementation let the serif Details heading peek through behind the tab bar.
+2. The hero received a black scroll runway after the visible composition so the summary remains in place while Details starts entirely below the initial viewport.
+3. Re-ran the live production-session UI test with eight private portrait photos and compared the resulting screenshot beside the reference at the same aspect ratio.
+
+## Final result
+
+Passed. The portrait subject remains visible from head to feet, photo controls and the compact nutrition/activity shelf occupy the lower edge, the editorial date and 18-point gutters track the reference, and no Details content is visible before scrolling.
