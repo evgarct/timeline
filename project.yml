@@ -23,6 +23,8 @@ targets:
           - Resources/AppIconSource.svg
     entitlements:
       path: Form/Resources/Form.entitlements
+      properties:
+        com.apple.developer.healthkit: true
     info:
       path: Form/Resources/GeneratedInfo.plist
       properties:
