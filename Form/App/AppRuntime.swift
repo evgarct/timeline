@@ -38,7 +38,8 @@ final class AppRuntime {
         guard let configuration = FormConfiguration(bundle: bundle) else {
             return AppRuntime(
                 authentication: PreviewAuthenticationClient(),
-                todayStore: TodayStore(repository: PreviewTimelineRepository(), steps: PreviewStepCountProvider())
+                todayStore: TodayStore(repository: PreviewTimelineRepository(), steps: PreviewStepCountProvider()),
+                sessionState: .unavailable(String(localized: "auth.error.unavailable"))
             )
         }
         let session = FormSession()
@@ -89,13 +90,21 @@ struct FormConfiguration: Sendable {
     init?(bundle: Bundle) {
         guard
             let auth = bundle.object(forInfoDictionaryKey: "FormAuthBaseURL") as? String,
-            let api = bundle.object(forInfoDictionaryKey: "FormAPIBaseURL") as? String,
+            let api = bundle.object(forInfoDictionaryKey: "FormAPIBaseURL") as? String
+        else { return nil }
+        self.init(auth: auth, api: api)
+    }
+
+    init?(auth: String, api: String) {
+        guard
             !auth.isEmpty,
             !api.isEmpty,
             let authBaseURL = URL(string: auth),
             let apiBaseURL = URL(string: api),
             authBaseURL.scheme == "https",
-            apiBaseURL.scheme == "https"
+            apiBaseURL.scheme == "https",
+            authBaseURL.host != nil,
+            apiBaseURL.host != nil
         else { return nil }
         self.authBaseURL = authBaseURL
         self.apiBaseURL = apiBaseURL

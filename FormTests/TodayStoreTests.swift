@@ -3,6 +3,14 @@ import XCTest
 
 @MainActor
 final class TodayStoreTests: XCTestCase {
+    func testConfigurationRejectsSchemeOnlyURLs() {
+        XCTAssertNil(FormConfiguration(auth: "https:", api: "https:"))
+        XCTAssertNotNil(FormConfiguration(
+            auth: "https://timeline.example.com",
+            api: "https://timeline.example.com"
+        ))
+    }
+
     func testRefreshSelectsLatestPhotoAndMeasurements() async {
         let older = EventBase(id: "old", occurredAt: .distantPast, timezone: "UTC", note: nil)
         let latest = EventBase(id: "latest", occurredAt: .now, timezone: "UTC", note: nil)
