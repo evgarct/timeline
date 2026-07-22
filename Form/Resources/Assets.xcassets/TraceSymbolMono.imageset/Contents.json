@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "trace_symbol_mono.svg",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}

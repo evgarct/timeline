@@ -23,17 +23,18 @@ final class TodayStoreTests: XCTestCase {
         let repository = PreviewTimelineRepository(result: .success([
             .progressPhoto(older, []), .progressPhoto(latest, [photo]), .measurements(latest, values)
         ]))
-        let store = TodayStore(repository: repository, steps: PreviewStepCountProvider(state: .value(1234)))
+        let snapshot = WeeklyActivitySnapshot.preview(todaySteps: 1_234)
+        let store = TodayStore(repository: repository, steps: PreviewStepCountProvider(state: .value(snapshot)))
 
         await store.refresh()
 
         XCTAssertEqual(store.latestPhotos, [photo])
         XCTAssertEqual(store.latestMeasurements?.weightKg, 80)
-        XCTAssertEqual(store.steps, .value(12_000))
+        XCTAssertEqual(store.activity, .idle)
 
-        await store.refreshSteps()
+        await store.refreshActivity(now: snapshot.today)
 
-        XCTAssertEqual(store.steps, .value(1234))
+        XCTAssertEqual(store.activity, .value(snapshot))
         XCTAssertEqual(store.state, .loaded)
     }
 
@@ -44,5 +45,47 @@ final class TodayStoreTests: XCTestCase {
         await store.refresh()
 
         guard case .failed = store.state else { return XCTFail("Expected failed state") }
+    }
+
+    func testWeeklyAverageUsesMondayThroughTodayIncludingZeroDays() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let today = calendar.date(from: DateComponents(year: 2025, month: 7, day: 27))!
+        let monday = WeeklyActivitySnapshot.monday(containing: today, calendar: calendar)
+        let values = [10_000, 0, 8_000, 6_000, 12_000, 0, 6_000]
+        let days = values.enumerated().map { offset, steps in
+            DailyStepTotal(date: calendar.date(byAdding: .day, value: offset, to: monday)!, steps: steps)
+        }
+        let snapshot = WeeklyActivitySnapshot(days: days, today: calendar.startOfDay(for: today), distanceMeters: nil, fetchedAt: today)
+
+        XCTAssertEqual(snapshot.averageSteps, 6_000)
+        XCTAssertEqual(snapshot.todaySteps, 6_000)
+    }
+
+    func testWeeklyAverageExcludesFutureDays() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let monday = Date(timeIntervalSince1970: 1_752_451_200)
+        let days = (0..<7).map { offset in
+            DailyStepTotal(
+                date: calendar.date(byAdding: .day, value: offset, to: monday)!,
+                steps: offset < 3 ? [9_000, 0, 6_000][offset] : nil
+            )
+        }
+        let wednesday = calendar.date(byAdding: .day, value: 2, to: monday)!
+        let snapshot = WeeklyActivitySnapshot(days: days, today: wednesday, distanceMeters: nil, fetchedAt: wednesday)
+
+        XCTAssertEqual(snapshot.averageSteps, 5_000)
+        XCTAssertEqual(snapshot.todaySteps, 6_000)
+    }
+
+    func testWeekAlwaysStartsOnMonday() {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        let sunday = Date(timeIntervalSince1970: 1_752_422_400)
+        let monday = WeeklyActivitySnapshot.monday(containing: sunday, calendar: calendar)
+
+        XCTAssertEqual(calendar.component(.weekday, from: monday), 2)
+        XCTAssertEqual(calendar.dateComponents([.day], from: monday, to: calendar.startOfDay(for: sunday)).day, 6)
     }
 }

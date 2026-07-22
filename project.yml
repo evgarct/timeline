@@ -30,7 +30,7 @@ targets:
       properties:
         FormAuthBaseURL: "$(FORM_AUTH_BASE_URL)"
         FormAPIBaseURL: "$(FORM_API_BASE_URL)"
-        NSHealthShareUsageDescription: Form reads your daily step count to show activity alongside your body timeline.
+        NSHealthShareUsageDescription: Form reads your steps and walking distance to show activity alongside your body timeline.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

@@ -13,6 +13,7 @@ final class FormUITests: XCTestCase {
     func testTodayLaunchShowsHeroAndTabs() {
         let app = XCUIApplication()
         app.launchArguments.append("-ui-testing-today")
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
 
         let hero = app.descendants(matching: .any)["today.hero"]
@@ -25,12 +26,30 @@ final class FormUITests: XCTestCase {
 
         let activity = app.buttons["Refresh steps"]
         XCTAssertTrue(activity.exists)
-        let initialActivityValue = activity.value as? String ?? ""
-        activity.tap()
-        expectation(for: NSPredicate(format: "value != %@", initialActivityValue), evaluatedWith: activity)
+        expectation(
+            for: NSPredicate(format: "value CONTAINS %@", "9,420"),
+            evaluatedWith: activity
+        )
         waitForExpectations(timeout: 3)
 
         activity.press(forDuration: 0.8)
+        let detailAction = app.buttons["activity.menu.detail"]
+        XCTAssertTrue(detailAction.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.buttons["activity.menu.goal"].exists)
+        XCTAssertTrue(app.buttons["activity.menu.share"].exists)
+        detailAction.tap()
+        XCTAssertTrue(app.buttons["activity.detail.close"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["activity.weekAverage"].exists)
+        XCTAssertTrue(app.otherElements["activity.weekChart"].exists)
+        XCTAssertTrue(app.buttons["activity.detail.share"].exists)
+        let activityAttachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        activityAttachment.name = "Form branded weekly activity detail"
+        activityAttachment.lifetime = .keepAlways
+        add(activityAttachment)
+        app.buttons["activity.detail.close"].tap()
+
+        activity.press(forDuration: 0.8)
+        app.buttons["activity.menu.goal"].tap()
         XCTAssertTrue(app.alerts.firstMatch.waitForExistence(timeout: 3))
         XCTAssertTrue(app.textFields.firstMatch.exists)
         app.alerts.buttons["Cancel"].tap()
@@ -38,6 +57,26 @@ final class FormUITests: XCTestCase {
         app.scrollViews.firstMatch.swipeUp()
         XCTAssertTrue(details.waitForExistence(timeout: 3))
         XCTAssertTrue(details.isHittable)
+    }
+
+    func testActivityShareSheet() {
+        let app = XCUIApplication()
+        app.launchArguments.append("-ui-testing-today")
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        let activity = app.buttons["Refresh steps"]
+        XCTAssertTrue(activity.waitForExistence(timeout: 5))
+        activity.press(forDuration: 0.8)
+        let shareAction = app.buttons["activity.menu.share"]
+        XCTAssertTrue(shareAction.waitForExistence(timeout: 3))
+        shareAction.tap()
+
+        let shareSheet = app.otherElements["ActivityListView"]
+        XCTAssertTrue(shareSheet.waitForExistence(timeout: 3))
+        XCTAssertTrue(app.cells["Copy"].exists)
+        app.buttons["header.closeButton"].tap()
+        XCTAssertFalse(shareSheet.waitForExistence(timeout: 2))
     }
 
     func testLiveTodayLayoutWhenSessionIsProvided() throws {

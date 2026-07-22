@@ -13,8 +13,8 @@ final class TodayStore {
 
     private(set) var state: State = .idle
     private(set) var events: [TimelineEvent] = []
-    private(set) var steps: StepCountState = .value(12_000)
-    private(set) var isRefreshingSteps = false
+    private(set) var activity: WeeklyActivityState = .idle
+    private(set) var isRefreshingActivity = false
 
     private let repository: any TimelineRepository
     private let stepProvider: any StepCountProviding
@@ -57,16 +57,16 @@ final class TodayStore {
         }
     }
 
-    func refreshSteps() async {
-        guard !isRefreshingSteps else { return }
-        isRefreshingSteps = true
-        defer { isRefreshingSteps = false }
-        steps = await stepProvider.todaySteps()
+    func refreshActivity(now: Date = .now) async {
+        guard !isRefreshingActivity else { return }
+        isRefreshingActivity = true
+        defer { isRefreshingActivity = false }
+        activity = await stepProvider.activitySnapshot(now: now)
     }
 
     func reset() {
         events = []
-        steps = .value(12_000)
+        activity = .idle
         state = .idle
     }
 }

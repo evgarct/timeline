@@ -48,6 +48,9 @@ This document is the design source of truth for UI work in this repository. Read
 
 ## Accepted Patterns
 
+- TRACE identity: use the approved vertical trace symbol as the sole branded carrier. Primary is brown on warm paper, dark is white on near-black, and monochrome supports tinted/small-scale contexts; retain semantic system icons for functional controls.
+- Native activity detail: present steps as a full-screen dark editorial composition with an oversized serif current value, explicit Monday-to-today average, calm monochrome weekly chart, goal progress, and optional distance.
+- Activity sharing: render a dedicated branded image containing only the useful activity story—today, goal, weekly average, chart, and optional distance. Never capture navigation chrome, advertising, or the private progress-photo background.
 - Latest progress photo as Today background: use a blurred signed thumbnail/full URL only at render time, with a stored optional palette for pastel gradients.
 - Today mirror screen: the first viewport is a full-height photo-first surface, not a dashboard. The user should see the latest body photo before Timeline, metrics, charts, or navigation.
 - Today and Timeline transition: keep them in one scroll document, with Timeline emerging only after vertical scroll from the Today photo surface.

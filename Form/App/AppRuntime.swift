@@ -47,7 +47,7 @@ final class AppRuntime {
         let repository = RemoteTimelineRepository(baseURL: configuration.apiBaseURL, session: session)
         #if DEBUG
         let steps: any StepCountProviding = ProcessInfo.processInfo.arguments.contains("-ui-testing-no-healthkit")
-            ? PreviewStepCountProvider(state: .value(9_420))
+            ? PreviewStepCountProvider(state: .value(.preview()))
             : HealthKitStepCountProvider()
         #else
         let steps: any StepCountProviding = HealthKitStepCountProvider()

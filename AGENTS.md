@@ -40,3 +40,4 @@
 - Generate Drizzle schema changes with `npm run db:generate` and keep the generated SQL plus `drizzle/meta` snapshot together; do not hand-add migrations without matching metadata.
 - After Next.js build/dev commands, do not commit incidental `next-env.d.ts` route-type import churn unless typed-route configuration intentionally changed.
 - Do not run `npm run typecheck` in parallel with `npm run build`; Next.js can regenerate `.next/types` during build and make `tsc --noEmit` fail on transient missing route-type files.
+- Before packaging a Git snapshot for remote iOS verification, filter `git ls-files` output to paths that still exist so tracked deletions do not make `tar` fail.

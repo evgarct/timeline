@@ -24,7 +24,11 @@ try {
         if (-not $DevelopmentTeam) { throw 'FORM_DEVELOPMENT_TEAM or ANQUI_DEVELOPMENT_TEAM is required.' }
     }
     New-Item -ItemType Directory -Path $tempRoot | Out-Null
-    $files = @(& git -C $repoRoot ls-files --cached --others --exclude-standard)
+    $files = @(& git -C $repoRoot ls-files --cached --others --exclude-standard) |
+        Where-Object {
+            -not [string]::IsNullOrWhiteSpace($_) -and
+            (Test-Path -LiteralPath (Join-Path $repoRoot $_))
+        }
     if ($LASTEXITCODE -ne 0 -or $files.Count -eq 0) { throw 'Could not enumerate the Git snapshot.' }
     [IO.File]::WriteAllLines($fileListPath, $files, [Text.UTF8Encoding]::new($false))
     & tar.exe -czf $archivePath -C $repoRoot -T $fileListPath
