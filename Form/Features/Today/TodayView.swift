@@ -5,6 +5,7 @@ struct TodayView: View {
     let onSignOut: @MainActor () async -> Void
 
     @Environment(\.locale) private var locale
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @State private var selectedPhoto = 0
     @State private var galleryPresented = false
@@ -12,7 +13,7 @@ struct TodayView: View {
     @State private var unavailableAction: UnavailableAction?
     @State private var goalEditorPresented = false
     @State private var goalDraft = "12000"
-    @State private var activityDetailPresented = false
+    @State private var activityDetailSnapshot: WeeklyActivitySnapshot?
     @State private var sharePayload: ActivitySharePayload?
     @AppStorage("activity.stepGoal") private var stepGoal = 12_000
 
@@ -52,10 +53,12 @@ struct TodayView: View {
         .sheet(item: $sharePayload) { payload in
             ActivityShareSheet(image: payload.image)
         }
-        .fullScreenCover(isPresented: $activityDetailPresented) {
-            if let snapshot = activitySnapshot {
-                ActivityDetailView(snapshot: snapshot, stepGoal: stepGoal)
-            }
+        .fullScreenCover(item: $activityDetailSnapshot) { snapshot in
+            ActivityDetailView(
+                initialSnapshot: snapshot,
+                stepGoal: stepGoal,
+                loadSnapshot: { date in await store.activitySnapshot(for: date) }
+            )
         }
         .alert(item: $unavailableAction) { action in
             Alert(
@@ -260,7 +263,7 @@ struct TodayView: View {
                 }
                 .accessibilityIdentifier("activity.menu.goal")
                 Button {
-                    activityDetailPresented = true
+                    activityDetailSnapshot = activitySnapshot
                 } label: {
                     Label("activity.action.detail", systemImage: "chart.xyaxis.line")
                 }
@@ -308,17 +311,17 @@ struct TodayView: View {
 
     private var stepProgress: Double {
         guard let snapshot = activitySnapshot, stepGoal > 0 else { return 0 }
-        return min(Double(snapshot.todaySteps) / Double(stepGoal), 1)
+        return min(Double(snapshot.selectedSteps) / Double(stepGoal), 1)
     }
 
     private var stepProgressText: String {
         guard let snapshot = activitySnapshot, stepGoal > 0 else { return stepsCaption }
-        let percentage = Int((Double(snapshot.todaySteps) / Double(stepGoal) * 100).rounded())
+        let percentage = Int((Double(snapshot.selectedSteps) / Double(stepGoal) * 100).rounded())
         return String(format: String(localized: "summary.steps.progress.format"), percentage)
     }
 
     private var stepsValue: String {
-        if let snapshot = activitySnapshot { return snapshot.todaySteps.formatted() }
+        if let snapshot = activitySnapshot { return snapshot.selectedSteps.formatted() }
         return String(localized: "summary.empty")
     }
 
@@ -337,7 +340,12 @@ struct TodayView: View {
 
     private func shareActivity() {
         guard let snapshot = activitySnapshot,
-              let image = ActivityShareRenderer.image(snapshot: snapshot, stepGoal: stepGoal, locale: locale) else { return }
+              let image = ActivityShareRenderer.image(
+                snapshot: snapshot,
+                stepGoal: stepGoal,
+                locale: locale,
+                colorScheme: colorScheme
+              ) else { return }
         sharePayload = ActivitySharePayload(image: image)
     }
 

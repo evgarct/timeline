@@ -14,6 +14,7 @@
 - Normalize progress photos to metadata-free JPEG full/thumbnail objects, while retaining InBody uploads in their original supported format.
 - Create the private R2 bucket through Dashboard or Wrangler with explicit EU jurisdiction; the Cloudflare MCP bucket API cannot pass the required jurisdiction header.
 - Keep all visible UI text in the RU/EN/CS message dictionaries.
+- In localized SwiftUI `ImageRenderer` output, apply the intended locale directly to Foundation `FormatStyle` values; setting only the SwiftUI locale environment does not reliably localize strings formatted before rendering.
 - Before UI or visual design work, read `docs/DESIGN.md` and use it as the repo design source of truth; after the user approves a UI result, add durable principles or accepted examples there.
 - Develop product UI through Storybook first: every new or meaningfully changed screen, component, and state needs an isolated story before app-level verification.
 - When a UI bug is reproducible in Storybook, add or update a focused story that reproduces that exact case before signing off on the fix.

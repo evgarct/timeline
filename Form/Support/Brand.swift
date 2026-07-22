@@ -27,3 +27,30 @@ struct TraceSymbol: View {
         }
     }
 }
+
+struct ActivityPalette {
+    let background: Color
+    let foreground: Color
+    let muted: Color
+    let accent: Color
+    let track: Color
+    let traceAppearance: TraceSymbol.Appearance
+
+    init(colorScheme: ColorScheme) {
+        if colorScheme == .dark {
+            background = Brand.ink
+            foreground = Brand.lightInk
+            muted = Brand.lightInk.opacity(0.55)
+            accent = Brand.lightInk
+            track = Brand.lightInk.opacity(0.14)
+            traceAppearance = .dark
+        } else {
+            background = Brand.paper
+            foreground = Brand.ink
+            muted = Brand.ink.opacity(0.52)
+            accent = Brand.trace
+            track = Brand.ink.opacity(0.12)
+            traceAppearance = .primary
+        }
+    }
+}

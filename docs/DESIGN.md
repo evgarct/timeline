@@ -49,8 +49,9 @@ This document is the design source of truth for UI work in this repository. Read
 ## Accepted Patterns
 
 - TRACE identity: use the approved vertical trace symbol as the sole branded carrier. Primary is brown on warm paper, dark is white on near-black, and monochrome supports tinted/small-scale contexts; retain semantic system icons for functional controls.
-- Native activity detail: present steps as a full-screen dark editorial composition with an oversized serif current value, explicit Monday-to-today average, calm monochrome weekly chart, goal progress, and optional distance.
-- Activity sharing: render a dedicated branded image containing only the useful activity story—today, goal, weekly average, chart, and optional distance. Never capture navigation chrome, advertising, or the private progress-photo background.
+- Native activity detail: use a quiet, icon-led editorial composition. `figure.walk`, `target`, `chart.xyaxis.line`, and `ruler` carry unambiguous metric meaning; the selected step count stays dominant, while goal, average, chart, and distance form one calm reading order without duplicate headings.
+- Historical activity navigation belongs inside the detail screen. Day arrows move one day at a time, the compact date control opens a native calendar, and future dates are unavailable. The selected chart point is dominant; other points are deliberately subdued.
+- Activity sharing: render the same semantic palette, typography, chart, and metric composition as the detail screen in the active color scheme. The 1080 × 1350 artifact omits navigation chrome, slogans, advertising, and the private progress-photo background.
 - Latest progress photo as Today background: use a blurred signed thumbnail/full URL only at render time, with a stored optional palette for pastel gradients.
 - Today mirror screen: the first viewport is a full-height photo-first surface, not a dashboard. The user should see the latest body photo before Timeline, metrics, charts, or navigation.
 - Today and Timeline transition: keep them in one scroll document, with Timeline emerging only after vertical scroll from the Today photo surface.

@@ -39,11 +39,35 @@ final class FormUITests: XCTestCase {
         XCTAssertTrue(app.buttons["activity.menu.share"].exists)
         detailAction.tap()
         XCTAssertTrue(app.buttons["activity.detail.close"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["activity.weekAverage"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["activity.weekAverage"].exists)
         XCTAssertTrue(app.otherElements["activity.weekChart"].exists)
         XCTAssertTrue(app.buttons["activity.detail.share"].exists)
+        let nextDay = app.buttons["activity.date.next"]
+        XCTAssertFalse(nextDay.isEnabled)
+
+        app.buttons["activity.date.previous"].tap()
+        let selectedValue = app.descendants(matching: .any)["activity.selectedValue"]
+        expectation(
+            for: NSPredicate(format: "value CONTAINS %@", "6,870"),
+            evaluatedWith: selectedValue
+        )
+        waitForExpectations(timeout: 3)
+        XCTAssertTrue(nextDay.isEnabled)
+
+        nextDay.tap()
+        expectation(
+            for: NSPredicate(format: "value CONTAINS %@", "9,420"),
+            evaluatedWith: selectedValue
+        )
+        waitForExpectations(timeout: 3)
+        XCTAssertFalse(nextDay.isEnabled)
+
+        app.buttons["activity.date.select"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["activity.date.calendar"].waitForExistence(timeout: 3))
+        app.buttons["Done"].tap()
+
         let activityAttachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        activityAttachment.name = "Form branded weekly activity detail"
+        activityAttachment.name = "Form quiet activity date navigation"
         activityAttachment.lifetime = .keepAlways
         add(activityAttachment)
         app.buttons["activity.detail.close"].tap()
@@ -76,7 +100,11 @@ final class FormUITests: XCTestCase {
         XCTAssertTrue(shareSheet.waitForExistence(timeout: 3))
         XCTAssertTrue(app.cells["Copy"].exists)
         app.buttons["header.closeButton"].tap()
-        XCTAssertFalse(shareSheet.waitForExistence(timeout: 2))
+        expectation(
+            for: NSPredicate(format: "hittable == true"),
+            evaluatedWith: activity
+        )
+        waitForExpectations(timeout: 3)
     }
 
     func testLiveTodayLayoutWhenSessionIsProvided() throws {

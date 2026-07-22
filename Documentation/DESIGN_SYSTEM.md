@@ -27,8 +27,9 @@ Form is warm, monochrome, editorial, private, and photo-first. Avoid fitness gra
 
 - Activity details open as a full-screen, dark editorial surface. Steps today remain the largest element; the current Monday-to-today average must also be visible as a number, not only as a chart rule.
 - The weekly chart covers Monday through Sunday, distinguishes elapsed days from future days, and uses a restrained monochrome line/area treatment rather than fitness gradients or gamification.
+- Activity detail uses monochrome SF Symbols instead of redundant metric headings: walking, goal, weekly average, and distance each appear once in a clear vertical rhythm. Accessible labels and values retain the full localized meaning.
 - Distance may accompany steps when HealthKit supplies it. Missing optional metrics disappear cleanly rather than showing fabricated values.
-- The share artifact is a purpose-built branded image, not a screenshot of application chrome. It contains today's steps, the current weekly average, the weekly chart, goal progress, and optional distance, without private progress photography.
+- The share artifact is a purpose-built 1080 × 1350 branded image, not a screenshot of application chrome. It reuses the detail screen's semantic palette, typography, graph, selected-day steps, goal progress, weekly average, and optional distance in the active light or dark color scheme, without private progress photography.
 
 ## Components and verification
 

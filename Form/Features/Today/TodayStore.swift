@@ -61,7 +61,11 @@ final class TodayStore {
         guard !isRefreshingActivity else { return }
         isRefreshingActivity = true
         defer { isRefreshingActivity = false }
-        activity = await stepProvider.activitySnapshot(now: now)
+        activity = await activitySnapshot(for: now, now: now)
+    }
+
+    func activitySnapshot(for selectedDate: Date, now: Date = .now) async -> WeeklyActivityState {
+        await stepProvider.activitySnapshot(for: selectedDate, now: now)
     }
 
     func reset() {

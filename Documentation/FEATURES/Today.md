@@ -6,7 +6,7 @@ Today opens with the latest body photo, then progressively reveals current conte
 
 ## Data flow
 
-After session restoration, the app loads `/api/events` and a HealthKit activity snapshot concurrently. The snapshot contains daily step totals for the current Monday-to-Sunday week plus today's walking/running distance. The newest `progress_photo` session supplies the hero pager; the newest `measurements` event supplies body values.
+After session restoration, the app loads `/api/events` and today's HealthKit activity snapshot concurrently. A snapshot contains daily step totals for the selected Monday-to-Sunday week plus the selected day's walking/running distance. The newest `progress_photo` session supplies the hero pager; the newest `measurements` event supplies body values.
 
 ## States
 
@@ -28,7 +28,8 @@ The photo itself stays fixed while the foreground document scrolls. Activity req
 ## Weekly activity contract
 
 - The week is Monday through Sunday in the user's calendar and locale.
-- The average includes every elapsed calendar day from Monday through today, including an elapsed day with zero recorded steps. Future days are excluded.
+- The detail screen can move to any past date with one-day arrows or a native calendar. Future dates are unavailable, and returning to today disables the forward arrow.
+- In the current week, the average includes Monday through the selected day. In a completed week, it includes all seven days regardless of which day is selected. Days without samples count as zero; days after the selection in an unfinished week are absent from the graph.
 - HealthKit remains the source of truth. The snapshot is held locally in app memory and is not written to Neon or represented as Timeline events.
-- The detail screen shows today's steps, goal progress, the weekly average as a number, the seven-day chart, and today's walking/running distance when available.
-- Sharing renders a clean 1080 × 1350 branded image and presents the native iOS share sheet for Telegram or any other installed destination. Progress photos and application chrome are excluded.
+- The detail screen shows selected-day steps, current locally stored goal progress, the weekly average as a number, the seven-day chart, and selected-day walking/running distance when available.
+- Sharing renders a clean 1080 × 1350 branded image in the screen's active color scheme and presents the native iOS share sheet for Telegram or any other installed destination. Progress photos, slogans, and application chrome are excluded.
