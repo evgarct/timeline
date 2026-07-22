@@ -8,34 +8,53 @@ struct DailyStepTotal: Identifiable, Equatable, Sendable {
     var id: Date { date }
 }
 
-struct WeeklyActivitySnapshot: Equatable, Sendable {
+struct WeeklyActivitySnapshot: Identifiable, Equatable, Sendable {
     let days: [DailyStepTotal]
-    let today: Date
-    let distanceMeters: Double?
+    let selectedDate: Date
+    let averageEndDate: Date
+    let selectedDistanceMeters: Double?
     let fetchedAt: Date
 
-    var todaySteps: Int {
-        days.first(where: { $0.date == today })?.steps ?? 0
+    var id: Date { selectedDate }
+
+    var selectedSteps: Int {
+        days.first(where: { $0.date == selectedDate })?.steps ?? 0
     }
 
     var averageSteps: Int {
-        let elapsed = days.filter { $0.date <= today }.compactMap(\.steps)
+        let elapsed = days.filter { $0.date <= averageEndDate }.compactMap(\.steps)
         guard !elapsed.isEmpty else { return 0 }
         return Int((Double(elapsed.reduce(0, +)) / Double(elapsed.count)).rounded())
     }
 
     static func preview(
-        todaySteps: Int = 9_420,
-        distanceMeters: Double? = 7_040,
+        selectedDate: Date? = nil,
+        now: Date? = nil,
+        selectedSteps: Int? = nil,
+        selectedDistanceMeters: Double? = 7_040,
         calendar: Calendar = .current
     ) -> WeeklyActivitySnapshot {
-        let today = calendar.date(from: DateComponents(year: 2025, month: 7, day: 27))!
-        let values = [8_210, 11_480, 7_920, 12_340, 10_160, 6_870, todaySteps]
-        let start = Self.monday(containing: today, calendar: calendar)
+        let referenceNow = now ?? calendar.date(from: DateComponents(year: 2025, month: 7, day: 27, hour: 12))!
+        let currentDay = calendar.startOfDay(for: referenceNow)
+        let requestedDay = calendar.startOfDay(for: selectedDate ?? currentDay)
+        let day = min(requestedDay, currentDay)
+        let window = ActivityQueryWindow(selectedDate: day, now: referenceNow, calendar: calendar)
+        let values = [8_210, 11_480, 7_920, 12_340, 10_160, 6_870, 9_420]
         let days = values.enumerated().map { index, value in
-            DailyStepTotal(date: calendar.date(byAdding: .day, value: index, to: start)!, steps: value)
+            let date = calendar.date(byAdding: .day, value: index, to: window.weekStart)!
+            let override = date == day ? selectedSteps : nil
+            return DailyStepTotal(
+                date: date,
+                steps: date <= window.averageEndDate ? (override ?? value) : nil
+            )
         }
-        return WeeklyActivitySnapshot(days: days, today: today, distanceMeters: distanceMeters, fetchedAt: today)
+        return WeeklyActivitySnapshot(
+            days: days,
+            selectedDate: day,
+            averageEndDate: window.averageEndDate,
+            selectedDistanceMeters: selectedDistanceMeters,
+            fetchedAt: referenceNow
+        )
     }
 
     static func monday(containing date: Date, calendar: Calendar) -> Date {
@@ -43,6 +62,30 @@ struct WeeklyActivitySnapshot: Equatable, Sendable {
         let weekday = calendar.component(.weekday, from: startOfDay)
         let daysSinceMonday = (weekday + 5) % 7
         return calendar.date(byAdding: .day, value: -daysSinceMonday, to: startOfDay)!
+    }
+}
+
+struct ActivityQueryWindow: Equatable, Sendable {
+    let selectedDate: Date
+    let weekStart: Date
+    let weekEnd: Date
+    let averageEndDate: Date
+    let queryEnd: Date
+    let selectedDayEnd: Date
+
+    init(selectedDate: Date, now: Date, calendar: Calendar) {
+        let currentDay = calendar.startOfDay(for: now)
+        self.selectedDate = min(calendar.startOfDay(for: selectedDate), currentDay)
+        weekStart = WeeklyActivitySnapshot.monday(containing: self.selectedDate, calendar: calendar)
+        weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart)!
+        let completedWeek = weekEnd <= currentDay
+        averageEndDate = completedWeek
+            ? calendar.date(byAdding: .day, value: 6, to: weekStart)!
+            : self.selectedDate
+        selectedDayEnd = self.selectedDate == currentDay
+            ? now
+            : calendar.date(byAdding: .day, value: 1, to: self.selectedDate)!
+        queryEnd = completedWeek ? weekEnd : selectedDayEnd
     }
 }
 
@@ -54,13 +97,13 @@ enum WeeklyActivityState: Equatable, Sendable {
 }
 
 protocol StepCountProviding: Sendable {
-    func activitySnapshot(now: Date) async -> WeeklyActivityState
+    func activitySnapshot(for selectedDate: Date, now: Date) async -> WeeklyActivityState
 }
 
 actor HealthKitStepCountProvider: StepCountProviding {
     private let store = HKHealthStore()
 
-    func activitySnapshot(now: Date = .now) async -> WeeklyActivityState {
+    func activitySnapshot(for selectedDate: Date, now: Date = .now) async -> WeeklyActivityState {
         guard HKHealthStore.isHealthDataAvailable(),
               let stepType = HKObjectType.quantityType(forIdentifier: .stepCount),
               let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) else {
@@ -70,13 +113,14 @@ actor HealthKitStepCountProvider: StepCountProviding {
         do {
             try await store.requestAuthorization(toShare: [], read: [stepType, distanceType])
             let calendar = Calendar.autoupdatingCurrent
-            let today = calendar.startOfDay(for: now)
-            async let days = dailySteps(type: stepType, today: today, now: now, calendar: calendar)
-            async let distance = todayDistance(type: distanceType, today: today, now: now)
+            let window = ActivityQueryWindow(selectedDate: selectedDate, now: now, calendar: calendar)
+            async let days = dailySteps(type: stepType, window: window, calendar: calendar)
+            async let distance = selectedDistance(type: distanceType, window: window)
             return .value(WeeklyActivitySnapshot(
                 days: try await days,
-                today: today,
-                distanceMeters: try await distance,
+                selectedDate: window.selectedDate,
+                averageEndDate: window.averageEndDate,
+                selectedDistanceMeters: try await distance,
                 fetchedAt: now
             ))
         } catch let error as HKError where error.code == .errorAuthorizationDenied {
@@ -88,20 +132,17 @@ actor HealthKitStepCountProvider: StepCountProviding {
 
     private func dailySteps(
         type: HKQuantityType,
-        today: Date,
-        now: Date,
+        window: ActivityQueryWindow,
         calendar: Calendar
     ) async throws -> [DailyStepTotal] {
-        let monday = WeeklyActivitySnapshot.monday(containing: today, calendar: calendar)
-        let nextMonday = calendar.date(byAdding: .day, value: 7, to: monday)!
-        let predicate = HKQuery.predicateForSamples(withStart: monday, end: min(now, nextMonday))
+        let predicate = HKQuery.predicateForSamples(withStart: window.weekStart, end: window.queryEnd)
 
         let totals: [Date: Int] = try await withCheckedThrowingContinuation { continuation in
             let query = HKStatisticsCollectionQuery(
                 quantityType: type,
                 quantitySamplePredicate: predicate,
                 options: .cumulativeSum,
-                anchorDate: monday,
+                anchorDate: window.weekStart,
                 intervalComponents: DateComponents(day: 1)
             )
             query.initialResultsHandler = { _, collection, error in
@@ -110,7 +151,7 @@ actor HealthKitStepCountProvider: StepCountProviding {
                     return
                 }
                 var result: [Date: Int] = [:]
-                collection?.enumerateStatistics(from: monday, to: min(now, nextMonday)) { statistics, _ in
+                collection?.enumerateStatistics(from: window.weekStart, to: window.queryEnd) { statistics, _ in
                     let date = calendar.startOfDay(for: statistics.startDate)
                     let value = statistics.sumQuantity()?.doubleValue(for: .count()) ?? 0
                     result[date] = Int(value.rounded())
@@ -121,13 +162,16 @@ actor HealthKitStepCountProvider: StepCountProviding {
         }
 
         return (0..<7).map { offset in
-            let date = calendar.date(byAdding: .day, value: offset, to: monday)!
-            return DailyStepTotal(date: date, steps: date <= today ? totals[date, default: 0] : nil)
+            let date = calendar.date(byAdding: .day, value: offset, to: window.weekStart)!
+            return DailyStepTotal(
+                date: date,
+                steps: date <= window.averageEndDate ? totals[date, default: 0] : nil
+            )
         }
     }
 
-    private func todayDistance(type: HKQuantityType, today: Date, now: Date) async throws -> Double? {
-        let predicate = HKQuery.predicateForSamples(withStart: today, end: now)
+    private func selectedDistance(type: HKQuantityType, window: ActivityQueryWindow) async throws -> Double? {
+        let predicate = HKQuery.predicateForSamples(withStart: window.selectedDate, end: window.selectedDayEnd)
         return try await withCheckedThrowingContinuation { continuation in
             let query = HKStatisticsQuery(
                 quantityType: type,
@@ -146,7 +190,16 @@ actor HealthKitStepCountProvider: StepCountProviding {
 }
 
 struct PreviewStepCountProvider: StepCountProviding {
-    var state: WeeklyActivityState = .value(.preview())
+    var state: WeeklyActivityState?
+    var referenceNow: Date
 
-    func activitySnapshot(now: Date) async -> WeeklyActivityState { state }
+    init(state: WeeklyActivityState? = nil, calendar: Calendar = .current) {
+        self.state = state
+        referenceNow = calendar.date(from: DateComponents(year: 2025, month: 7, day: 27, hour: 12))!
+    }
+
+    func activitySnapshot(for selectedDate: Date, now: Date) async -> WeeklyActivityState {
+        if let state { return state }
+        return .value(.preview(selectedDate: selectedDate, now: referenceNow))
+    }
 }
