@@ -4,12 +4,16 @@ struct TodayView: View {
     @Bindable var store: TodayStore
     let onSignOut: @MainActor () async -> Void
 
+    @Environment(\.locale) private var locale
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selectedPhoto = 0
     @State private var galleryPresented = false
     @State private var settingsPresented = false
     @State private var unavailableAction: UnavailableAction?
     @State private var goalEditorPresented = false
     @State private var goalDraft = "12000"
+    @State private var activityDetailPresented = false
+    @State private var sharePayload: ActivitySharePayload?
     @AppStorage("activity.stepGoal") private var stepGoal = 12_000
 
     enum UnavailableAction: String, Identifiable {
@@ -33,8 +37,8 @@ struct TodayView: View {
                 .ignoresSafeArea(edges: .top)
                 .refreshable {
                     async let timeline: Void = store.refresh()
-                    async let steps: Void = store.refreshSteps()
-                    _ = await (timeline, steps)
+                    async let activity: Void = store.refreshActivity()
+                    _ = await (timeline, activity)
                 }
             }
             .background(Color.black)
@@ -44,6 +48,14 @@ struct TodayView: View {
         }
         .sheet(isPresented: $settingsPresented) {
             SettingsView(onSignOut: onSignOut)
+        }
+        .sheet(item: $sharePayload) { payload in
+            ActivityShareSheet(image: payload.image)
+        }
+        .fullScreenCover(isPresented: $activityDetailPresented) {
+            if let snapshot = activitySnapshot {
+                ActivityDetailView(snapshot: snapshot, stepGoal: stepGoal)
+            }
         }
         .alert(item: $unavailableAction) { action in
             Alert(
@@ -60,7 +72,15 @@ struct TodayView: View {
         } message: {
             Text("activity.goal.message")
         }
-        .task { if store.state == .idle { await store.refresh() } }
+        .task {
+            async let activity: Void = store.refreshActivity()
+            if store.state == .idle { await store.refresh() }
+            await activity
+        }
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await store.refreshActivity() }
+        }
     }
 
     @ViewBuilder
@@ -218,7 +238,7 @@ struct TodayView: View {
                 footer: String(localized: "summary.nutrition.macros")
             )
             Divider().overlay(.white.opacity(0.22)).padding(.vertical, 8)
-            Button { Task { await store.refreshSteps() } } label: {
+            Button { Task { await store.refreshActivity() } } label: {
                 MetricSummaryColumn(
                     title: "summary.activity",
                     value: stepsValue,
@@ -226,20 +246,35 @@ struct TodayView: View {
                     target: stepTargetText,
                     progress: stepProgress,
                     footer: stepProgressText,
-                    accessory: store.isRefreshingSteps ? "arrow.triangle.2.circlepath" : "square.and.arrow.up"
+                    accessory: store.isRefreshingActivity ? "arrow.triangle.2.circlepath" : "ellipsis"
                 )
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .simultaneousGesture(
-                LongPressGesture(minimumDuration: 0.55)
-                    .onEnded { _ in
-                        goalDraft = String(stepGoal)
-                        goalEditorPresented = true
-                    }
-            )
+            .contextMenu {
+                Button {
+                    goalDraft = String(stepGoal)
+                    goalEditorPresented = true
+                } label: {
+                    Label("activity.action.goal", systemImage: "target")
+                }
+                .accessibilityIdentifier("activity.menu.goal")
+                Button {
+                    activityDetailPresented = true
+                } label: {
+                    Label("activity.action.detail", systemImage: "chart.xyaxis.line")
+                }
+                .disabled(activitySnapshot == nil)
+                .accessibilityIdentifier("activity.menu.detail")
+                Button(action: shareActivity) {
+                    Label("activity.action.share", systemImage: "square.and.arrow.up")
+                }
+                .disabled(activitySnapshot == nil)
+                .accessibilityIdentifier("activity.menu.share")
+            }
             .accessibilityLabel("activity.refresh.accessibility")
             .accessibilityHint("activity.goal.accessibilityHint")
+            .accessibilityValue(stepsValue)
             .accessibilityIdentifier("today.activity")
         }
         .padding(.horizontal, 16)
@@ -272,27 +307,38 @@ struct TodayView: View {
     }
 
     private var stepProgress: Double {
-        guard case let .value(value) = store.steps, stepGoal > 0 else { return 0 }
-        return min(Double(value) / Double(stepGoal), 1)
+        guard let snapshot = activitySnapshot, stepGoal > 0 else { return 0 }
+        return min(Double(snapshot.todaySteps) / Double(stepGoal), 1)
     }
 
     private var stepProgressText: String {
-        guard case let .value(value) = store.steps, stepGoal > 0 else { return stepsCaption }
-        let percentage = Int((Double(value) / Double(stepGoal) * 100).rounded())
+        guard let snapshot = activitySnapshot, stepGoal > 0 else { return stepsCaption }
+        let percentage = Int((Double(snapshot.todaySteps) / Double(stepGoal) * 100).rounded())
         return String(format: String(localized: "summary.steps.progress.format"), percentage)
     }
 
     private var stepsValue: String {
-        if case let .value(value) = store.steps { return value.formatted() }
+        if let snapshot = activitySnapshot { return snapshot.todaySteps.formatted() }
         return String(localized: "summary.empty")
     }
 
     private var stepsCaption: String {
-        switch store.steps {
+        switch store.activity {
         case .denied: String(localized: "summary.steps.denied")
         case .unavailable: String(localized: "summary.steps.unavailable")
         default: String(localized: "summary.steps.unit")
         }
+    }
+
+    private var activitySnapshot: WeeklyActivitySnapshot? {
+        guard case let .value(snapshot) = store.activity else { return nil }
+        return snapshot
+    }
+
+    private func shareActivity() {
+        guard let snapshot = activitySnapshot,
+              let image = ActivityShareRenderer.image(snapshot: snapshot, stepGoal: stepGoal, locale: locale) else { return }
+        sharePayload = ActivitySharePayload(image: image)
     }
 
     private var timelineDetails: some View {

@@ -12,6 +12,8 @@
 
 `AppRuntime` owns authentication and the Today store. SwiftUI views receive narrow dependencies. `AuthenticationClient`, `TimelineRepository`, and `StepCountProviding` isolate network and HealthKit behavior from presentation and tests.
 
+`StepCountProviding` returns one local weekly activity snapshot: daily HealthKit step totals from Monday through Sunday and optional current-day walking/running distance. `TodayStore` keeps that snapshot in memory and derives today's value and the Monday-to-today average without backend persistence. Health activity is intentionally not a Timeline event because HealthKit remains the device-local source of truth for this single-iPhone product phase.
+
 The shared `URLSession` cookie store establishes an email OTP session through `/api/auth`, then calls `/api/events`. The server derives the owner from the verified session; the native client never supplies a user ID.
 
 Timeline JSON is decoded into a closed native enum. Unknown future event types are retained as unsupported records rather than failing the entire response. Presigned URLs exist only in memory.

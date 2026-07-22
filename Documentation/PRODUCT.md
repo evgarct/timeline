@@ -6,7 +6,7 @@ The native iPhone app is read-oriented and production-connected:
 
 - email OTP sign-in;
 - latest progress-photo session and full-screen gallery;
-- daily HealthKit step count;
+- current HealthKit steps, Monday-to-today weekly average, walking/running distance, and branded activity sharing;
 - latest body measurements and existing Timeline data;
 - Nutrition and History tabs as explicit coming-soon states.
 

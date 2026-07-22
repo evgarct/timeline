@@ -1,0 +1,28 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSHealthShareUsageDescription" : {
+      "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Form čte vaše kroky a vzdálenost chůze, aby zobrazil aktivitu vedle časové osy vašeho těla."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Form reads your steps and walking distance to show activity alongside your body timeline."
+          }
+        },
+        "ru" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Form читает количество шагов и пройденную дистанцию, чтобы показывать активность рядом с хронологией тела."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
