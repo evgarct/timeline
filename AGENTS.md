@@ -44,3 +44,4 @@
 - After Next.js build/dev commands, do not commit incidental `next-env.d.ts` route-type import churn unless typed-route configuration intentionally changed.
 - Do not run `npm run typecheck` in parallel with `npm run build`; Next.js can regenerate `.next/types` during build and make `tsc --noEmit` fail on transient missing route-type files.
 - Before packaging a Git snapshot for remote iOS verification, filter `git ls-files` output to paths that still exist so tracked deletions do not make `tar` fail.
+- When configuring MCP OAuth for ChatGPT Apps SDK, ensure `/.well-known/oauth-authorization-server` advertises `"client_id_metadata_document_supported": true` to support Client ID Metadata Documents (CIMD), and ensure the authorize route allows URL-based client IDs. Keep in mind that Vercel's preview deployment protection blocks external OAuth clients from fetching these metadata documents.
