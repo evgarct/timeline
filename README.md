@@ -2,6 +2,8 @@
 
 Form is a private, native iPhone body timeline. The SwiftUI app is the primary product; the existing Next.js application remains the authenticated Neon/R2 backend, MCP surface, and web companion.
 
+ChatGPT MCP setup: [Documentation/MCP.md](Documentation/MCP.md).
+
 Start with [`Documentation/README.md`](Documentation/README.md). Generate and verify the iOS project on a Mac with:
 
 ```bash

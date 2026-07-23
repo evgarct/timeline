@@ -6,6 +6,8 @@ The catalog is private and owner-scoped. A product stores one or more nutrient b
 
 ChatGPT analyzes attached packaging or produce photos. The MCP server receives structured data only and does not store those images. Exact barcodes reuse a product. Without a barcode, only one exact normalized name/brand match may be reused.
 
+Connection and verification steps are documented in [MCP.md](../MCP.md).
+
 ## Journal
 
 Breakfast, lunch, dinner, and snack entries are Timeline events. Entries accept grams, milliliters, or a product-specific piece size. Their full scaled nutrient snapshot is durable history. The native app can search the complete catalog, add food, and edit or delete journal entries on past, current, or future days.

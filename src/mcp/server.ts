@@ -35,7 +35,12 @@ function hashToken(token: string) {
 export async function authenticateMcp(request: Request) {
   const header = request.headers.get("authorization");
   if (!header?.startsWith("Bearer ")) return null;
-  return resolveMcpUser(hashToken(header.slice(7)));
+  return authenticateMcpToken(header.slice(7));
+}
+
+export async function authenticateMcpToken(token: string) {
+  if (!token.startsWith("ft_dev_")) return null;
+  return resolveMcpUser(hashToken(token));
 }
 
 function result(title: string, summary: string, data: unknown, items: Array<{ label: string; value: string }> = []) {

@@ -15,8 +15,8 @@ struct NutritionView: View {
                 LazyVStack(spacing: 18) {
                     header
                     summary
-                    journal
                     nutrientButton
+                    journal
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 100)
@@ -40,12 +40,6 @@ struct NutritionView: View {
         }
         .sheet(item: $selectedEntry) { entry in
             FoodEntryEditor(store: store, entry: entry)
-        }
-        .sheet(isPresented: $nutrientsPresented) {
-            NutrientDetailsView(
-                title: String(localized: "nutrition.allNutrients"),
-                nutrients: store.entries.flatMap(\.productSnapshot.nutrients)
-            )
         }
         .task(id: store.selectedDate) {
             if store.state == .idle { await store.load() }
@@ -187,17 +181,23 @@ struct NutritionView: View {
     }
 
     private var nutrientButton: some View {
-        Button { nutrientsPresented = true } label: {
-            HStack {
-                Label("nutrition.allNutrients", systemImage: "slider.horizontal.3")
-                Spacer()
-                Image(systemName: "chevron.right").foregroundStyle(.secondary)
-            }
-            .padding(18)
+        HStack {
+            Label("nutrition.allNutrients", systemImage: "slider.horizontal.3")
+            Spacer()
+            Image(systemName: "chevron.right").foregroundStyle(.secondary)
         }
-        .buttonStyle(.plain)
-        .glassEffect(.regular, in: .rect(cornerRadius: 22))
-        .disabled(store.entries.isEmpty)
+        .padding(18)
+        .contentShape(Rectangle())
+        .onTapGesture { nutrientsPresented = true }
+        .accessibilityAddTraits(.isButton)
+        .sheet(isPresented: $nutrientsPresented) {
+            NavigationStack {
+                NutrientDetailsView(
+                    title: String(localized: "nutrition.allNutrients"),
+                    nutrients: store.entries.flatMap(\.productSnapshot.nutrients)
+                )
+            }
+        }
     }
 }
 
@@ -410,6 +410,8 @@ struct NutrientDetailsView: View {
                             Spacer()
                             Text(displayValue(nutrient)).foregroundStyle(.secondary)
                         }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("nutrition.nutrient.\(nutrient.key ?? nutrient.label)")
                     }
                 } header: {
                     Text(groupTitle(group))
@@ -417,6 +419,7 @@ struct NutrientDetailsView: View {
             }
         }
         .navigationTitle(title)
+        .accessibilityIdentifier("nutrition.nutrients.screen")
     }
 
     private var grouped: [(String, [NutrientValue])] {
@@ -427,11 +430,14 @@ struct NutrientDetailsView: View {
     }
 
     private func aggregate(_ values: [NutrientValue]) -> [NutrientValue] {
-        Dictionary(grouping: values.filter { $0.value != nil }, by: { "\($0.key ?? $0.label)-\($0.unit)" })
+        Dictionary(grouping: values, by: { "\($0.key ?? $0.label)-\($0.unit)" })
             .values.map { group in
                 let first = group[0]
+                let numericValues = group.compactMap(\.value)
                 return NutrientValue(
-                    key: first.key, label: first.label, value: group.compactMap(\.value).reduce(0, +),
+                    key: first.key,
+                    label: first.label,
+                    value: numericValues.isEmpty ? nil : numericValues.reduce(0, +),
                     unit: first.unit, qualifier: first.qualifier, originalText: first.originalText,
                     dailyValuePercent: nil,
                     provenance: group.contains(where: { $0.provenance == .estimated }) ? .estimated
@@ -492,7 +498,7 @@ private struct NutritionCalendarSheet: View {
     }
 }
 
-private extension MealType {
+extension MealType {
     var id: String { rawValue }
     var localizedKey: LocalizedStringKey {
         switch self {

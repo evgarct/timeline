@@ -16,11 +16,13 @@ import { Separator } from "@/components/ui/separator";
 export function SettingsScreen({
   locale,
   copy,
-  storageQuota
+  storageQuota,
+  mcpEndpoint
 }: {
   locale: string;
   copy: Copy;
   storageQuota: StorageQuota;
+  mcpEndpoint: string;
 }) {
   const [token, setToken] = useState<string | null>(null);
   const storageText = storageQuota.limitBytes === null
@@ -87,7 +89,7 @@ export function SettingsScreen({
               <div>
                 <p className="text-sm font-medium">{copy.token}</p>
                 <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                  Developer preview token for your personal MCP client. It is shown only once.
+                  {copy.mcpDescription}
                 </p>
               </div>
             </div>
@@ -98,10 +100,10 @@ export function SettingsScreen({
                 <Button
                   variant="outline"
                   size="icon"
-                  aria-label="Copy token"
+                  aria-label={copy.copyToken}
                   onClick={async () => {
                     await navigator.clipboard.writeText(token);
-                    toast.success("Copied");
+                    toast.success(copy.copied);
                   }}
                 >
                   <CopyIcon />
@@ -110,6 +112,21 @@ export function SettingsScreen({
             ) : (
               <Button onClick={createToken}>{copy.createToken}</Button>
             )}
+            <dl className="grid gap-2 rounded-lg bg-muted px-3 py-3 text-xs">
+              <div>
+                <dt className="text-muted-foreground">{copy.mcpEndpoint}</dt>
+                <dd className="mt-1 break-all font-mono">{mcpEndpoint}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">{copy.mcpClientId}</dt>
+                <dd className="mt-1 font-mono">form-personal</dd>
+              </div>
+            </dl>
+            <Button asChild variant="outline">
+              <a href="https://github.com/evgarct/timeline/blob/main/Documentation/MCP.md" target="_blank" rel="noreferrer">
+                {copy.mcpSetup}
+              </a>
+            </Button>
           </div>
         </section>
       </div>

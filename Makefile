@@ -19,7 +19,7 @@ test-ios: project
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DESTINATION)' CODE_SIGNING_ALLOWED=NO test -only-testing:FormTests
 
 ui-test-ios: project
-	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DESTINATION)' CODE_SIGNING_ALLOWED=NO test -only-testing:FormUITests
+	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -destination '$(DESTINATION)' CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO test -only-testing:FormUITests
 
 destinations: project
 	xcodebuild -project $(PROJECT) -scheme $(SCHEME) -showdestinations
