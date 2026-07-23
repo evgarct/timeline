@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TodayView: View {
     @Bindable var store: TodayStore
+    @Bindable var nutritionStore: NutritionStore
     let onSignOut: @MainActor () async -> Void
 
     @Environment(\.locale) private var locale
@@ -39,7 +40,8 @@ struct TodayView: View {
                 .refreshable {
                     async let timeline: Void = store.refresh()
                     async let activity: Void = store.refreshActivity()
-                    _ = await (timeline, activity)
+                    async let nutrition: Void = nutritionStore.load()
+                    _ = await (timeline, activity, nutrition)
                 }
             }
             .background(Color.black)
@@ -77,8 +79,9 @@ struct TodayView: View {
         }
         .task {
             async let activity: Void = store.refreshActivity()
+            async let nutrition: Void = nutritionStore.load()
             if store.state == .idle { await store.refresh() }
-            await activity
+            _ = await (activity, nutrition)
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
@@ -234,11 +237,11 @@ struct TodayView: View {
         HStack(spacing: 0) {
             MetricSummaryColumn(
                 title: "summary.nutrition",
-                value: "2 083",
+                value: nutritionStore.summary.calories.formatted(.number.precision(.fractionLength(0))),
                 unit: String(localized: "summary.calories.unit"),
-                target: String(localized: "summary.nutrition.target"),
-                progress: 2_083.0 / 2_200.0,
-                footer: String(localized: "summary.nutrition.macros")
+                target: "",
+                progress: nil,
+                footer: nutritionMacros
             )
             Divider().overlay(.white.opacity(0.22)).padding(.vertical, 8)
             Button { Task { await store.refreshActivity() } } label: {
@@ -247,7 +250,7 @@ struct TodayView: View {
                     value: stepsValue,
                     unit: String(localized: "summary.steps.unit.short"),
                     target: stepTargetText,
-                    progress: stepProgress,
+                progress: stepProgress,
                     footer: stepProgressText,
                     accessory: store.isRefreshingActivity ? "arrow.triangle.2.circlepath" : "ellipsis"
                 )
@@ -307,6 +310,16 @@ struct TodayView: View {
 
     private var stepTargetText: String {
         String(format: String(localized: "summary.steps.target.format"), stepGoal.formatted())
+    }
+
+    private var nutritionMacros: String {
+        let summary = nutritionStore.summary
+        return String(
+            format: String(localized: "summary.nutrition.macros.format"),
+            summary.protein.formatted(.number.precision(.fractionLength(0...1))),
+            summary.fat.formatted(.number.precision(.fractionLength(0...1))),
+            summary.carbohydrates.formatted(.number.precision(.fractionLength(0...1)))
+        )
     }
 
     private var stepProgress: Double {
@@ -375,7 +388,7 @@ private struct MetricSummaryColumn: View {
     let value: String
     let unit: String
     let target: String
-    let progress: Double
+    let progress: Double?
     let footer: String
     var accessory: String?
 
@@ -402,12 +415,16 @@ private struct MetricSummaryColumn: View {
                     .minimumScaleFactor(0.65)
                 Text(unit).font(.system(size: 12)).foregroundStyle(.secondary)
             }
-            Text(target)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
-            ProgressView(value: progress)
-                .tint(.white)
-                .scaleEffect(x: 1, y: 0.7, anchor: .center)
+            if !target.isEmpty {
+                Text(target)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
+            if let progress {
+                ProgressView(value: progress)
+                    .tint(.white)
+                    .scaleEffect(x: 1, y: 0.7, anchor: .center)
+            }
             Text(footer)
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
@@ -444,6 +461,7 @@ private struct MeasurementRows: View {
 #Preview("Today empty") {
     TodayView(
         store: TodayStore(repository: PreviewTimelineRepository(), steps: PreviewStepCountProvider()),
+        nutritionStore: NutritionStore(repository: PreviewNutritionRepository()),
         onSignOut: {}
     )
 }

@@ -13,11 +13,12 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/u
 import { LanguageMenu } from "./language-menu";
 import { TimelineRow } from "./timeline-row";
 
-export const todayActionTypes: EventType[] = ["workout", "measurements", "progress_photo"];
 const collapsedDrawerSnapPoint = 0.16;
 const expandedDrawerSnapPoint = 0.44;
 
-export const titleKeys: Record<EventType, keyof Pick<Copy, "workout" | "measurements" | "progressPhoto" | "inbody">> = {
+type TodayActionType = Exclude<EventType, "nutrition_entry">;
+export const todayActionTypes: TodayActionType[] = ["workout", "measurements", "progress_photo"];
+export const titleKeys: Record<TodayActionType, keyof Pick<Copy, "workout" | "measurements" | "progressPhoto" | "inbody">> = {
   workout: "workout",
   measurements: "measurements",
   progress_photo: "progressPhoto",

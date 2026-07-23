@@ -1,5 +1,5 @@
 # Current Task
 
-Deliver the first production-connected native Form build on the paired iPhone.
+Deliver the production-connected personal nutrition database and native food journal.
 
-Acceptance requires a signed install and launch, email OTP session, private photo loading, HealthKit steps, safe-area/Liquid Glass verification, and a clean repeat launch. Nutrition, History, comparison, and report sharing are intentional placeholders.
+Acceptance requires lossless macro/micronutrient persistence, MCP product and journal tools, authenticated native search and entry CRUD, historical/future day navigation, deterministic previews/tests, migrations verified on staging and production, and a signed iPhone smoke. History, comparison, recipes, goals, and report sharing remain intentional follow-ups.

@@ -13,15 +13,18 @@ final class AppRuntime {
 
     private(set) var sessionState: SessionState = .restoring
     let todayStore: TodayStore
+    let nutritionStore: NutritionStore
     let authentication: any AuthenticationClient
 
     init(
         authentication: any AuthenticationClient,
         todayStore: TodayStore,
+        nutritionStore: NutritionStore = NutritionStore(repository: PreviewNutritionRepository()),
         sessionState: SessionState = .restoring
     ) {
         self.authentication = authentication
         self.todayStore = todayStore
+        self.nutritionStore = nutritionStore
         self.sessionState = sessionState
     }
 
@@ -45,6 +48,7 @@ final class AppRuntime {
         let session = FormSession()
         let auth = NeonAuthenticationClient(baseURL: configuration.authBaseURL, session: session)
         let repository = RemoteTimelineRepository(baseURL: configuration.apiBaseURL, session: session)
+        let nutritionRepository = RemoteNutritionRepository(baseURL: configuration.apiBaseURL, session: session)
         #if DEBUG
         let steps: any StepCountProviding = ProcessInfo.processInfo.arguments.contains("-ui-testing-no-healthkit")
             ? PreviewStepCountProvider(state: .value(.preview()))
@@ -54,7 +58,8 @@ final class AppRuntime {
         #endif
         return AppRuntime(
             authentication: auth,
-            todayStore: TodayStore(repository: repository, steps: steps)
+            todayStore: TodayStore(repository: repository, steps: steps),
+            nutritionStore: NutritionStore(repository: nutritionRepository)
         )
     }
 
@@ -67,7 +72,11 @@ final class AppRuntime {
         #endif
         do {
             sessionState = try await authentication.hasSession() ? .signedIn : .signedOut
-            if sessionState == .signedIn { await todayStore.refresh() }
+            if sessionState == .signedIn {
+                async let today: Void = todayStore.refresh()
+                async let nutrition: Void = nutritionStore.load()
+                _ = await (today, nutrition)
+            }
         } catch {
             sessionState = .signedOut
         }
@@ -75,18 +84,23 @@ final class AppRuntime {
 
     func signedIn() async {
         sessionState = .signedIn
-        await todayStore.refresh()
+        async let today: Void = todayStore.refresh()
+        async let nutrition: Void = nutritionStore.load()
+        _ = await (today, nutrition)
     }
 
     func signOut() async {
         try? await authentication.signOut()
         sessionState = .signedOut
         todayStore.reset()
+        nutritionStore.reset()
     }
 
     func refresh() async {
         guard sessionState == .signedIn else { return }
-        await todayStore.refresh()
+        async let today: Void = todayStore.refresh()
+        async let nutrition: Void = nutritionStore.load()
+        _ = await (today, nutrition)
     }
 }
 

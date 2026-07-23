@@ -107,6 +107,24 @@ final class FormUITests: XCTestCase {
         waitForExpectations(timeout: 3)
     }
 
+    func testNutritionJournalSupportsDayNavigationAndFullNutrients() {
+        let app = XCUIApplication()
+        app.launchArguments.append("-ui-testing-today")
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        app.tabBars.buttons["Nutrition"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["nutrition.screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Breakfast"].exists)
+        XCTAssertTrue(app.staticTexts["Banana"].exists)
+        XCTAssertTrue(app.buttons["Next day"].isEnabled)
+
+        app.buttons["All nutrients"].tap()
+        XCTAssertTrue(app.staticTexts["Sugars"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.staticTexts["Fiber"].exists)
+        XCTAssertTrue(app.staticTexts["Potassium"].exists)
+    }
+
     func testLiveTodayLayoutWhenSessionIsProvided() throws {
         let environment = ProcessInfo.processInfo.environment
         let cookie = environment["FORM_UI_TEST_COOKIE"] ?? (try? String(

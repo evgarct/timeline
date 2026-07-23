@@ -28,12 +28,14 @@ enum TimelineEvent: Identifiable, Equatable, Sendable {
     case measurements(EventBase, BodyMeasurements)
     case workout(EventBase, completed: Bool, muscleGroups: [String])
     case inbody(EventBase)
+    case nutritionEntry(EventBase, FoodEntryPayload)
     case unsupported(EventBase, type: String)
 
     var base: EventBase {
         switch self {
         case let .progressPhoto(base, _), let .measurements(base, _),
-             let .workout(base, _, _), let .inbody(base), let .unsupported(base, _): base
+             let .workout(base, _, _), let .inbody(base), let .nutritionEntry(base, _),
+             let .unsupported(base, _): base
         }
     }
 
@@ -50,6 +52,7 @@ struct EventBase: Codable, Identifiable, Equatable, Sendable {
 extension TimelineEvent: Decodable {
     private enum CodingKeys: String, CodingKey {
         case id, type, occurredAt, timezone, note, photos, values, completed, muscleGroups
+        case productId, mealType, quantity, productSnapshot
     }
 
     init(from decoder: Decoder) throws {
@@ -73,6 +76,13 @@ extension TimelineEvent: Decodable {
                 muscleGroups: try container.decode([String].self, forKey: .muscleGroups)
             )
         case "inbody": self = .inbody(base)
+        case "nutrition_entry":
+            self = .nutritionEntry(base, FoodEntryPayload(
+                productId: try container.decode(String.self, forKey: .productId),
+                mealType: try container.decode(MealType.self, forKey: .mealType),
+                quantity: try container.decode(FoodQuantity.self, forKey: .quantity),
+                productSnapshot: try container.decode(FoodProductSnapshot.self, forKey: .productSnapshot)
+            ))
         default: self = .unsupported(base, type: type)
         }
     }

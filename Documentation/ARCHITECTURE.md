@@ -7,6 +7,7 @@
 - `src/app/api`: Next.js production backend and Neon Auth proxy.
 - Neon PostgreSQL: owner-scoped events and media metadata.
 - private Cloudflare R2: normalized progress photos and original InBody files.
+- Owner-scoped `products`: personal food catalog with open-ended nutrient JSON, multiple label bases, and product-specific piece weights.
 
 ## Native boundaries
 
@@ -17,6 +18,8 @@
 The shared `URLSession` cookie store establishes an email OTP session through `/api/auth`, then calls `/api/events`. The server derives the owner from the verified session; the native client never supplies a user ID.
 
 Timeline JSON is decoded into a closed native enum. Unknown future event types are retained as unsupported records rather than failing the entire response. Presigned URLs exist only in memory.
+
+Nutrition entries are Timeline events. Each entry points to an owner-scoped product but also contains a complete nutrient snapshot scaled to the logged quantity, so later product corrections do not rewrite history. Packaged-label values, calculated values, and estimated produce values remain distinguishable. The native nutrition repository uses authenticated REST endpoints; MCP uses the same repository functions after bearer-token ownership resolution.
 
 ## Configuration
 

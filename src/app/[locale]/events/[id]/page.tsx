@@ -26,7 +26,8 @@ export default async function EventPage({
     progress_photo: copy.progressPhoto,
     workout: copy.workout,
     measurements: copy.measurements,
-    inbody: copy.inbody
+    inbody: copy.inbody,
+    nutrition_entry: copy.nutrition
   }[event.type];
 
   return (
@@ -88,6 +89,21 @@ export default async function EventPage({
               </Button>
             ) : null}
           </>
+        ) : null}
+
+        {event.type === "nutrition_entry" ? (
+          <dl className="surface divide-y overflow-hidden rounded-xl">
+            <div className="flex items-center justify-between px-4 py-3">
+              <dt className="text-sm text-muted-foreground">{copy.nutrition}</dt>
+              <dd className="text-sm font-medium">{event.productSnapshot.name}</dd>
+            </div>
+            {event.productSnapshot.nutrients.filter((nutrient) => nutrient.value !== undefined).map((nutrient) => (
+              <div key={`${nutrient.key ?? nutrient.label}-${nutrient.unit}`} className="flex items-center justify-between px-4 py-3">
+                <dt className="text-sm text-muted-foreground">{nutrient.label}</dt>
+                <dd className="text-sm font-medium">{nutrient.value?.toLocaleString(locale)} {nutrient.unit}</dd>
+              </div>
+            ))}
+          </dl>
         ) : null}
 
         {event.note ? (
