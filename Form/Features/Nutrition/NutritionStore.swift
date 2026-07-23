@@ -30,6 +30,14 @@ final class NutritionStore {
 
     var summary: NutritionSummary { NutritionSummary(entries: entries) }
 
+    func summary(for date: Date) async throws -> NutritionSummary {
+        let entries = try await repository.entries(
+            date: calendar.startOfDay(for: date),
+            timezone: timezone
+        )
+        return NutritionSummary(entries: entries)
+    }
+
     func entries(for meal: MealType) -> [FoodEntry] {
         entries.filter { $0.mealType == meal }
     }

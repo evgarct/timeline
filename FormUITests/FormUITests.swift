@@ -120,9 +120,10 @@ final class FormUITests: XCTestCase {
         XCTAssertTrue(app.buttons["Next day"].isEnabled)
 
         app.buttons["All nutrients"].tap()
-        XCTAssertTrue(app.staticTexts["Sugars"].waitForExistence(timeout: 3))
-        XCTAssertTrue(app.staticTexts["Fiber"].exists)
-        XCTAssertTrue(app.staticTexts["Potassium"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrients.screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrient.sugars"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrient.fiber"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrient.potassium"].exists)
     }
 
     func testLiveTodayLayoutWhenSessionIsProvided() throws {

@@ -3,6 +3,12 @@ import type { Locale } from "./config";
 const messages = {
   ru: {
     brand: "Fitness Timeline",
+    mcpDescription: "\u0421\u043e\u0437\u0434\u0430\u0439\u0442\u0435 \u043b\u0438\u0447\u043d\u044b\u0439 \u0441\u0435\u043a\u0440\u0435\u0442 \u0434\u043b\u044f OAuth-\u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f Form \u043a ChatGPT. \u0422\u043e\u043a\u0435\u043d \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u0442\u0441\u044f \u043e\u0434\u0438\u043d \u0440\u0430\u0437.",
+    mcpEndpoint: "MCP endpoint",
+    mcpClientId: "OAuth Client ID",
+    mcpSetup: "\u041a\u0430\u043a \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0438\u0442\u044c \u043a ChatGPT",
+    copyToken: "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u0442\u043e\u043a\u0435\u043d",
+    copied: "\u0421\u043a\u043e\u043f\u0438\u0440\u043e\u0432\u0430\u043d\u043e",
     hero: "Вся твоя история формы в одном месте",
     heroBody: "Фотографии, тренировки, замеры и тесты тела — в хронологии, которую ты создаешь каждый день.",
     start: "Начать",
@@ -87,6 +93,12 @@ const messages = {
   },
   en: {
     brand: "Fitness Timeline",
+    mcpDescription: "Create a personal secret for connecting Form to ChatGPT with OAuth. The token is shown once.",
+    mcpEndpoint: "MCP endpoint",
+    mcpClientId: "OAuth Client ID",
+    mcpSetup: "How to connect ChatGPT",
+    copyToken: "Copy token",
+    copied: "Copied",
     hero: "Your complete body story in one place",
     heroBody: "Photos, workouts, measurements and body tests — in the chronology you create every day.",
     start: "Get started",
@@ -171,6 +183,12 @@ const messages = {
   },
   cs: {
     brand: "Fitness Timeline",
+    mcpDescription: "Vytvo\u0159te osobn\u00ed tajn\u00fd kl\u00ed\u010d pro OAuth propojen\u00ed Form s ChatGPT. Token se zobraz\u00ed jen jednou.",
+    mcpEndpoint: "MCP endpoint",
+    mcpClientId: "OAuth Client ID",
+    mcpSetup: "Jak p\u0159ipojit ChatGPT",
+    copyToken: "Kop\u00edrovat token",
+    copied: "Zkop\u00edrov\u00e1no",
     hero: "Celá historie tvé formy na jednom místě",
     heroBody: "Fotky, tréninky, měření a tělesné testy — v chronologii, kterou vytváříš každý den.",
     start: "Začít",
