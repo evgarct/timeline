@@ -39,6 +39,8 @@
 - If the initial scroll is intended to visually crop only the photo/background, compensate foreground overlay padding by the same offset and verify the foreground text position is unchanged.
 - For installed-app-only behavior, detect PWA standalone mode with `matchMedia("(display-mode: standalone)")` and iOS `navigator.standalone`; do not substitute touch-device detection.
 - Generate Drizzle schema changes with `npm run db:generate` and keep the generated SQL plus `drizzle/meta` snapshot together; do not hand-add migrations without matching metadata.
+- When applying generated Drizzle SQL through Neon or another external SQL runner, also record the exact migration hash and journal timestamp in `drizzle.__drizzle_migrations` on that branch, then verify both schema objects and the journal row.
+- Do not merge a PR that changes `Form/` until the native build and relevant tests pass on the configured Mac. If the Mac is unavailable, leave the PR open and report native verification as blocked.
 - After Next.js build/dev commands, do not commit incidental `next-env.d.ts` route-type import churn unless typed-route configuration intentionally changed.
 - Do not run `npm run typecheck` in parallel with `npm run build`; Next.js can regenerate `.next/types` during build and make `tsc --noEmit` fail on transient missing route-type files.
 - Before packaging a Git snapshot for remote iOS verification, filter `git ls-files` output to paths that still exist so tracked deletions do not make `tar` fail.
