@@ -54,7 +54,6 @@ actor NeonAuthenticationClient: AuthenticationClient {
 
     func hasSession() async throws -> Bool {
         var request = URLRequest(url: baseURL.appending(path: "api/auth/get-session"))
-        request.setValue(origin, forHTTPHeaderField: "Origin")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         let (data, response) = try await session.urlSession.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw AuthenticationError.unavailable }
@@ -72,7 +71,6 @@ actor NeonAuthenticationClient: AuthenticationClient {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.setValue(origin, forHTTPHeaderField: "Origin")
         request.httpBody = try JSONEncoder().encode(body)
         let (data, response) = try await session.urlSession.data(for: request)
         guard let http = response as? HTTPURLResponse else { throw AuthenticationError.unavailable }
