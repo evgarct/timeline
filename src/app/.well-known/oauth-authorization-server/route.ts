@@ -7,7 +7,8 @@ export function GET(request: Request) {
     grant_types_supported: ["client_credentials", "authorization_code"],
     token_endpoint_auth_methods_supported: ["client_secret_basic", "client_secret_post"],
     code_challenge_methods_supported: ["S256", "plain"],
-    scopes_supported: ["mcp"]
+    scopes_supported: ["mcp"],
+    client_id_metadata_document_supported: true
   });
 }
 
