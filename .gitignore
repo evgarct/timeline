@@ -19,3 +19,4 @@ xcuserdata/
 .xcodegen/
 *.xcresult
 Config/Form.local.xcconfig
+.vercel
