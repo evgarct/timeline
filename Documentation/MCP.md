@@ -20,14 +20,25 @@ client secret, привязан к владельцу базы и показыв
 2. Открыть Settings → Plugins, нажать `+` и создать developer-mode app.
 3. Указать имя `Form`, endpoint `https://form.safronov.dev/api/mcp` и транспорт
    Streaming HTTP.
-4. Выбрать OAuth со статическими credentials:
-   - Client ID: `form-personal`
-   - Client secret: личный токен `ft_dev_…`
+4. Настроить аутентификацию (поддерживаются два варианта):
+
+   **Вариант А: Интерактивный OAuth (Authorization Code + PKCE) — Рекомендуемый**
+   - Выбрать тип авторизации **OAuth**.
+   - Указать параметры:
+     - Client ID: `form-personal`
+     - Client Secret: оставить пустым или ввести любой символ (при обмене кодами используется PKCE)
+     - Authorization URL: `https://form.safronov.dev/api/mcp/oauth/authorize`
+     - Token URL: `https://form.safronov.dev/api/mcp/oauth/token`
+   - Во время привязки откроется окно авторизации Form. Если вы авторизованы в браузере, достаточно будет нажать одну кнопку; иначе потребуется ввести личный MCP-токен.
+
+   **Вариант Б: Статические учетные данные (Client Credentials)**
+   - Выбрать OAuth со статическими credentials:
+     - Client ID: `form-personal`
+     - Client secret: личный токен `ft_dev_…`
+
 5. Запустить Scan tools и создать app.
 6. В новом чате выбрать Developer mode → Form.
 
-ChatGPT поддерживает remote MCP через Streaming HTTP и OAuth. Интерфейс доступен
-в веб-версии; названия разделов могут меняться во время beta.
 
 ## Проверка
 
