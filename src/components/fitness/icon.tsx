@@ -1,11 +1,12 @@
-import { Camera, Dumbbell, FileText, Ruler, type LucideIcon } from "lucide-react";
+import { Camera, Dumbbell, FileText, Ruler, Utensils, type LucideIcon } from "lucide-react";
 import type { EventType } from "@/domain/events";
 
 const icons: Record<EventType, LucideIcon> = {
   progress_photo: Camera,
   workout: Dumbbell,
   measurements: Ruler,
-  inbody: FileText
+  inbody: FileText,
+  nutrition_entry: Utensils
 };
 
 export function EventIcon({ type }: { type: EventType }) {

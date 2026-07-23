@@ -9,7 +9,8 @@ function titleFor(event: TimelineEvent, copy: Copy) {
     progress_photo: copy.progressPhoto,
     workout: copy.workout,
     measurements: copy.measurements,
-    inbody: copy.inbody
+    inbody: copy.inbody,
+    nutrition_entry: copy.nutrition
   }[event.type];
 }
 
@@ -26,6 +27,9 @@ function detailsFor(event: TimelineEvent, copy: Copy) {
       .filter((metric) => ["weight", "percent_body_fat"].includes(metric.key))
       .map((metric) => `${metric.value}${metric.unit ? ` ${metric.unit}` : ""}`)
       .join(" · ");
+  }
+  if (event.type === "nutrition_entry") {
+    return `${event.productSnapshot.name} · ${event.quantity.amount} ${event.quantity.unit}`;
   }
   return copy.photoCount.replace("{count}", String(event.photos.length));
 }

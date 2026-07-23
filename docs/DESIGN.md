@@ -48,6 +48,7 @@ This document is the design source of truth for UI work in this repository. Read
 
 ## Accepted Patterns
 
+- Native nutrition journal: use one calm glass document with a large factual calorie/macronutrient summary and row-based collapsible breakfast, lunch, dinner, and snack sections. Keep micronutrients behind an explicit “All nutrients” disclosure, preserve neutral provenance labels for calculated/estimated values, allow vertical scrolling, and avoid goals, macro colors, streaks, or food photography.
 - TRACE identity: use the approved vertical trace symbol as the sole branded carrier. Primary is brown on warm paper, dark is white on near-black, and monochrome supports tinted/small-scale contexts; retain semantic system icons for functional controls.
 - Native activity detail: use a quiet, icon-led editorial composition. `figure.walk`, `target`, `chart.xyaxis.line`, and `ruler` carry unambiguous metric meaning; the selected step count stays dominant, while goal, average, chart, and distance form one calm reading order without duplicate headings.
 - Historical activity navigation belongs inside the detail screen. Day arrows move one day at a time, the compact date control opens a native calendar, and future dates are unavailable. The selected chart point is dominant; other points are deliberately subdued.

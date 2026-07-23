@@ -30,12 +30,12 @@ private struct AppTabs: View {
     var body: some View {
         TabView {
             Tab("tab.today", systemImage: "house") {
-                TodayView(store: runtime.todayStore) {
+                TodayView(store: runtime.todayStore, nutritionStore: runtime.nutritionStore) {
                     await runtime.signOut()
                 }
             }
             Tab("tab.nutrition", systemImage: "fork.knife") {
-                PlaceholderView(title: "tab.nutrition", icon: "fork.knife")
+                NutritionView(store: runtime.nutritionStore)
             }
             Tab("tab.history", systemImage: "chart.bar") {
                 PlaceholderView(title: "tab.history", icon: "chart.bar")

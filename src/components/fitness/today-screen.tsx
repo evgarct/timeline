@@ -41,7 +41,7 @@ export function TodayScreen({
   initialEvents: TimelineEvent[];
 }) {
   const [events, setEvents] = useState(initialEvents);
-  const [composer, setComposer] = useState<EventType | null>(null);
+  const [composer, setComposer] = useState<Exclude<EventType, "nutrition_entry"> | null>(null);
   const grouped = useMemo(() => groupTodayEvents(events), [events]);
   const latestPhoto = latestEvent(events, "progress_photo");
   const visiblePhotos = latestPhoto?.type === "progress_photo" ? latestPhoto.photos.filter((photo) => photo.url) : [];
@@ -102,11 +102,11 @@ export function TodayScreen({
         heroDate={heroDate}
         heroPhotoUrl={heroPhoto?.url}
         heroThumbnailUrl={heroPhoto?.thumbnailUrl ?? heroPhoto?.url}
-        onSelect={setComposer}
+        onSelect={(type) => type !== "nutrition_entry" && setComposer(type)}
       >
-        <TodayActionDrawer copy={copy} events={events} onSelect={setComposer} />
+        <TodayActionDrawer copy={copy} events={events} onSelect={(type) => type !== "nutrition_entry" && setComposer(type)} />
       </TodayHero>
-      <TodayTimelineSection locale={locale} copy={copy} grouped={grouped} onSelect={setComposer} />
+      <TodayTimelineSection locale={locale} copy={copy} grouped={grouped} onSelect={(type) => type !== "nutrition_entry" && setComposer(type)} />
 
       <EventComposer type={composer} copy={copy} onClose={() => setComposer(null)} onSaved={markSaved} />
     </main>

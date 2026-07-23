@@ -1,6 +1,7 @@
 import { z } from "zod";
+import { nutritionEntryPayloadSchema } from "./nutrition";
 
-export const eventTypeSchema = z.enum(["progress_photo", "workout", "measurements", "inbody"]);
+export const eventTypeSchema = z.enum(["progress_photo", "workout", "measurements", "inbody", "nutrition_entry"]);
 export type EventType = z.infer<typeof eventTypeSchema>;
 
 const baseEventSchema = z.object({
@@ -84,14 +85,21 @@ export const inbodyEventSchema = baseEventSchema.extend({
   })
 });
 
+export const nutritionEntryEventSchema = baseEventSchema.extend({
+  type: z.literal("nutrition_entry"),
+  ...nutritionEntryPayloadSchema.shape
+});
+
 export const timelineEventSchema = z.discriminatedUnion("type", [
   progressPhotoEventSchema,
   workoutEventSchema,
   measurementsEventSchema,
-  inbodyEventSchema
+  inbodyEventSchema,
+  nutritionEntryEventSchema
 ]);
 
 export type TimelineEvent = z.infer<typeof timelineEventSchema>;
+export type NutritionEntryEvent = z.infer<typeof nutritionEntryEventSchema>;
 export type InBodyMetric = z.infer<typeof inbodyMetricSchema>;
 export type ProgressPhoto = z.infer<typeof progressPhotoEventSchema>["photos"][number];
 

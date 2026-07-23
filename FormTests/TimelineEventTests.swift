@@ -23,4 +23,15 @@ final class TimelineEventTests: XCTestCase {
         XCTAssertEqual(base.id, "event-2")
         XCTAssertEqual(type, "future_event")
     }
+
+    func testDecodesNutritionEntryWithMicronutrients() throws {
+        let data = Data(#"[{"id":"event-food","type":"nutrition_entry","occurredAt":"2026-07-23T12:00:00Z","timezone":"Europe/Prague","productId":"product-1","mealType":"breakfast","quantity":{"unit":"g","amount":150},"productSnapshot":{"name":"Yoghurt","nutrients":[{"key":"salt","label":"Salt","value":0.2,"unit":"g","provenance":"stated"},{"key":"vitamin_c","label":"Vitamin C","value":12,"unit":"mg","provenance":"stated"}]}}]"#.utf8)
+        let events = try JSONDecoder.formAPI.decode([TimelineEvent].self, from: data)
+
+        guard case let .nutritionEntry(_, payload) = events.first else {
+            return XCTFail("Expected nutrition entry")
+        }
+        XCTAssertEqual(payload.mealType, .breakfast)
+        XCTAssertEqual(payload.productSnapshot.nutrients.count, 2)
+    }
 }

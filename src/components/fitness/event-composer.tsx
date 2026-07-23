@@ -24,7 +24,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-const titles: Record<EventType, keyof Pick<Copy, "workout" | "measurements" | "progressPhoto" | "inbody">> = {
+type ComposableEventType = Exclude<EventType, "nutrition_entry">;
+const titles: Record<ComposableEventType, keyof Pick<Copy, "workout" | "measurements" | "progressPhoto" | "inbody">> = {
   workout: "workout",
   measurements: "measurements",
   progress_photo: "progressPhoto",
@@ -37,7 +38,7 @@ export function EventComposer({
   onClose,
   onSaved
 }: {
-  type: EventType | null;
+  type: ComposableEventType | null;
   copy: Copy;
   onClose: () => void;
   onSaved: (event: TimelineEvent) => void;
