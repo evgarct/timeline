@@ -63,7 +63,12 @@ actor NeonAuthenticationClient: AuthenticationClient {
     }
 
     func signOut() async throws {
-        _ = try await post(path: "api/auth/sign-out", body: [String: String]())
+        _ = try? await post(path: "api/auth/sign-out", body: [String: String]())
+        if let cookies = HTTPCookieStorage.shared.cookies {
+            for cookie in cookies {
+                HTTPCookieStorage.shared.deleteCookie(cookie)
+            }
+        }
     }
 
     private func post(path: String, body: [String: String]) async throws -> Data {
