@@ -86,6 +86,7 @@ function renderHtml({
       border-radius: 8px;
       margin-bottom: 16px;
       text-align: left;
+      display: ${error ? "block" : "none"};
     }
     .divider {
       margin: 24px 0;
@@ -113,7 +114,7 @@ function renderHtml({
       margin-bottom: 6px;
       color: #4a423d;
     }
-    input[type="text"] {
+    input[type="text"], input[type="email"] {
       width: 100%;
       padding: 12px;
       border: 1px solid #ccd2d8;
@@ -123,7 +124,7 @@ function renderHtml({
       outline: none;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
-    input[type="text"]:focus {
+    input[type="text"]:focus, input[type="email"]:focus {
       border-color: #1a1614;
       box-shadow: 0 0 0 3px rgba(26, 22, 20, 0.08);
     }
@@ -139,9 +140,14 @@ function renderHtml({
       cursor: pointer;
       border: none;
       transition: opacity 0.2s, transform 0.1s;
+      box-sizing: border-box;
     }
     .btn:active {
       transform: scale(0.99);
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
     }
     .btn-primary {
       background: #1a1614;
@@ -177,6 +183,12 @@ function renderHtml({
     .footer a {
       color: #1a1614;
       text-decoration: underline;
+      cursor: pointer;
+    }
+    .btn-group {
+      display: flex;
+      gap: 8px;
+      width: 100%;
     }
   </style>
 </head>
@@ -186,32 +198,193 @@ function renderHtml({
     <div class="title">Подключение к ChatGPT</div>
     <p class="desc">Разрешить ChatGPT доступ к вашей персональной базе данных продуктов и питания через MCP.</p>
     
-    ${error ? `<div class="error">${error}</div>` : ""}
+    <div id="error-div" class="error">${error || ""}</div>
 
-    ${userId ? `
-      <div class="user-badge">Вы вошли как: ${userId}</div>
+    <!-- Active Session View -->
+    <div id="session-view" style="display: ${userId ? "block" : "none"};">
+      <div class="user-badge" id="user-badge-text">Вы вошли как: ${userId || ""}</div>
       <form method="POST">
         <input type="hidden" name="action" value="auto_authorize">
-        <button type="submit" class="btn btn-primary" style="margin-bottom: 8px;">Разрешить доступ автоматически</button>
+        <button type="submit" class="btn btn-primary">Подтвердить подключение</button>
       </form>
-      <div class="divider">
-        <span class="divider-text">Или введите токен вручную</span>
+      <div class="footer">
+        <a onclick="showManualView()">Использовать другой токен вручную</a>
       </div>
-    ` : ""}
+    </div>
 
-    <form method="POST">
-      <input type="hidden" name="action" value="manual_token">
-      <div class="form-group">
-        <label for="token">Персональный токен MCP</label>
-        <input type="text" id="token" name="token" placeholder="ft_dev_..." required>
+    <!-- Login View -->
+    <div id="login-view" style="display: ${!userId ? "block" : "none"};">
+      <form id="login-form" onsubmit="handleLoginSubmit(event)">
+        <div id="email-group" class="form-group">
+          <label for="email-field">Электронная почта</label>
+          <input type="email" id="email-field" placeholder="you@example.com" required>
+        </div>
+        <div id="otp-group" class="form-group" style="display: none;">
+          <label for="otp-field">Код подтверждения из письма</label>
+          <input type="text" id="otp-field" placeholder="123456" minlength="6" maxlength="8">
+        </div>
+        <div class="btn-group">
+          <button type="button" id="back-btn" class="btn btn-secondary" style="display: none; flex: 1;" onclick="goToEmailStep()">Назад</button>
+          <button type="submit" id="primary-btn" class="btn btn-primary" style="flex: 2;">Получить код</button>
+        </div>
+      </form>
+      <div class="footer">
+        Нужен ручной ввод? <a onclick="showManualView()">Войти по токену</a>
       </div>
-      <button type="submit" class="btn ${userId ? 'btn-secondary' : 'btn-primary'}">Авторизовать по токену</button>
-    </form>
-    
-    <div class="footer">
-      Как получить токен? Откройте приложение Form, перейдите в <b>Settings → MCP</b> и нажмите <b>Create token</b>.
+    </div>
+
+    <!-- Manual Token View -->
+    <div id="manual-view" style="display: none;">
+      <form method="POST">
+        <input type="hidden" name="action" value="manual_token">
+        <div class="form-group">
+          <label for="token-field">Персональный токен MCP</label>
+          <input type="text" id="token-field" name="token" placeholder="ft_dev_..." required>
+        </div>
+        <button type="submit" class="btn btn-primary">Авторизовать по токену</button>
+      </form>
+      <div class="footer">
+        <a onclick="goBackFromManual()">Вернуться к быстрому входу</a>
+      </div>
     </div>
   </div>
+
+  <script>
+    const isNeonAuthConfigured = ${isNeonAuthConfigured};
+    let currentStep = "email";
+    
+    const emailField = document.getElementById("email-field");
+    const otpField = document.getElementById("otp-field");
+    const emailGroup = document.getElementById("email-group");
+    const otpGroup = document.getElementById("otp-group");
+    const primaryBtn = document.getElementById("primary-btn");
+    const backBtn = document.getElementById("back-btn");
+    const errorDiv = document.getElementById("error-div");
+    
+    const sessionView = document.getElementById("session-view");
+    const loginView = document.getElementById("login-view");
+    const manualView = document.getElementById("manual-view");
+
+    function showError(msg) {
+      errorDiv.textContent = msg;
+      errorDiv.style.display = "block";
+    }
+
+    function clearError() {
+      errorDiv.style.display = "none";
+    }
+
+    function showManualView() {
+      clearError();
+      sessionView.style.display = "none";
+      loginView.style.display = "none";
+      manualView.style.display = "block";
+    }
+
+    function goBackFromManual() {
+      clearError();
+      manualView.style.display = "none";
+      const hasSession = ${userId ? "true" : "false"};
+      if (hasSession) {
+        sessionView.style.display = "block";
+      } else {
+        loginView.style.display = "block";
+      }
+    }
+
+    function goToEmailStep() {
+      clearError();
+      currentStep = "email";
+      emailGroup.style.display = "block";
+      otpGroup.style.display = "none";
+      backBtn.style.display = "none";
+      primaryBtn.textContent = "Получить код";
+      otpField.required = false;
+    }
+
+    async function handleLoginSubmit(e) {
+      e.preventDefault();
+      clearError();
+      const email = emailField.value.trim();
+
+      if (!isNeonAuthConfigured) {
+        // Local/Demo Mode Bypass
+        if (currentStep === "email") {
+          currentStep = "otp";
+          emailGroup.style.display = "none";
+          otpGroup.style.display = "block";
+          backBtn.style.display = "inline-flex";
+          primaryBtn.textContent = "Войти и подключить (Демо)";
+          otpField.required = true;
+          otpField.value = "123456";
+          otpField.focus();
+        } else {
+          submitAutoAuthorize();
+        }
+        return;
+      }
+
+      if (currentStep === "email") {
+        if (!email) return;
+        primaryBtn.disabled = true;
+        primaryBtn.textContent = "Отправка...";
+        try {
+          const res = await fetch("/api/auth/email-otp/send-verification-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, type: "sign-in" })
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error.message || "Ошибка при отправке кода.");
+          
+          currentStep = "otp";
+          emailGroup.style.display = "none";
+          otpGroup.style.display = "block";
+          backBtn.style.display = "inline-flex";
+          primaryBtn.textContent = "Войти и подключить";
+          otpField.required = true;
+          otpField.focus();
+        } catch (err) {
+          showError(err.message);
+        } finally {
+          primaryBtn.disabled = false;
+        }
+      } else if (currentStep === "otp") {
+        const otp = otpField.value.trim();
+        if (!otp) return;
+        primaryBtn.disabled = true;
+        primaryBtn.textContent = "Вход...";
+        try {
+          const res = await fetch("/api/auth/sign-in/email-otp", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email, otp })
+          });
+          const data = await res.json();
+          if (data.error) throw new Error(data.error.message || "Неверный код.");
+          
+          // Successful login - trigger auth code generation
+          submitAutoAuthorize();
+        } catch (err) {
+          showError(err.message);
+        } finally {
+          primaryBtn.disabled = false;
+        }
+      }
+    }
+
+    function submitAutoAuthorize() {
+      const submitForm = document.createElement("form");
+      submitForm.method = "POST";
+      const actionInput = document.createElement("input");
+      actionInput.type = "hidden";
+      actionInput.name = "action";
+      actionInput.value = "auto_authorize";
+      submitForm.appendChild(actionInput);
+      document.body.appendChild(submitForm);
+      submitForm.submit();
+    }
+  </script>
 </body>
 </html>`;
 }
