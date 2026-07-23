@@ -20,6 +20,12 @@ function getParams(request: Request) {
   };
 }
 
+function isValidClientId(clientId: string | null): boolean {
+  if (!clientId) return false;
+  if (clientId === "form-personal") return true;
+  return clientId.startsWith("https://") || clientId.startsWith("http://");
+}
+
 function renderHtml({
   userId,
   error,
@@ -392,7 +398,7 @@ function renderHtml({
 export async function GET(request: Request) {
   const { clientId, redirectUri, responseType, state } = getParams(request);
 
-  if (clientId !== "form-personal") {
+  if (!isValidClientId(clientId)) {
     return new Response("Invalid client_id", { status: 400 });
   }
   if (!redirectUri) {
@@ -412,7 +418,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const { clientId, redirectUri, responseType, state, codeChallenge, codeChallengeMethod } = getParams(request);
 
-  if (clientId !== "form-personal" || !redirectUri || responseType !== "code") {
+  if (!isValidClientId(clientId) || !redirectUri || responseType !== "code") {
     return new Response("Invalid OAuth request parameters", { status: 400 });
   }
 
