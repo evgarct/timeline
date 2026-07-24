@@ -42,6 +42,26 @@ async function fetchCimdRedirectUris(clientIdUrl: string): Promise<string[]> {
   }
 }
 
+function hostnameOf(url: string): string | undefined {
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return undefined;
+  }
+}
+
+async function getClientDisplayName(clientId: string): Promise<string | undefined> {
+  if (clientId === "form-personal") return undefined;
+  if (clientId.startsWith("mcp_client_")) {
+    const client = await getMcpClient(clientId);
+    return client?.clientName ?? (client?.redirectUris[0] ? hostnameOf(client.redirectUris[0]) : undefined);
+  }
+  if (clientId.startsWith("https://") || clientId.startsWith("http://")) {
+    return hostnameOf(clientId);
+  }
+  return undefined;
+}
+
 async function isRedirectUriAllowed(clientId: string, redirectUri: string): Promise<boolean> {
   if (clientId === "form-personal") {
     try {
@@ -65,17 +85,20 @@ function renderHtml({
   userId,
   error,
   state,
+  clientName,
 }: {
   userId: string | null;
   error?: string;
   state: string;
+  clientName?: string;
 }) {
+  const displayName = clientName ?? "ИИ-ассистента";
   return `<!DOCTYPE html>
 <html lang="ru">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Подключение к ChatGPT</title>
+  <title>Подключение к ${displayName}</title>
   <style>
     body {
       background-color: #f6f2ec;
@@ -236,8 +259,8 @@ function renderHtml({
 <body>
   <div class="card">
     <div class="logo">✦ Timeline</div>
-    <div class="title">Подключение к ChatGPT</div>
-    <p class="desc">Разрешить ChatGPT доступ к вашей персональной базе данных продуктов и питания через MCP.</p>
+    <div class="title">Подключение к ${displayName}</div>
+    <p class="desc">Разрешить ${displayName} доступ к вашей персональной базе данных продуктов и питания через MCP.</p>
     
     <div id="error-div" class="error">${error || ""}</div>
 
@@ -447,8 +470,9 @@ export async function GET(request: Request) {
   }
 
   const userId = isNeonAuthConfigured ? await getAuthenticatedUserId() : "demo-user";
+  const clientName = await getClientDisplayName(clientId as string);
 
-  return new Response(renderHtml({ userId, state }), {
+  return new Response(renderHtml({ userId, state, clientName }), {
     headers: { "Content-Type": "text/html; charset=utf-8" },
   });
 }
@@ -464,6 +488,7 @@ export async function POST(request: Request) {
   }
 
   const userId = isNeonAuthConfigured ? await getAuthenticatedUserId() : "demo-user";
+  const clientName = await getClientDisplayName(clientId as string);
   const formData = await request.formData();
   const action = formData.get("action");
 
@@ -472,7 +497,7 @@ export async function POST(request: Request) {
   if (action === "auto_authorize") {
     if (!userId) {
       return new Response(
-        renderHtml({ userId, error: "Сессия истекла. Пожалуйста, авторизуйтесь по токену вручную.", state }),
+        renderHtml({ userId, error: "Сессия истекла. Пожалуйста, авторизуйтесь по токену вручную.", state, clientName }),
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
     }
@@ -484,7 +509,7 @@ export async function POST(request: Request) {
     const tokenUserId = await authenticateMcpToken(inputToken);
     if (!tokenUserId) {
       return new Response(
-        renderHtml({ userId, error: "Неверный токен. Пожалуйста, скопируйте корректный токен из настроек.", state }),
+        renderHtml({ userId, error: "Неверный токен. Пожалуйста, скопируйте корректный токен из настроек.", state, clientName }),
         { headers: { "Content-Type": "text/html; charset=utf-8" } }
       );
     }

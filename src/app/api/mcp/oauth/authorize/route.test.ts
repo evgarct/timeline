@@ -44,7 +44,7 @@ describe("MCP OAuth authorize endpoint", () => {
     const response = await GET(request);
     expect(response.status).toBe(200);
     const text = await response.text();
-    expect(text).toContain("Подключение к ChatGPT");
+    expect(text).toContain("Подключение к ИИ-ассистента");
   });
 
   it("accepts HTTPS URL client_id in GET", async () => {
