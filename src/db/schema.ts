@@ -61,6 +61,14 @@ export const mcpTokens = pgTable("mcp_tokens", {
   revokedAt: timestamp("revoked_at", { withTimezone: true })
 });
 
+export const mcpOauthClients = pgTable("mcp_oauth_clients", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  clientId: text("client_id").notNull().unique(),
+  clientName: text("client_name"),
+  redirectUris: jsonb("redirect_uris").$type<string[]>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+});
+
 export const mediaAssets = pgTable("media_assets", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull(),

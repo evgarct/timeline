@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { storeMcpToken } from "@/data/repository";
+import { getMcpClient, storeMcpToken } from "@/data/repository";
 import { getAuthenticatedUserId, getCurrentUserId } from "@/lib/current-user";
 import { isNeonAuthConfigured } from "@/lib/auth/server";
 import { authenticateMcpToken } from "@/mcp/server";
@@ -23,7 +23,42 @@ function getParams(request: Request) {
 function isValidClientId(clientId: string | null): boolean {
   if (!clientId) return false;
   if (clientId === "form-personal") return true;
+  if (clientId.startsWith("mcp_client_")) return true;
   return clientId.startsWith("https://") || clientId.startsWith("http://");
+}
+
+async function fetchCimdRedirectUris(clientIdUrl: string): Promise<string[]> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+  try {
+    const response = await fetch(clientIdUrl, { signal: controller.signal });
+    if (!response.ok) return [];
+    const doc = (await response.json()) as { redirect_uris?: unknown };
+    return Array.isArray(doc.redirect_uris) ? doc.redirect_uris.filter((uri): uri is string => typeof uri === "string") : [];
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function isRedirectUriAllowed(clientId: string, redirectUri: string): Promise<boolean> {
+  if (clientId === "form-personal") {
+    try {
+      return new URL(redirectUri).protocol === "https:";
+    } catch {
+      return false;
+    }
+  }
+  if (clientId.startsWith("mcp_client_")) {
+    const client = await getMcpClient(clientId);
+    return !!client && client.redirectUris.includes(redirectUri);
+  }
+  if (clientId.startsWith("https://") || clientId.startsWith("http://")) {
+    const redirectUris = await fetchCimdRedirectUris(clientId);
+    return redirectUris.includes(redirectUri);
+  }
+  return false;
 }
 
 function renderHtml({
@@ -407,6 +442,9 @@ export async function GET(request: Request) {
   if (responseType !== "code") {
     return new Response("Unsupported response_type. Only 'code' is supported.", { status: 400 });
   }
+  if (!(await isRedirectUriAllowed(clientId as string, redirectUri))) {
+    return new Response("Invalid redirect_uri for this client_id", { status: 400 });
+  }
 
   const userId = isNeonAuthConfigured ? await getAuthenticatedUserId() : "demo-user";
 
@@ -420,6 +458,9 @@ export async function POST(request: Request) {
 
   if (!isValidClientId(clientId) || !redirectUri || responseType !== "code") {
     return new Response("Invalid OAuth request parameters", { status: 400 });
+  }
+  if (!(await isRedirectUriAllowed(clientId as string, redirectUri))) {
+    return new Response("Invalid redirect_uri for this client_id", { status: 400 });
   }
 
   const userId = isNeonAuthConfigured ? await getAuthenticatedUserId() : "demo-user";
