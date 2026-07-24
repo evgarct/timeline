@@ -20,9 +20,15 @@ client secret, привязан к владельцу базы и показыв
 2. Открыть Settings → Plugins, нажать `+` и создать developer-mode app.
 3. Указать имя `Form`, endpoint `https://form.safronov.dev/api/mcp` и транспорт
    Streaming HTTP.
-4. Настроить аутентификацию (поддерживаются два варианта):
+4. Настроить аутентификацию:
 
-   **Вариант А: Интерактивный OAuth (Authorization Code + PKCE) — Рекомендуемый**
+   **Вариант А: Автоматическая регистрация (Dynamic Client Registration) — по умолчанию**
+   - Сервер публикует `registration_endpoint` в
+     `/.well-known/oauth-authorization-server`, поэтому ChatGPT сам
+     регистрируется и получает `client_id` — вводить ничего не нужно, просто
+     указать Authorization URL и Token URL (см. ниже) и нажать Connect.
+
+   **Вариант Б: Ручной OAuth (Authorization Code + PKCE)**
    - Выбрать тип авторизации **OAuth**.
    - Указать параметры:
      - Client ID: `form-personal`
@@ -31,13 +37,25 @@ client secret, привязан к владельцу базы и показыв
      - Token URL: `https://form.safronov.dev/api/mcp/oauth/token`
    - Во время привязки откроется окно авторизации Form. Если вы авторизованы в браузере, достаточно будет нажать одну кнопку; иначе потребуется ввести личный MCP-токен.
 
-   **Вариант Б: Статические учетные данные (Client Credentials)**
+   **Вариант В: Статические учетные данные (Client Credentials)**
    - Выбрать OAuth со статическими credentials:
      - Client ID: `form-personal`
      - Client secret: личный токен `ft_dev_…`
 
 5. Запустить Scan tools и создать app.
 6. В новом чате выбрать Developer mode → Form.
+
+## Добавить в Claude
+
+1. В Claude.ai (или Claude Desktop) открыть Settings → Connectors → Add custom connector.
+2. Указать endpoint `https://form.safronov.dev/api/mcp`.
+3. Claude обнаружит `registration_endpoint` через discovery-документ и
+   зарегистрируется автоматически (Dynamic Client Registration) — вводить
+   Client ID/Secret не требуется. Далее откроется окно авторизации Form: как и
+   с ChatGPT, при активной сессии в браузере достаточно нажать одну кнопку,
+   иначе — ввести личный MCP-токен.
+4. После подключения нажать Refresh/Reconnect, если инструменты не появились
+   сразу.
 
 
 ## Проверка

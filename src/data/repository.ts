@@ -1,7 +1,7 @@
 import "server-only";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { database } from "@/db/client";
-import { events, mcpTokens, taskSchedules } from "@/db/schema";
+import { events, mcpOauthClients, mcpTokens, taskSchedules } from "@/db/schema";
 import { seedEvents, seedSchedules } from "./seed";
 import { timelineEventSchema, type TaskSchedule, type TimelineEvent } from "@/domain/events";
 import {
@@ -14,6 +14,7 @@ import { createDownloadUrl, deleteObjects, isR2Configured } from "@/lib/r2";
 
 const memoryEvents = [...seedEvents];
 const memorySchedules = [...seedSchedules];
+const memoryMcpClients = new Map<string, { redirectUris: string[]; clientName?: string }>();
 const useMemory = process.env.E2E_DEMO_MODE === "true" || !database;
 
 export async function listEvents(userId: string): Promise<TimelineEvent[]> {
@@ -221,4 +222,25 @@ export async function resolveMcpUser(tokenHash: string) {
 export async function storeMcpToken(userId: string, tokenHash: string) {
   if (useMemory || !database) return;
   await database.insert(mcpTokens).values({ userId, tokenHash, label: "Developer preview" });
+}
+
+export async function storeMcpClient(clientId: string, redirectUris: string[], clientName?: string) {
+  if (useMemory || !database) {
+    memoryMcpClients.set(clientId, { redirectUris, clientName });
+    return;
+  }
+  await database.insert(mcpOauthClients).values({ clientId, redirectUris, clientName });
+}
+
+export async function getMcpClient(clientId: string) {
+  if (useMemory || !database) {
+    const client = memoryMcpClients.get(clientId);
+    return client ? { clientId, redirectUris: client.redirectUris, clientName: client.clientName } : null;
+  }
+  const [row] = await database
+    .select({ clientId: mcpOauthClients.clientId, redirectUris: mcpOauthClients.redirectUris, clientName: mcpOauthClients.clientName })
+    .from(mcpOauthClients)
+    .where(eq(mcpOauthClients.clientId, clientId))
+    .limit(1);
+  return row ?? null;
 }

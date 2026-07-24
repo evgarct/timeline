@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/data/repository", () => ({
   storeMcpToken: vi.fn(),
+  getMcpClient: vi.fn(),
 }));
 
 vi.mock("@/lib/current-user", () => ({
@@ -23,6 +24,20 @@ vi.mock("@/mcp/oauth", () => ({
 }));
 
 describe("MCP OAuth authorize endpoint", () => {
+  beforeEach(() => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ redirect_uris: ["https://chatgpt.com/callback"] }),
+      }))
+    );
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("accepts form-personal client_id in GET", async () => {
     const { GET } = await import("./route");
     const request = new Request("https://form.example/api/mcp/oauth/authorize?client_id=form-personal&redirect_uri=https://chatgpt.com/callback&response_type=code");
@@ -71,5 +86,54 @@ describe("MCP OAuth authorize endpoint", () => {
     const response = await POST(request);
     expect(response.status).toBe(400);
     expect(await response.text()).toBe("Invalid OAuth request parameters");
+  });
+
+  it("rejects HTTPS URL client_id when the CIMD document does not list the redirect_uri", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ redirect_uris: ["https://chatgpt.com/other-callback"] }),
+      }))
+    );
+    const { GET } = await import("./route");
+    const request = new Request("https://form.example/api/mcp/oauth/authorize?client_id=https://chatgpt.com/ext/client-id&redirect_uri=https://chatgpt.com/callback&response_type=code");
+    const response = await GET(request);
+    expect(response.status).toBe(400);
+    expect(await response.text()).toBe("Invalid redirect_uri for this client_id");
+  });
+
+  it("rejects HTTPS URL client_id when the CIMD document cannot be fetched", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("network error"); }));
+    const { GET } = await import("./route");
+    const request = new Request("https://form.example/api/mcp/oauth/authorize?client_id=https://chatgpt.com/ext/client-id&redirect_uri=https://chatgpt.com/callback&response_type=code");
+    const response = await GET(request);
+    expect(response.status).toBe(400);
+  });
+
+  it("accepts a dynamically registered client_id whose redirect_uri matches the stored registration", async () => {
+    const { getMcpClient } = await import("@/data/repository");
+    vi.mocked(getMcpClient).mockResolvedValue({
+      clientId: "mcp_client_abc",
+      redirectUris: ["https://claude.ai/api/mcp/auth_callback"],
+      clientName: "Claude",
+    });
+    const { GET } = await import("./route");
+    const request = new Request("https://form.example/api/mcp/oauth/authorize?client_id=mcp_client_abc&redirect_uri=https://claude.ai/api/mcp/auth_callback&response_type=code");
+    const response = await GET(request);
+    expect(response.status).toBe(200);
+  });
+
+  it("rejects a dynamically registered client_id with an unregistered redirect_uri", async () => {
+    const { getMcpClient } = await import("@/data/repository");
+    vi.mocked(getMcpClient).mockResolvedValue({
+      clientId: "mcp_client_abc",
+      redirectUris: ["https://claude.ai/api/mcp/auth_callback"],
+      clientName: "Claude",
+    });
+    const { GET } = await import("./route");
+    const request = new Request("https://form.example/api/mcp/oauth/authorize?client_id=mcp_client_abc&redirect_uri=https://evil.example/callback&response_type=code");
+    const response = await GET(request);
+    expect(response.status).toBe(400);
   });
 });

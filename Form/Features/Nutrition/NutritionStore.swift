@@ -10,6 +10,7 @@ final class NutritionStore {
     private(set) var entries: [FoodEntry] = []
     private(set) var products: [NutritionProduct] = []
     private(set) var isSearching = false
+    private(set) var searchError: String?
     var selectedDate: Date
 
     let repository: any NutritionRepository
@@ -68,8 +69,10 @@ final class NutritionStore {
         defer { isSearching = false }
         do {
             products = try await repository.search(query: query, page: 1).items
+            searchError = nil
         } catch {
             products = []
+            searchError = error.localizedDescription
         }
     }
 
