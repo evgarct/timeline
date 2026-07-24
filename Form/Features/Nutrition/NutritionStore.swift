@@ -11,6 +11,8 @@ final class NutritionStore {
     private(set) var products: [NutritionProduct] = []
     private(set) var isSearching = false
     private(set) var searchError: String?
+    private(set) var saveError: String?
+    private(set) var todaySummary = NutritionSummary()
     var selectedDate: Date
 
     let repository: any NutritionRepository
@@ -37,6 +39,10 @@ final class NutritionStore {
             timezone: timezone
         )
         return NutritionSummary(entries: entries)
+    }
+
+    func refreshTodaySummary() async {
+        if let value = try? await summary(for: .now) { todaySummary = value }
     }
 
     func entries(for meal: MealType) -> [FoodEntry] {
@@ -77,32 +83,58 @@ final class NutritionStore {
     }
 
     func add(product: NutritionProduct, meal: MealType, quantity: FoodQuantity) async throws {
-        let entry = try await repository.record(
-            product: product, meal: meal, quantity: quantity,
-            date: calendar.date(bySettingHour: 12, minute: 0, second: 0, of: selectedDate) ?? selectedDate,
-            timezone: timezone
-        )
-        entries.append(entry)
+        saveError = nil
+        do {
+            let entry = try await repository.record(
+                product: product, meal: meal, quantity: quantity,
+                date: calendar.date(bySettingHour: 12, minute: 0, second: 0, of: selectedDate) ?? selectedDate,
+                timezone: timezone
+            )
+            entries.append(entry)
+            await refreshTodaySummary()
+        } catch {
+            saveError = error.localizedDescription
+            throw error
+        }
     }
 
     func update(entry: FoodEntry, meal: MealType, quantity: FoodQuantity, date: Date) async throws {
-        let updated = try await repository.update(
-            entry: entry, meal: meal, quantity: quantity,
-            date: calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date) ?? date,
-            timezone: timezone
-        )
-        entries.removeAll { $0.id == entry.id }
-        if calendar.isDate(date, inSameDayAs: selectedDate) { entries.append(updated) }
+        saveError = nil
+        do {
+            let updated = try await repository.update(
+                entry: entry, meal: meal, quantity: quantity,
+                date: calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date) ?? date,
+                timezone: timezone
+            )
+            entries.removeAll { $0.id == entry.id }
+            if calendar.isDate(date, inSameDayAs: selectedDate) { entries.append(updated) }
+            await refreshTodaySummary()
+        } catch {
+            saveError = error.localizedDescription
+            throw error
+        }
     }
 
     func delete(entry: FoodEntry) async throws {
-        try await repository.delete(entryID: entry.id)
-        entries.removeAll { $0.id == entry.id }
+        saveError = nil
+        do {
+            try await repository.delete(entryID: entry.id)
+            entries.removeAll { $0.id == entry.id }
+            await refreshTodaySummary()
+        } catch {
+            saveError = error.localizedDescription
+            throw error
+        }
+    }
+
+    func clearSaveError() {
+        saveError = nil
     }
 
     func reset() {
         entries = []
         products = []
+        todaySummary = NutritionSummary()
         state = .idle
     }
 }

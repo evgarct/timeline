@@ -32,6 +32,12 @@ export const pieceSizeOptionSchema = z.object({
   provenance: nutrientProvenanceSchema
 });
 
+export const servingSizeOptionSchema = z.object({
+  label: z.string().trim().min(1).max(60),
+  amount: z.number().positive(),
+  provenance: nutrientProvenanceSchema
+});
+
 export const productInputSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(300),
@@ -39,7 +45,8 @@ export const productInputSchema = z.object({
   barcode: z.string().trim().min(4).max(64).optional(),
   baseUnit: measurementUnitSchema,
   nutrientBases: z.array(nutrientBaseSchema).min(1),
-  pieceSizes: z.array(pieceSizeOptionSchema).default([])
+  pieceSizes: z.array(pieceSizeOptionSchema).default([]),
+  servingSizes: z.array(servingSizeOptionSchema).default([])
 }).superRefine((product, context) => {
   if (product.pieceSizes.length && product.baseUnit !== "g") {
     context.addIssue({ code: "custom", message: "Piece sizes require a gram-based product" });
@@ -47,6 +54,10 @@ export const productInputSchema = z.object({
   const sizeNames = product.pieceSizes.map((size) => size.size);
   if (new Set(sizeNames).size !== sizeNames.length) {
     context.addIssue({ code: "custom", message: "Piece sizes must be unique" });
+  }
+  const servingLabels = product.servingSizes.map((serving) => serving.label);
+  if (new Set(servingLabels).size !== servingLabels.length) {
+    context.addIssue({ code: "custom", message: "Serving sizes must be unique" });
   }
 });
 
