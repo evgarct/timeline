@@ -173,6 +173,12 @@ extension NutritionProduct {
         NutritionSummary(nutrients: referenceBase?.nutrients ?? [])
     }
 
+    /// Additional stated bases (e.g. "per portion (330 ml)") beyond the reference base, matching the
+    /// product's own unit. These carry directly stated values and should not be re-scaled.
+    var alternateBases: [NutrientBase] {
+        nutrientBases.filter { $0.unit == baseUnit && $0.id != referenceBase?.id }
+    }
+
     /// Macro summary scaled to an arbitrary quantity, mirroring the backend's snapshot calculation for live preview.
     func summary(for quantity: FoodQuantity) -> NutritionSummary {
         guard let base = referenceBase, base.amount > 0 else { return NutritionSummary() }

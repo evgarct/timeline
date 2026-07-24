@@ -352,6 +352,7 @@ private struct QuantityEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State private var amount = 100.0
     @State private var pieceSelection: PieceSizeOption?
+    @State private var baseSelection: NutrientBase?
     @State private var saving = false
     @State private var nutrientsPresented = false
     @FocusState private var amountFocused: Bool
@@ -362,10 +363,14 @@ private struct QuantityEditor: View {
 
     private var quantity: FoodQuantity {
         if let pieceSelection { return .pieces(1, size: pieceSelection.size) }
-        return product.baseUnit == "ml" ? .milliliters(amount) : .grams(amount)
+        let effectiveAmount = baseSelection?.amount ?? amount
+        return product.baseUnit == "ml" ? .milliliters(effectiveAmount) : .grams(effectiveAmount)
     }
 
-    private var preview: NutritionSummary { product.summary(for: quantity) }
+    private var preview: NutritionSummary {
+        if let baseSelection { return NutritionSummary(nutrients: baseSelection.nutrients) }
+        return product.summary(for: quantity)
+    }
 
     var body: some View {
         NavigationStack {
@@ -381,7 +386,7 @@ private struct QuantityEditor: View {
 
                     quickSelect
 
-                    if pieceSelection == nil {
+                    if pieceSelection == nil && baseSelection == nil {
                         amountField
                     }
 
@@ -427,7 +432,9 @@ private struct QuantityEditor: View {
     }
 
     private var currentAmount: Double {
-        pieceSelection != nil ? 1 : amount
+        if pieceSelection != nil { return 1 }
+        if let baseSelection { return baseSelection.amount }
+        return amount
     }
 
     private var previewCard: some View {
@@ -448,24 +455,33 @@ private struct QuantityEditor: View {
 
     @ViewBuilder
     private var quickSelect: some View {
-        if !product.servingSizes.isEmpty || !product.pieceSizes.isEmpty {
+        if !product.servingSizes.isEmpty || !product.pieceSizes.isEmpty || !product.alternateBases.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("nutrition.quickSelect").font(.caption).foregroundStyle(.secondary)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        chip(label: "100 \(unitLabel)", isSelected: pieceSelection == nil && amount == 100) {
+                        chip(label: "100 \(unitLabel)", isSelected: pieceSelection == nil && baseSelection == nil && amount == 100) {
                             pieceSelection = nil
+                            baseSelection = nil
                             amount = 100
                         }
                         ForEach(product.servingSizes) { serving in
-                            chip(label: serving.label, isSelected: pieceSelection == nil && amount == serving.amount) {
+                            chip(label: serving.label, isSelected: pieceSelection == nil && baseSelection == nil && amount == serving.amount) {
                                 pieceSelection = nil
+                                baseSelection = nil
                                 amount = serving.amount
+                            }
+                        }
+                        ForEach(product.alternateBases) { base in
+                            chip(label: base.label, isSelected: baseSelection == base) {
+                                pieceSelection = nil
+                                baseSelection = base
                             }
                         }
                         ForEach(product.pieceSizes) { piece in
                             chip(label: pieceLabel(piece), isSelected: pieceSelection == piece) {
                                 pieceSelection = piece
+                                baseSelection = nil
                             }
                         }
                     }

@@ -45,4 +45,22 @@ final class NutritionTests: XCTestCase {
         let summary = banana.summary(for: .pieces(1, size: "medium"))
         XCTAssertEqual(summary.calories, banana.referenceSummary.calories * 1.18, accuracy: 0.01)
     }
+
+    func testAlternateBaseExposesDirectlyStatedValuesWithoutScaling() {
+        let servingNutrients = [
+            NutrientValue(key: "energy_kcal", label: "Energy", value: 261, unit: "kcal", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .stated),
+            NutrientValue(key: "protein", label: "Protein", value: 33, unit: "g", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .stated)
+        ]
+        let product = NutritionProduct(
+            id: "product-with-serving-base", name: "Shake", brand: nil, barcode: nil,
+            baseUnit: "ml",
+            nutrientBases: [
+                NutrientBase(id: "per100ml", label: "per 100 ml", amount: 100, unit: "ml", nutrients: PreviewNutrition.proteinMilkNutrients),
+                NutrientBase(id: "perServing330ml", label: "per portion (330 ml)", amount: 330, unit: "ml", nutrients: servingNutrients)
+            ],
+            pieceSizes: [], servingSizes: [], createdAt: .now, updatedAt: .now
+        )
+        XCTAssertEqual(product.alternateBases.count, 1)
+        XCTAssertEqual(product.alternateBases.first?.id, "perServing330ml")
+    }
 }
