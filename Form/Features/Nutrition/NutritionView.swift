@@ -1,14 +1,42 @@
 import SwiftUI
 
-/// Compact "Б12 · Ж5 · У20" style macro caption, matching FatSecret-style per-item/per-meal summaries.
-func macroCaption(_ summary: NutritionSummary) -> String {
-    let protein = summary.protein.formatted(.number.precision(.fractionLength(0...1)))
-    let fat = summary.fat.formatted(.number.precision(.fractionLength(0...1)))
-    let carbs = summary.carbohydrates.formatted(.number.precision(.fractionLength(0...1)))
-    return String(
-        format: String(localized: "summary.nutrition.macros.format"),
-        protein, fat, carbs
-    )
+/// Fixed trailing width reserved for each row's accessory (add button / chevron), so MacroColumns
+/// lines up on the same vertical lines whether the row ends in a button, a chevron, or nothing.
+let nutritionTrailingAccessoryWidth: CGFloat = 40
+private let macroValueWidth: CGFloat = 26
+private let calorieValueWidth: CGFloat = 34
+
+/// Fixed-width Ж/У/Б + ккал columns so numbers line up vertically across the day summary, meal
+/// subtotals, and individual entries — FatSecret-style tabular macro reading, in fats/carbs/protein/kcal order.
+struct MacroColumns: View {
+    let summary: NutritionSummary
+    var font: Font = .caption
+
+    var body: some View {
+        HStack(spacing: 10) {
+            column("nutrition.fat.short", summary.fat, width: macroValueWidth)
+            column("nutrition.carbohydrates.short", summary.carbohydrates, width: macroValueWidth)
+            column("nutrition.protein.short", summary.protein, width: macroValueWidth)
+            HStack(spacing: 3) {
+                Text(summary.calories.formatted(.number.precision(.fractionLength(0))))
+                    .monospacedDigit()
+                    .frame(width: calorieValueWidth, alignment: .trailing)
+                Text("summary.calories.unit").foregroundStyle(.secondary)
+            }
+        }
+        .font(font)
+        .foregroundStyle(.secondary)
+    }
+
+    private func column(_ key: LocalizedStringKey, _ value: Double, width: CGFloat) -> some View {
+        HStack(spacing: 3) {
+            Text(key)
+            Text(value.formatted(.number.precision(.fractionLength(0))))
+                .monospacedDigit()
+                .foregroundStyle(.primary)
+                .frame(width: width, alignment: .trailing)
+        }
+    }
 }
 
 struct NutritionView: View {
@@ -114,23 +142,15 @@ struct NutritionView: View {
                     .contentTransition(.numericText())
                 Text("summary.calories.unit").foregroundStyle(.secondary)
             }
-            HStack(spacing: 18) {
-                macro("nutrition.protein.short", value: store.summary.protein)
-                macro("nutrition.fat.short", value: store.summary.fat)
-                macro("nutrition.carbohydrates.short", value: store.summary.carbohydrates)
+            HStack(spacing: 0) {
+                Spacer(minLength: 0)
+                MacroColumns(summary: store.summary, font: .subheadline)
+                Color.clear.frame(width: nutritionTrailingAccessoryWidth, height: 1)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
+        .padding(16)
         .glassEffect(.regular, in: .rect(cornerRadius: 28))
-    }
-
-    private func macro(_ key: LocalizedStringKey, value: Double) -> some View {
-        HStack(spacing: 5) {
-            Text(key).foregroundStyle(.secondary)
-            Text(value.formatted(.number.precision(.fractionLength(0...1))))
-            Text("nutrition.grams.short").foregroundStyle(.secondary)
-        }.font(.subheadline)
     }
 
     @ViewBuilder
@@ -163,24 +183,16 @@ struct NutritionView: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: meal.icon)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(meal.localizedKey).font(.title3)
-                            HStack(spacing: 6) {
-                                Text("\(mealSummary.calories.formatted(.number.precision(.fractionLength(0)))) \(String(localized: "summary.calories.unit"))")
-                                if !values.isEmpty {
-                                    Text("·")
-                                    Text(macroCaption(mealSummary))
-                                }
-                            }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
+                        Text(meal.localizedKey).font(.title3)
                     }
                 }
                 .buttonStyle(.plain)
-                Spacer()
+                Spacer(minLength: 8)
+                if !values.isEmpty {
+                    MacroColumns(summary: mealSummary)
+                }
                 Button { addMeal = meal } label: {
-                    Image(systemName: "plus").frame(width: 38, height: 38)
+                    Image(systemName: "plus").frame(width: nutritionTrailingAccessoryWidth, height: nutritionTrailingAccessoryWidth)
                 }
                 .buttonStyle(.glass)
                 .accessibilityLabel("nutrition.add")
@@ -234,24 +246,22 @@ private struct FoodEntryRow: View {
     private var summary: NutritionSummary { NutritionSummary(nutrients: entry.productSnapshot.nutrients) }
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(entry.productSnapshot.name).font(.body)
                 if let brand = entry.productSnapshot.brand {
                     Text(brand).font(.caption).foregroundStyle(.secondary)
                 }
-                HStack(spacing: 6) {
-                    Text("\(entry.quantity.amount.formatted(.number.precision(.fractionLength(0...1)))) \(entry.quantity.unitLabel)")
-                    Text("·")
-                    Text(macroCaption(summary))
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text("\(entry.quantity.amount.formatted(.number.precision(.fractionLength(0...1)))) \(entry.quantity.unitLabel)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            Spacer()
-            Text(summary.calories.formatted(.number.precision(.fractionLength(0))))
-                .frame(minWidth: 38, alignment: .trailing)
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            Spacer(minLength: 8)
+            MacroColumns(summary: summary)
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .frame(width: nutritionTrailingAccessoryWidth, alignment: .trailing)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -314,26 +324,22 @@ private struct ProductSearchRow: View {
     let product: NutritionProduct
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 8) {
             VStack(alignment: .leading, spacing: 4) {
                 Text(product.name).font(.body)
                 if let brand = product.brand { Text(brand).font(.caption).foregroundStyle(.secondary) }
                 if let base = product.referenceBase {
-                    HStack(spacing: 6) {
-                        Text(referenceCaption(base))
-                        Text("·")
-                        Text(macroCaption(product.referenceSummary))
-                    }
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                    Text(referenceCaption(base)).font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Spacer()
+            Spacer(minLength: 8)
             if product.referenceSummary.calories > 0 {
-                Text(product.referenceSummary.calories.formatted(.number.precision(.fractionLength(0))))
-                    .foregroundStyle(.secondary)
+                MacroColumns(summary: product.referenceSummary)
             }
-            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            Image(systemName: "chevron.right")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+                .frame(width: nutritionTrailingAccessoryWidth, alignment: .trailing)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -445,7 +451,7 @@ private struct QuantityEditor: View {
                     .contentTransition(.numericText())
                 Text("summary.calories.unit").foregroundStyle(.secondary)
             }
-            Text(macroCaption(preview)).font(.subheadline).foregroundStyle(.secondary)
+            MacroColumns(summary: preview, font: .subheadline)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)
@@ -453,9 +459,16 @@ private struct QuantityEditor: View {
         .animation(.snappy, value: preview)
     }
 
+    /// servingSizes hints that don't already have a matching alternate nutrientBase (which would carry
+    /// more accurate, directly stated values for the same amount) — avoids showing the same portion twice.
+    private var dedupedServingSizes: [ServingSizeOption] {
+        let baseAmounts = Set(product.alternateBases.map { $0.amount.rounded() })
+        return product.servingSizes.filter { !baseAmounts.contains($0.amount.rounded()) }
+    }
+
     @ViewBuilder
     private var quickSelect: some View {
-        if !product.servingSizes.isEmpty || !product.pieceSizes.isEmpty || !product.alternateBases.isEmpty {
+        if !dedupedServingSizes.isEmpty || !product.pieceSizes.isEmpty || !product.alternateBases.isEmpty {
             VStack(alignment: .leading, spacing: 10) {
                 Text("nutrition.quickSelect").font(.caption).foregroundStyle(.secondary)
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -465,17 +478,17 @@ private struct QuantityEditor: View {
                             baseSelection = nil
                             amount = 100
                         }
-                        ForEach(product.servingSizes) { serving in
-                            chip(label: serving.label, isSelected: pieceSelection == nil && baseSelection == nil && amount == serving.amount) {
-                                pieceSelection = nil
-                                baseSelection = nil
-                                amount = serving.amount
-                            }
-                        }
                         ForEach(product.alternateBases) { base in
                             chip(label: base.label, isSelected: baseSelection == base) {
                                 pieceSelection = nil
                                 baseSelection = base
+                            }
+                        }
+                        ForEach(dedupedServingSizes) { serving in
+                            chip(label: serving.label, isSelected: pieceSelection == nil && baseSelection == nil && amount == serving.amount) {
+                                pieceSelection = nil
+                                baseSelection = nil
+                                amount = serving.amount
                             }
                         }
                         ForEach(product.pieceSizes) { piece in
@@ -494,12 +507,14 @@ private struct QuantityEditor: View {
         Button(action: action) {
             Text(label)
                 .font(.subheadline)
+                .foregroundStyle(isSelected ? Color.black : Color.white)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
+                .background {
+                    Capsule().fill(isSelected ? Color.white : Color.white.opacity(0.14))
+                }
         }
-        .buttonStyle(.glass)
-        .tint(isSelected ? .white : nil)
-        .foregroundStyle(isSelected ? Color.black : Color.primary)
+        .buttonStyle(.plain)
     }
 
     private func pieceLabel(_ piece: PieceSizeOption) -> String {
