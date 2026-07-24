@@ -1,41 +1,47 @@
 import SwiftUI
 
-/// Fixed trailing width reserved for each row's accessory (add button / chevron), so MacroColumns
-/// lines up on the same vertical lines whether the row ends in a button, a chevron, or nothing.
+/// Fixed size for each row's trailing accessory (add button / chevron).
 let nutritionTrailingAccessoryWidth: CGFloat = 40
-private let macroValueWidth: CGFloat = 26
-private let calorieValueWidth: CGFloat = 34
 
-/// Fixed-width Ж/У/Б + ккал columns so numbers line up vertically across the day summary, meal
-/// subtotals, and individual entries — FatSecret-style tabular macro reading, in fats/carbs/protein/kcal order.
+/// One-time column header ("Fat / Carbs / Protein / kcal") shown once at the top of the nutrition
+/// screen. Columns share the row width equally (like MacroColumns below), so labels land directly
+/// above the numbers in every subsequent row regardless of what precedes those rows.
+struct MacroColumnsHeader: View {
+    var body: some View {
+        HStack(spacing: 0) {
+            Text("nutrition.fat.short").frame(maxWidth: .infinity, alignment: .trailing)
+            Text("nutrition.carbohydrates.short").frame(maxWidth: .infinity, alignment: .trailing)
+            Text("nutrition.protein.short").frame(maxWidth: .infinity, alignment: .trailing)
+            Text("summary.calories.unit").frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .font(.caption2)
+        .foregroundStyle(.tertiary)
+        .textCase(.uppercase)
+    }
+}
+
+/// Fat/carbs/protein/kcal values, numbers only (labels live in MacroColumnsHeader), spanning the
+/// full row width in four equal columns — a standalone row, never sharing space with a title, icon,
+/// or button, so it can never get crushed into character-wrapping on a real iPhone width.
 struct MacroColumns: View {
     let summary: NutritionSummary
-    var font: Font = .caption
+    var font: Font = .subheadline
 
     var body: some View {
-        HStack(spacing: 10) {
-            column("nutrition.fat.short", summary.fat, width: macroValueWidth)
-            column("nutrition.carbohydrates.short", summary.carbohydrates, width: macroValueWidth)
-            column("nutrition.protein.short", summary.protein, width: macroValueWidth)
-            HStack(spacing: 3) {
-                Text(summary.calories.formatted(.number.precision(.fractionLength(0))))
-                    .monospacedDigit()
-                    .frame(width: calorieValueWidth, alignment: .trailing)
-                Text("summary.calories.unit").foregroundStyle(.secondary)
-            }
+        HStack(spacing: 0) {
+            value(summary.fat)
+            value(summary.carbohydrates)
+            value(summary.protein)
+            value(summary.calories, emphasized: true)
         }
         .font(font)
-        .foregroundStyle(.secondary)
     }
 
-    private func column(_ key: LocalizedStringKey, _ value: Double, width: CGFloat) -> some View {
-        HStack(spacing: 3) {
-            Text(key)
-            Text(value.formatted(.number.precision(.fractionLength(0))))
-                .monospacedDigit()
-                .foregroundStyle(.primary)
-                .frame(width: width, alignment: .trailing)
-        }
+    private func value(_ value: Double, emphasized: Bool = false) -> some View {
+        Text(value.formatted(.number.precision(.fractionLength(0))))
+            .monospacedDigit()
+            .foregroundStyle(emphasized ? .primary : .secondary)
+            .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }
 
@@ -142,11 +148,8 @@ struct NutritionView: View {
                     .contentTransition(.numericText())
                 Text("summary.calories.unit").foregroundStyle(.secondary)
             }
-            HStack(spacing: 0) {
-                Spacer(minLength: 0)
-                MacroColumns(summary: store.summary, font: .subheadline)
-                Color.clear.frame(width: nutritionTrailingAccessoryWidth, height: 1)
-            }
+            MacroColumnsHeader()
+            MacroColumns(summary: store.summary, font: .body)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(16)
@@ -174,28 +177,33 @@ struct NutritionView: View {
         let values = store.entries(for: meal)
         let mealSummary = NutritionSummary(entries: values)
         return VStack(spacing: 0) {
-            HStack {
-                Button {
-                    withAnimation(.snappy) {
-                        if collapsedMeals.contains(meal) { collapsedMeals.remove(meal) }
-                        else { collapsedMeals.insert(meal) }
+            VStack(spacing: 8) {
+                HStack {
+                    Button {
+                        withAnimation(.snappy) {
+                            if collapsedMeals.contains(meal) { collapsedMeals.remove(meal) }
+                            else { collapsedMeals.insert(meal) }
+                        }
+                    } label: {
+                        HStack(spacing: 12) {
+                            Image(systemName: meal.icon)
+                            Text(meal.localizedKey).font(.title3)
+                        }
                     }
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: meal.icon)
-                        Text(meal.localizedKey).font(.title3)
+                    .buttonStyle(.plain)
+                    Spacer(minLength: 8)
+                    Text("\(mealSummary.calories.formatted(.number.precision(.fractionLength(0)))) \(String(localized: "summary.calories.unit"))")
+                        .foregroundStyle(.secondary)
+                    Button { addMeal = meal } label: {
+                        Image(systemName: "plus").frame(width: nutritionTrailingAccessoryWidth, height: nutritionTrailingAccessoryWidth)
                     }
+                    .buttonStyle(.glass)
+                    .accessibilityLabel("nutrition.add")
+                    .accessibilityIdentifier("nutrition.add.\(meal.rawValue)")
                 }
-                .buttonStyle(.plain)
-                Spacer(minLength: 8)
                 if !values.isEmpty {
                     MacroColumns(summary: mealSummary)
                 }
-                Button { addMeal = meal } label: {
-                    Image(systemName: "plus").frame(width: nutritionTrailingAccessoryWidth, height: nutritionTrailingAccessoryWidth)
-                }
-                .buttonStyle(.glass)
-                .accessibilityLabel("nutrition.add")
             }
             .padding(16)
 
@@ -246,22 +254,24 @@ private struct FoodEntryRow: View {
     private var summary: NutritionSummary { NutritionSummary(nutrients: entry.productSnapshot.nutrients) }
 
     var body: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(entry.productSnapshot.name).font(.body)
-                if let brand = entry.productSnapshot.brand {
-                    Text(brand).font(.caption).foregroundStyle(.secondary)
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(entry.productSnapshot.name).font(.body)
+                    if let brand = entry.productSnapshot.brand {
+                        Text(brand).font(.caption).foregroundStyle(.secondary)
+                    }
                 }
+                Spacer(minLength: 8)
                 Text("\(entry.quantity.amount.formatted(.number.precision(.fractionLength(0...1)))) \(entry.quantity.unitLabel)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: nutritionTrailingAccessoryWidth, alignment: .trailing)
             }
-            Spacer(minLength: 8)
             MacroColumns(summary: summary)
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .frame(width: nutritionTrailingAccessoryWidth, alignment: .trailing)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -324,22 +334,24 @@ private struct ProductSearchRow: View {
     let product: NutritionProduct
 
     var body: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(product.name).font(.body)
-                if let brand = product.brand { Text(brand).font(.caption).foregroundStyle(.secondary) }
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(product.name).font(.body)
+                    if let brand = product.brand { Text(brand).font(.caption).foregroundStyle(.secondary) }
+                }
+                Spacer(minLength: 8)
                 if let base = product.referenceBase {
                     Text(referenceCaption(base)).font(.caption).foregroundStyle(.secondary)
                 }
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(width: nutritionTrailingAccessoryWidth, alignment: .trailing)
             }
-            Spacer(minLength: 8)
             if product.referenceSummary.calories > 0 {
                 MacroColumns(summary: product.referenceSummary)
             }
-            Image(systemName: "chevron.right")
-                .font(.caption)
-                .foregroundStyle(.tertiary)
-                .frame(width: nutritionTrailingAccessoryWidth, alignment: .trailing)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
@@ -451,7 +463,8 @@ private struct QuantityEditor: View {
                     .contentTransition(.numericText())
                 Text("summary.calories.unit").foregroundStyle(.secondary)
             }
-            MacroColumns(summary: preview, font: .subheadline)
+            MacroColumnsHeader()
+            MacroColumns(summary: preview)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20)

@@ -126,6 +126,35 @@ final class FormUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrient.potassium"].exists)
     }
 
+    func testNutritionVisualQAScreenshots() {
+        let app = XCUIApplication()
+        app.launchArguments.append("-ui-testing-today")
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        app.tabBars.buttons["Nutrition"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["nutrition.screen"].waitForExistence(timeout: 5))
+        attach(XCUIScreen.main.screenshot(), name: "01 Nutrition journal")
+
+        let addButton = app.buttons["nutrition.add.breakfast"]
+        XCTAssertTrue(addButton.waitForExistence(timeout: 5))
+        addButton.tap()
+        let searchRow = app.staticTexts["Protein Milk"]
+        XCTAssertTrue(searchRow.waitForExistence(timeout: 5))
+        attach(XCUIScreen.main.screenshot(), name: "02 Product search")
+
+        searchRow.tap()
+        XCTAssertTrue(app.staticTexts["Protein Milk"].waitForExistence(timeout: 5))
+        attach(XCUIScreen.main.screenshot(), name: "03 Quantity editor - serving chips")
+    }
+
+    private func attach(_ screenshot: XCUIScreenshot, name: String) {
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     func testLiveTodayLayoutWhenSessionIsProvided() throws {
         let environment = ProcessInfo.processInfo.environment
         let cookie = environment["FORM_UI_TEST_COOKIE"] ?? (try? String(
