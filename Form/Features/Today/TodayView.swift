@@ -16,7 +16,6 @@ struct TodayView: View {
     @State private var goalDraft = "12000"
     @State private var activityDetailSnapshot: WeeklyActivitySnapshot?
     @State private var sharePayload: ActivitySharePayload?
-    @State private var todayNutritionSummary = NutritionSummary()
     @AppStorage("activity.stepGoal") private var stepGoal = 12_000
 
     enum UnavailableAction: String, Identifiable {
@@ -41,7 +40,7 @@ struct TodayView: View {
                 .refreshable {
                     async let timeline: Void = store.refresh()
                     async let activity: Void = store.refreshActivity()
-                    async let nutrition: Void = refreshTodayNutrition()
+                    async let nutrition: Void = nutritionStore.refreshTodaySummary()
                     _ = await (timeline, activity, nutrition)
                 }
             }
@@ -80,9 +79,12 @@ struct TodayView: View {
         }
         .task {
             async let activity: Void = store.refreshActivity()
-            async let nutrition: Void = refreshTodayNutrition()
+            async let nutrition: Void = nutritionStore.refreshTodaySummary()
             if store.state == .idle { await store.refresh() }
             _ = await (activity, nutrition)
+        }
+        .onAppear {
+            Task { await nutritionStore.refreshTodaySummary() }
         }
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
@@ -238,7 +240,7 @@ struct TodayView: View {
         HStack(spacing: 0) {
             MetricSummaryColumn(
                 title: "summary.nutrition",
-                value: todayNutritionSummary.calories.formatted(.number.precision(.fractionLength(0))),
+                value: nutritionStore.todaySummary.calories.formatted(.number.precision(.fractionLength(0))),
                 unit: String(localized: "summary.calories.unit"),
                 target: "",
                 progress: nil,
@@ -314,7 +316,7 @@ struct TodayView: View {
     }
 
     private var nutritionMacros: String {
-        let summary = todayNutritionSummary
+        let summary = nutritionStore.todaySummary
         return String(
             format: String(localized: "summary.nutrition.macros.format"),
             summary.protein.formatted(.number.precision(.fractionLength(0...1))),
@@ -326,12 +328,6 @@ struct TodayView: View {
     private var stepProgress: Double {
         guard let snapshot = activitySnapshot, stepGoal > 0 else { return 0 }
         return min(Double(snapshot.selectedSteps) / Double(stepGoal), 1)
-    }
-
-    private func refreshTodayNutrition() async {
-        if let summary = try? await nutritionStore.summary(for: .now) {
-            todayNutritionSummary = summary
-        }
     }
 
     private var stepProgressText: String {

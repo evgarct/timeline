@@ -29,6 +29,7 @@ function productFromRow(row: typeof products.$inferSelect): Product {
     baseUnit: row.baseUnit,
     nutrientBases: row.nutrientBases,
     pieceSizes: row.pieceSizes,
+    servingSizes: row.servingSizes,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   });
@@ -118,6 +119,7 @@ export async function upsertProduct(userId: string, rawInput: ProductInput) {
     baseUnit: product.baseUnit,
     nutrientBases: product.nutrientBases,
     pieceSizes: product.pieceSizes,
+    servingSizes: product.servingSizes,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt
   };
@@ -132,6 +134,7 @@ export async function upsertProduct(userId: string, rawInput: ProductInput) {
       baseUnit: values.baseUnit,
       nutrientBases: values.nutrientBases,
       pieceSizes: values.pieceSizes,
+      servingSizes: values.servingSizes,
       updatedAt: values.updatedAt
     }
   });

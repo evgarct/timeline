@@ -31,6 +31,13 @@ struct PieceSizeOption: Codable, Identifiable, Hashable, Sendable {
     let provenance: NutrientProvenance
 }
 
+struct ServingSizeOption: Codable, Identifiable, Hashable, Sendable {
+    var id: String { label }
+    let label: String
+    let amount: Double
+    let provenance: NutrientProvenance
+}
+
 struct NutritionProduct: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let name: String
@@ -39,6 +46,7 @@ struct NutritionProduct: Codable, Identifiable, Hashable, Sendable {
     let baseUnit: String
     let nutrientBases: [NutrientBase]
     let pieceSizes: [PieceSizeOption]
+    let servingSizes: [ServingSizeOption]
     let createdAt: Date
     let updatedAt: Date
 }
@@ -137,7 +145,11 @@ struct NutritionSummary: Equatable, Sendable {
     var carbohydrates = 0.0
 
     init(entries: [FoodEntry] = []) {
-        for nutrient in entries.flatMap(\.productSnapshot.nutrients) {
+        self.init(nutrients: entries.flatMap(\.productSnapshot.nutrients))
+    }
+
+    init(nutrients: [NutrientValue]) {
+        for nutrient in nutrients {
             guard let value = nutrient.value else { continue }
             switch nutrient.key {
             case "energy_kcal": calories += value
@@ -147,5 +159,40 @@ struct NutritionSummary: Equatable, Sendable {
             default: break
             }
         }
+    }
+}
+
+extension NutritionProduct {
+    /// The reference nutrient base used for scaling (matches the product's own base unit).
+    var referenceBase: NutrientBase? {
+        nutrientBases.first(where: { $0.unit == baseUnit }) ?? nutrientBases.first
+    }
+
+    /// Macro summary for the reference base amount (e.g. "per 100 g"), for display in lists.
+    var referenceSummary: NutritionSummary {
+        NutritionSummary(nutrients: referenceBase?.nutrients ?? [])
+    }
+
+    /// Macro summary scaled to an arbitrary quantity, mirroring the backend's snapshot calculation for live preview.
+    func summary(for quantity: FoodQuantity) -> NutritionSummary {
+        guard let base = referenceBase, base.amount > 0 else { return NutritionSummary() }
+        let amountInBaseUnit: Double
+        switch quantity {
+        case let .grams(value), let .milliliters(value):
+            amountInBaseUnit = value
+        case let .pieces(count, size):
+            guard let option = pieceSizes.first(where: { $0.size == size }) else { return NutritionSummary() }
+            amountInBaseUnit = option.grams * count
+        }
+        let multiplier = amountInBaseUnit / base.amount
+        let scaled = base.nutrients.map { nutrient in
+            NutrientValue(
+                key: nutrient.key, label: nutrient.label,
+                value: nutrient.value.map { $0 * multiplier }, unit: nutrient.unit,
+                qualifier: nutrient.qualifier, originalText: nutrient.originalText,
+                dailyValuePercent: nutrient.dailyValuePercent, provenance: nutrient.provenance
+            )
+        }
+        return NutritionSummary(nutrients: scaled)
     }
 }

@@ -14,9 +14,23 @@ enum PreviewNutrition {
         id: "00000000-0000-0000-0000-000000000001", name: "Banana", brand: nil, barcode: nil,
         baseUnit: "g", nutrientBases: [NutrientBase(id: "per-100-g", label: "100 g", amount: 100, unit: "g", nutrients: nutrients)],
         pieceSizes: [PieceSizeOption(size: "medium", grams: 118, provenance: .estimated)],
+        servingSizes: [],
         createdAt: .now, updatedAt: .now
     )
-    static let products = [banana]
+    static let proteinMilkNutrients = [
+        NutrientValue(key: "energy_kcal", label: "Energy", value: 52, unit: "kcal", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .stated),
+        NutrientValue(key: "protein", label: "Protein", value: 6, unit: "g", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .stated),
+        NutrientValue(key: "fat", label: "Fat", value: 0.9, unit: "g", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .stated),
+        NutrientValue(key: "carbohydrates", label: "Carbohydrates", value: 5.2, unit: "g", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .stated)
+    ]
+    static let proteinMilk = NutritionProduct(
+        id: "00000000-0000-0000-0000-000000000002", name: "Protein Milk", brand: nil, barcode: nil,
+        baseUnit: "ml", nutrientBases: [NutrientBase(id: "per-100-ml", label: "100 ml", amount: 100, unit: "ml", nutrients: proteinMilkNutrients)],
+        pieceSizes: [],
+        servingSizes: [ServingSizeOption(label: "1 пачка (330 мл)", amount: 330, provenance: .stated)],
+        createdAt: .now, updatedAt: .now
+    )
+    static let products = [banana, proteinMilk]
     static let entries = [
         FoodEntry(
             id: "entry-1", type: "nutrition_entry", occurredAt: .now, timezone: "Europe/Prague", note: nil,

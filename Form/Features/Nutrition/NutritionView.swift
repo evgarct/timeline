@@ -1,5 +1,16 @@
 import SwiftUI
 
+/// Compact "Б12 · Ж5 · У20" style macro caption, matching FatSecret-style per-item/per-meal summaries.
+func macroCaption(_ summary: NutritionSummary) -> String {
+    let protein = summary.protein.formatted(.number.precision(.fractionLength(0...1)))
+    let fat = summary.fat.formatted(.number.precision(.fractionLength(0...1)))
+    let carbs = summary.carbohydrates.formatted(.number.precision(.fractionLength(0...1)))
+    return String(
+        format: String(localized: "summary.nutrition.macros.format"),
+        protein, fat, carbs
+    )
+}
+
 struct NutritionView: View {
     @Bindable var store: NutritionStore
 
@@ -44,7 +55,16 @@ struct NutritionView: View {
         .task(id: store.selectedDate) {
             if store.state == .idle { await store.load() }
         }
+        .onAppear { Task { await store.load() } }
         .refreshable { await store.load() }
+        .alert("nutrition.save.error", isPresented: Binding(
+            get: { store.saveError != nil },
+            set: { if !$0 { store.clearSaveError() } }
+        )) {
+            Button("common.ok") { store.clearSaveError() }
+        } message: {
+            Text(store.saveError ?? "")
+        }
         .preferredColorScheme(.dark)
         .accessibilityIdentifier("nutrition.screen")
     }
@@ -145,8 +165,15 @@ struct NutritionView: View {
                         Image(systemName: meal.icon)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(meal.localizedKey).font(.title3)
-                            Text("\(mealSummary.calories.formatted(.number.precision(.fractionLength(0)))) \(String(localized: "summary.calories.unit"))")
-                                .font(.caption).foregroundStyle(.secondary)
+                            HStack(spacing: 6) {
+                                Text("\(mealSummary.calories.formatted(.number.precision(.fractionLength(0)))) \(String(localized: "summary.calories.unit"))")
+                                if !values.isEmpty {
+                                    Text("·")
+                                    Text(macroCaption(mealSummary))
+                                }
+                            }
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         }
                     }
                 }
@@ -204,6 +231,8 @@ struct NutritionView: View {
 private struct FoodEntryRow: View {
     let entry: FoodEntry
 
+    private var summary: NutritionSummary { NutritionSummary(nutrients: entry.productSnapshot.nutrients) }
+
     var body: some View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 4) {
@@ -211,14 +240,17 @@ private struct FoodEntryRow: View {
                 if let brand = entry.productSnapshot.brand {
                     Text(brand).font(.caption).foregroundStyle(.secondary)
                 }
+                HStack(spacing: 6) {
+                    Text("\(entry.quantity.amount.formatted(.number.precision(.fractionLength(0...1)))) \(entry.quantity.unitLabel)")
+                    Text("·")
+                    Text(macroCaption(summary))
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             Spacer()
-            Text("\(entry.quantity.amount.formatted(.number.precision(.fractionLength(0...1)))) \(entry.quantity.unitLabel)")
-                .foregroundStyle(.secondary)
-            if let calories = entry.productSnapshot.nutrients.first(where: { $0.key == "energy_kcal" })?.value {
-                Text(calories.formatted(.number.precision(.fractionLength(0))))
-                    .frame(minWidth: 38, alignment: .trailing)
-            }
+            Text(summary.calories.formatted(.number.precision(.fractionLength(0))))
+                .frame(minWidth: 38, alignment: .trailing)
             Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
         }
         .padding(.horizontal, 16)
@@ -236,16 +268,24 @@ private struct ProductSearchSheet: View {
 
     var body: some View {
         NavigationStack {
-            List(store.products) { product in
-                Button {
-                    selection = product
-                } label: {
-                    VStack(alignment: .leading) {
-                        Text(product.name)
-                        if let brand = product.brand { Text(brand).font(.caption).foregroundStyle(.secondary) }
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(store.products) { product in
+                        Button { selection = product } label: {
+                            ProductSearchRow(product: product)
+                        }
+                        .buttonStyle(.plain)
+                        if product.id != store.products.last?.id { Divider().opacity(0.28).padding(.leading, 16) }
                     }
                 }
             }
+            .background {
+                LinearGradient(
+                    colors: [Color.black, Color(red: 0.10, green: 0.085, blue: 0.07), .black],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ).ignoresSafeArea()
+            }
+            .scrollContentBackground(.hidden)
             .overlay {
                 if store.products.isEmpty && !store.isSearching {
                     ContentUnavailableView("nutrition.search.empty", systemImage: "magnifyingglass")
@@ -253,6 +293,7 @@ private struct ProductSearchSheet: View {
             }
             .searchable(text: $query, prompt: "nutrition.search")
             .navigationTitle("nutrition.add")
+            .navigationBarTitleDisplayMode(.inline)
             .task(id: query) {
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }
@@ -265,6 +306,42 @@ private struct ProductSearchSheet: View {
                 }
             }
         }
+        .preferredColorScheme(.dark)
+    }
+}
+
+private struct ProductSearchRow: View {
+    let product: NutritionProduct
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(product.name).font(.body)
+                if let brand = product.brand { Text(brand).font(.caption).foregroundStyle(.secondary) }
+                if let base = product.referenceBase {
+                    HStack(spacing: 6) {
+                        Text(referenceCaption(base))
+                        Text("·")
+                        Text(macroCaption(product.referenceSummary))
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            if product.referenceSummary.calories > 0 {
+                Text(product.referenceSummary.calories.formatted(.number.precision(.fractionLength(0))))
+                    .foregroundStyle(.secondary)
+            }
+            Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .contentShape(Rectangle())
+    }
+
+    private func referenceCaption(_ base: NutrientBase) -> String {
+        "\(String(localized: "nutrition.per")) \(base.amount.formatted(.number.precision(.fractionLength(0)))) \(product.baseUnit == "ml" ? String(localized: "nutrition.milliliters.short") : String(localized: "nutrition.grams.short"))"
     }
 }
 
@@ -274,34 +351,60 @@ private struct QuantityEditor: View {
     let onSave: (FoodQuantity) async throws -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var amount = 100.0
-    @State private var usePieces = false
-    @State private var selectedSize: String?
+    @State private var pieceSelection: PieceSizeOption?
     @State private var saving = false
+    @State private var nutrientsPresented = false
+    @FocusState private var amountFocused: Bool
+
+    private var unitLabel: String {
+        product.baseUnit == "ml" ? String(localized: "nutrition.milliliters.short") : String(localized: "nutrition.grams.short")
+    }
+
+    private var quantity: FoodQuantity {
+        if let pieceSelection { return .pieces(1, size: pieceSelection.size) }
+        return product.baseUnit == "ml" ? .milliliters(amount) : .grams(amount)
+    }
+
+    private var preview: NutritionSummary { product.summary(for: quantity) }
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TextField("nutrition.quantity", value: $amount, format: .number)
-                        .keyboardType(.decimalPad)
-                    if !product.pieceSizes.isEmpty {
-                        Toggle("nutrition.units.pieces", isOn: $usePieces)
-                        if usePieces {
-                            Picker("nutrition.pieceSize", selection: $selectedSize) {
-                                ForEach(product.pieceSizes) { option in
-                                    Text(option.size).tag(Optional(option.size))
-                                }
-                            }
+            ScrollView {
+                VStack(spacing: 18) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(product.name).font(.system(size: 28, weight: .regular, design: .serif))
+                        if let brand = product.brand { Text(brand).foregroundStyle(.secondary) }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    previewCard
+
+                    quickSelect
+
+                    if pieceSelection == nil {
+                        amountField
+                    }
+
+                    Button { nutrientsPresented = true } label: {
+                        HStack {
+                            Label("nutrition.allNutrients", systemImage: "slider.horizontal.3")
+                            Spacer()
+                            Image(systemName: "chevron.right").foregroundStyle(.secondary)
                         }
+                        .padding(16)
+                        .glassEffect(.regular, in: .rect(cornerRadius: 20))
                     }
+                    .buttonStyle(.plain)
                 }
-                Section {
-                    NavigationLink("nutrition.allNutrients") {
-                        NutrientDetailsView(title: product.name, nutrients: product.nutrientBases.first?.nutrients ?? [])
-                    }
-                }
+                .padding(18)
             }
-            .navigationTitle(product.name)
+            .background {
+                LinearGradient(
+                    colors: [Color.black, Color(red: 0.10, green: 0.085, blue: 0.07), .black],
+                    startPoint: .topLeading, endPoint: .bottomTrailing
+                ).ignoresSafeArea()
+            }
+            .scrollContentBackground(.hidden)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("common.cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -311,16 +414,94 @@ private struct QuantityEditor: View {
                             try? await onSave(quantity)
                             saving = false
                         }
-                    }.disabled(amount <= 0 || saving)
+                    }.disabled(currentAmount <= 0 || saving)
                 }
             }
-            .onAppear { selectedSize = product.pieceSizes.first?.size }
+            .sheet(isPresented: $nutrientsPresented) {
+                NavigationStack {
+                    NutrientDetailsView(title: product.name, nutrients: product.referenceBase?.nutrients ?? [])
+                }
+            }
+        }
+        .preferredColorScheme(.dark)
+    }
+
+    private var currentAmount: Double {
+        pieceSelection != nil ? 1 : amount
+    }
+
+    private var previewCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .lastTextBaseline, spacing: 8) {
+                Text(preview.calories.formatted(.number.precision(.fractionLength(0))))
+                    .font(.system(size: 48, weight: .regular, design: .serif))
+                    .contentTransition(.numericText())
+                Text("summary.calories.unit").foregroundStyle(.secondary)
+            }
+            Text(macroCaption(preview)).font(.subheadline).foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(20)
+        .glassEffect(.regular, in: .rect(cornerRadius: 24))
+        .animation(.snappy, value: preview)
+    }
+
+    @ViewBuilder
+    private var quickSelect: some View {
+        if !product.servingSizes.isEmpty || !product.pieceSizes.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("nutrition.quickSelect").font(.caption).foregroundStyle(.secondary)
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        chip(label: "100 \(unitLabel)", isSelected: pieceSelection == nil && amount == 100) {
+                            pieceSelection = nil
+                            amount = 100
+                        }
+                        ForEach(product.servingSizes) { serving in
+                            chip(label: serving.label, isSelected: pieceSelection == nil && amount == serving.amount) {
+                                pieceSelection = nil
+                                amount = serving.amount
+                            }
+                        }
+                        ForEach(product.pieceSizes) { piece in
+                            chip(label: pieceLabel(piece), isSelected: pieceSelection == piece) {
+                                pieceSelection = piece
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
-    private var quantity: FoodQuantity {
-        if usePieces, let selectedSize { return .pieces(amount, size: selectedSize) }
-        return product.baseUnit == "ml" ? .milliliters(amount) : .grams(amount)
+    private func chip(label: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.subheadline)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+        }
+        .buttonStyle(.glass)
+        .tint(isSelected ? .white : nil)
+        .foregroundStyle(isSelected ? Color.black : Color.primary)
+    }
+
+    private func pieceLabel(_ piece: PieceSizeOption) -> String {
+        "1 · \(piece.size) (\(piece.grams.formatted(.number.precision(.fractionLength(0)))) \(String(localized: "nutrition.grams.short")))"
+    }
+
+    private var amountField: some View {
+        HStack {
+            Text("nutrition.quantity").foregroundStyle(.secondary)
+            Spacer()
+            TextField("nutrition.quantity", value: $amount, format: .number)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.trailing)
+                .focused($amountFocused)
+            Text(unitLabel).foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .glassEffect(.regular, in: .rect(cornerRadius: 20))
     }
 }
 
@@ -532,4 +713,12 @@ extension MealType: Identifiable {}
     NavigationStack {
         NutrientDetailsView(title: "Banana", nutrients: PreviewNutrition.nutrients)
     }
+}
+
+#Preview("Quantity: quick select") {
+    QuantityEditor(product: PreviewNutrition.proteinMilk, meal: .breakfast) { _ in }
+}
+
+#Preview("Quantity: piece sizes") {
+    QuantityEditor(product: PreviewNutrition.banana, meal: .breakfast) { _ in }
 }

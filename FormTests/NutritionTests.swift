@@ -29,4 +29,20 @@ final class NutritionTests: XCTestCase {
             XCTAssertEqual(try JSONDecoder.formAPI.decode(FoodQuantity.self, from: data), quantity)
         }
     }
+
+    func testProductSummaryScalesToServingSize() {
+        let milk = PreviewNutrition.proteinMilk
+        let wholePack = milk.servingSizes.first { $0.label.contains("330") }
+        XCTAssertNotNil(wholePack)
+        let summary = milk.summary(for: .milliliters(wholePack!.amount))
+        let reference = milk.referenceSummary
+        XCTAssertEqual(summary.calories, reference.calories * 3.3, accuracy: 0.01)
+        XCTAssertEqual(summary.protein, reference.protein * 3.3, accuracy: 0.01)
+    }
+
+    func testProductSummaryForPieceSize() {
+        let banana = PreviewNutrition.banana
+        let summary = banana.summary(for: .pieces(1, size: "medium"))
+        XCTAssertEqual(summary.calories, banana.referenceSummary.calories * 1.18, accuracy: 0.01)
+    }
 }

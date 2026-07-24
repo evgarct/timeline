@@ -31,6 +31,7 @@ export const products = pgTable("products", {
   baseUnit: text("base_unit").notNull(),
   nutrientBases: jsonb("nutrient_bases").notNull(),
   pieceSizes: jsonb("piece_sizes").notNull(),
+  servingSizes: jsonb("serving_sizes").notNull().default([]),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
 }, (table) => [
