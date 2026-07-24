@@ -201,7 +201,7 @@ export function createTimelineMcpServer(userId: string) {
       product: z.record(z.string(), z.unknown()).optional(),
       mealType: mealTypeSchema,
       quantity: z.record(z.string(), z.unknown()),
-      occurredAt: z.coerce.date(),
+      occurredAt: z.string().describe("ISO 8601 date-time, e.g. 2026-07-24T12:00:00Z"),
       timezone: z.string().min(1),
       note: z.string().max(2000).optional(),
       idempotencyKey: z.string().min(1).max(200)
@@ -210,8 +210,14 @@ export function createTimelineMcpServer(userId: string) {
   }, async ({ productId, product, mealType, quantity, occurredAt, timezone, note, idempotencyKey }) => {
     const parsedQuantity = foodQuantitySchema.safeParse(quantity);
     const parsedProduct = product ? productInputSchema.safeParse(product) : undefined;
-    if (!parsedQuantity.success || (parsedProduct && !parsedProduct.success) || Boolean(productId) === Boolean(product)) {
-      return { content: [{ type: "text" as const, text: "Provide exactly one valid productId or product and a valid quantity." }], isError: true };
+    const parsedOccurredAt = new Date(occurredAt);
+    if (
+      !parsedQuantity.success
+      || (parsedProduct && !parsedProduct.success)
+      || Boolean(productId) === Boolean(product)
+      || Number.isNaN(parsedOccurredAt.getTime())
+    ) {
+      return { content: [{ type: "text" as const, text: "Provide exactly one valid productId or product, a valid quantity, and a valid occurredAt." }], isError: true };
     }
     try {
       const entry = await recordFood(userId, {
@@ -219,7 +225,7 @@ export function createTimelineMcpServer(userId: string) {
         product: parsedProduct?.data,
         mealType,
         quantity: parsedQuantity.data,
-        occurredAt,
+        occurredAt: parsedOccurredAt,
         timezone,
         note,
         idempotencyKey
