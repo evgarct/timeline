@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { authenticateMcpToken } from "@/mcp/server";
 import { verifyCode } from "@/mcp/oauth";
+import { corsPreflight, withCors } from "@/lib/cors";
+
+export const OPTIONS = corsPreflight;
 
 function clientCredentials(request: Request, form: FormData) {
   const authorization = request.headers.get("authorization");
@@ -21,6 +24,10 @@ function clientCredentials(request: Request, form: FormData) {
 }
 
 export async function POST(request: Request) {
+  return withCors(request, await handlePost(request));
+}
+
+async function handlePost(request: Request): Promise<Response> {
   const form = await request.formData();
   const grantType = form.get("grant_type");
 

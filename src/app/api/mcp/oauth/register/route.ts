@@ -1,8 +1,10 @@
 import { randomBytes } from "node:crypto";
 import { storeMcpClient } from "@/data/repository";
+import { corsPreflight, withCors } from "@/lib/cors";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const OPTIONS = corsPreflight;
 
 function isAllowedRedirectUri(value: unknown): value is string {
   if (typeof value !== "string") return false;
@@ -15,6 +17,10 @@ function isAllowedRedirectUri(value: unknown): value is string {
 }
 
 export async function POST(request: Request) {
+  return withCors(request, await handlePost(request));
+}
+
+async function handlePost(request: Request): Promise<Response> {
   let body: unknown;
   try {
     body = await request.json();
