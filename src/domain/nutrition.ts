@@ -79,11 +79,15 @@ export const foodQuantitySchema = z.discriminatedUnion("unit", [
   z.object({
     unit: z.literal("serving"),
     amount: z.number().positive(),
-    label: z.string().trim().min(1).max(60),
+    label: z.string().trim().min(1).max(60).optional(),
     servingSizeId: z.string().trim().min(1).optional()
   }),
   z.object({ unit: z.literal("as_consumed"), label: z.string().trim().min(1).max(120) })
-]);
+]).superRefine((quantity, context) => {
+  if (quantity.unit === "serving" && !quantity.label && !quantity.servingSizeId) {
+    context.addIssue({ code: "custom", message: "Provide either label or servingSizeId for a serving quantity" });
+  }
+});
 
 export const nutrientSnapshotSchema = z.object({
   key: z.string().optional(),
@@ -196,7 +200,9 @@ export function describeQuantity(quantity: FoodQuantity): string {
     case "g": return `${quantity.amount} g`;
     case "ml": return `${quantity.amount} ml`;
     case "piece": return `${quantity.amount}x ${quantity.size} piece`;
-    case "serving": return `${quantity.amount}x "${quantity.label}"`;
+    case "serving": return quantity.label
+      ? `${quantity.amount}x "${quantity.label}"`
+      : `${quantity.amount}x (serving id: ${quantity.servingSizeId})`;
     case "as_consumed": return quantity.label;
   }
 }
