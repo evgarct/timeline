@@ -86,6 +86,10 @@ struct NutritionView: View {
     @State private var selectedEntry: FoodEntry?
     @State private var nutrientsPresented = false
     @State private var collapsedMeals: Set<MealType> = []
+    @State private var reportSharePayload: NutritionReportSharePayload?
+    @State private var goalsEditorPresented = false
+    @AppStorage("activity.stepGoal") private var stepGoal = 12_000
+    @AppStorage("nutrition.goals") private var goals = NutritionGoals()
 
     var body: some View {
         NavigationStack {
@@ -111,6 +115,12 @@ struct NutritionView: View {
         }
         .sheet(item: $selectedEntry) { entry in
             FoodEntryEditor(store: store, entry: entry)
+        }
+        .sheet(item: $reportSharePayload) { payload in
+            NutritionReportShareSheet(text: payload.text, url: payload.url)
+        }
+        .sheet(isPresented: $goalsEditorPresented) {
+            NutritionGoalsEditor(goals: $goals)
         }
         .sheet(isPresented: $nutrientsPresented) {
             NavigationStack {
@@ -146,12 +156,30 @@ struct NutritionView: View {
                 Button { nutrientsPresented = true } label: {
                     Label("nutrition.allNutrients", systemImage: "slider.horizontal.3")
                 }
+                Button { goalsEditorPresented = true } label: {
+                    Label("nutrition.goals.edit", systemImage: "target")
+                }
             } label: {
                 Image(systemName: "ellipsis").frame(width: 36, height: 36)
             }
             .buttonStyle(.glass)
             .accessibilityLabel("nutrition.moreOptions")
             .accessibilityIdentifier("nutrition.menu")
+
+            Button { Task { await exportReport() } } label: {
+                Group {
+                    if store.isExportingReport {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                }
+                .frame(width: 36, height: 36)
+            }
+            .buttonStyle(.glass)
+            .disabled(store.isExportingReport || store.entries.isEmpty)
+            .accessibilityLabel("nutrition.export")
+            .accessibilityIdentifier("nutrition.export")
 
             HStack(spacing: 2) {
                 Button { Task { await store.moveDay(-1) } } label: {
@@ -175,6 +203,12 @@ struct NutritionView: View {
             .buttonStyle(.glass)
         }
         .padding(.top, 8)
+    }
+
+    private func exportReport() async {
+        if let payload = await store.exportReport(stepGoal: stepGoal, goals: goals) {
+            reportSharePayload = payload
+        }
     }
 
     private var dateLabel: String {
@@ -672,6 +706,78 @@ private struct FoodEntryEditor: View {
         case .milliliters: .milliliters(amount)
         case let .pieces(_, size): .pieces(amount, size: size)
         }
+    }
+}
+
+/// Optional daily macro targets, entirely user-set — every field can be left blank, and a blank field
+/// simply means the exported report shows no achieved/under/over signal for that macro rather than
+/// comparing against a target the person never actually configured.
+private struct NutritionGoalsEditor: View {
+    @Binding var goals: NutritionGoals
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var caloriesText: String
+    @State private var proteinText: String
+    @State private var fatText: String
+    @State private var carbsText: String
+
+    init(goals: Binding<NutritionGoals>) {
+        _goals = goals
+        _caloriesText = State(initialValue: goals.wrappedValue.calories.map { $0.formatted(.number.precision(.fractionLength(0))) } ?? "")
+        _proteinText = State(initialValue: goals.wrappedValue.protein.map { $0.formatted(.number.precision(.fractionLength(0))) } ?? "")
+        _fatText = State(initialValue: goals.wrappedValue.fat.map { $0.formatted(.number.precision(.fractionLength(0))) } ?? "")
+        _carbsText = State(initialValue: goals.wrappedValue.carbohydrates.map { $0.formatted(.number.precision(.fractionLength(0))) } ?? "")
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack(alignment: .leading, spacing: 22) {
+                topBar
+                Text("nutrition.goals.message")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                field("summary.calories.unit", text: $caloriesText)
+                field("nutrition.protein.short", text: $proteinText)
+                field("nutrition.fat.short", text: $fatText)
+                field("nutrition.carbohydrates.short", text: $carbsText)
+                Spacer()
+            }
+            .padding(.horizontal, 18)
+            .padding(.top, 8)
+            .padding(.bottom, 40)
+            .background { nutritionBackgroundGradient() }
+            .toolbar(.hidden, for: .navigationBar)
+        }
+        .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
+        .preferredColorScheme(.dark)
+    }
+
+    private var topBar: some View {
+        HStack {
+            Text("nutrition.goals.title").font(.title3.weight(.semibold))
+            Spacer()
+            Button("common.save") {
+                goals = NutritionGoals(
+                    calories: Double(caloriesText), protein: Double(proteinText),
+                    fat: Double(fatText), carbohydrates: Double(carbsText)
+                )
+                dismiss()
+            }
+            .fontWeight(.semibold)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func field(_ label: LocalizedStringKey, text: Binding<String>) -> some View {
+        HStack {
+            Text(label).foregroundStyle(.secondary)
+            Spacer()
+            TextField("nutrition.goals.placeholder", text: text)
+                .keyboardType(.numberPad)
+                .multilineTextAlignment(.trailing)
+        }
+        .padding(.vertical, 8)
     }
 }
 

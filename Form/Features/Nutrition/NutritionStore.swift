@@ -26,19 +26,29 @@ final class NutritionStore {
     var selectedDate: Date
 
     let repository: any NutritionRepository
+    private let stepProvider: (any StepCountProviding)?
     private let calendar: Calendar
     private let timezone: TimeZone
 
     init(
         repository: any NutritionRepository,
+        stepProvider: (any StepCountProviding)? = nil,
         selectedDate: Date = .now,
         calendar: Calendar = .current,
         timezone: TimeZone = .current
     ) {
         self.repository = repository
+        self.stepProvider = stepProvider
         self.calendar = calendar
         self.timezone = timezone
         self.selectedDate = calendar.startOfDay(for: selectedDate)
+    }
+
+    /// Activity for the report export — `nil` (rather than `.unavailable`) when no provider was
+    /// injected at all, distinguishing "not wired up" from "HealthKit denied/unavailable".
+    func activitySnapshot(for date: Date, now: Date = .now) async -> WeeklyActivityState? {
+        guard let stepProvider else { return nil }
+        return await stepProvider.activitySnapshot(for: date, now: now)
     }
 
     var summary: NutritionSummary { NutritionSummary(entries: entries) }
@@ -49,6 +59,26 @@ final class NutritionStore {
             timezone: timezone
         )
         return NutritionSummary(entries: entries)
+    }
+
+    /// 7-day (Mon–Sun) macro history for the report's weekly trend chart. Days after `date` (a
+    /// future/not-yet-happened part of the week) are omitted rather than fetched as empty, so they
+    /// don't pull the average down as if they were logged-and-zero.
+    func weeklyNutritionSnapshot(for date: Date) async -> WeeklyNutritionSnapshot {
+        let today = calendar.startOfDay(for: .now)
+        let selected = calendar.startOfDay(for: date)
+        let weekStart = WeeklyActivitySnapshot.monday(containing: selected, calendar: calendar)
+        var days: [DailyNutritionTotal] = []
+        for offset in 0..<7 {
+            guard let day = calendar.date(byAdding: .day, value: offset, to: weekStart) else { continue }
+            guard day <= today else {
+                days.append(DailyNutritionTotal(date: day, summary: nil))
+                continue
+            }
+            let summary = try? await summary(for: day)
+            days.append(DailyNutritionTotal(date: day, summary: summary))
+        }
+        return WeeklyNutritionSnapshot(days: days, selectedDate: selected)
     }
 
     func refreshTodaySummary() async {
@@ -184,6 +214,46 @@ final class NutritionStore {
 
     func clearSaveError() {
         saveError = nil
+    }
+
+    private(set) var isExportingReport = false
+
+    /// Renders the currently selected day as a PDF + share-preview image, uploads both, and returns
+    /// the share-sheet payload (fixed Russian greeting + public link) — or `nil` on failure, surfaced
+    /// through the same `saveError` alert every other store action already uses.
+    func exportReport(stepGoal: Int, goals: NutritionGoals) async -> NutritionReportSharePayload? {
+        guard !isExportingReport else { return nil }
+        isExportingReport = true
+        defer { isExportingReport = false }
+
+        let payload = await NutritionReportBuilder.payload(for: self, stepGoal: stepGoal, goals: goals)
+        let renderLocale = Locale(identifier: "ru_RU")
+        guard let pdf = NutritionReportRenderer.pdf(payload: payload, locale: renderLocale),
+              let ogImage = NutritionReportRenderer.ogImage(payload: payload, locale: renderLocale)?
+                .jpegData(compressionQuality: 0.85)
+        else {
+            saveError = String(localized: "nutrition.export.error")
+            return nil
+        }
+
+        do {
+            let result = try await repository.submitReport(
+                pdf: pdf, ogImage: ogImage, reportDate: payload.date, timezone: timezone
+            )
+            return NutritionReportSharePayload(text: shareGreeting(for: payload.date), url: result.shareURL)
+        } catch {
+            saveError = error.localizedDescription
+            return nil
+        }
+    }
+
+    /// Fixed Russian greeting regardless of device locale, per spec — not routed through
+    /// `Localizable.xcstrings`.
+    private func shareGreeting(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ru_RU")
+        formatter.dateFormat = "EEEE, d MMMM"
+        return "привет, отчет за \(formatter.string(from: date))"
     }
 
     func reset() {

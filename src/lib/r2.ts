@@ -31,6 +31,15 @@ function configuredClient() {
   return client;
 }
 
+export async function putObject(key: string, body: Uint8Array | Buffer, contentType: string) {
+  await configuredClient().send(new PutObjectCommand({
+    Bucket: r2BucketName,
+    Key: key,
+    Body: body,
+    ContentType: contentType
+  }));
+}
+
 export async function createUploadUrl(key: string, contentType: string) {
   return getSignedUrl(configuredClient(), new PutObjectCommand({
     Bucket: r2BucketName,

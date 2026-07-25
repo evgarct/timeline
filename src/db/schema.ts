@@ -90,6 +90,21 @@ export const mediaAssets = pgTable("media_assets", {
   uniqueIndex("media_assets_user_id_id_idx").on(table.userId, table.id)
 ]);
 
+export const nutritionReports = pgTable("nutrition_reports", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  reportDate: text("report_date").notNull(),
+  timezone: text("timezone").notNull(),
+  pdfObjectKey: text("pdf_object_key").notNull().unique(),
+  ogImageObjectKey: text("og_image_object_key").notNull().unique(),
+  pdfSizeBytes: integer("pdf_size_bytes").notNull(),
+  ogImageSizeBytes: integer("og_image_size_bytes").notNull(),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+}, (table) => [
+  uniqueIndex("nutrition_reports_user_id_id_idx").on(table.userId, table.id)
+]);
+
 export const storagePolicies = pgTable("storage_policies", {
   userId: text("user_id").primaryKey(),
   limitBytes: integer("limit_bytes"),

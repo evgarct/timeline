@@ -13,6 +13,52 @@ final class NutritionTests: XCTestCase {
         XCTAssertNotNil(PreviewNutrition.nutrients.first { $0.key == "fiber" })
     }
 
+    func testReportSummaryAggregatesFiberSugarsAndSaturatedFat() {
+        let summary = NutritionReportSummary(nutrients: PreviewNutrition.nutrients + [
+            NutrientValue(key: "saturated_fat", label: "Saturated fat", value: 0.1, unit: "g", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .stated)
+        ])
+        XCTAssertEqual(summary.fiber, 2.6)
+        XCTAssertEqual(summary.sugars, 12.2)
+        XCTAssertEqual(summary.saturatedFat, 0.1)
+        XCTAssertEqual(summary.unsaturatedFat, 0.2, accuracy: 0.0001)
+        XCTAssertEqual(summary.complexCarbs, 10.6, accuracy: 0.0001)
+    }
+
+    func testReportSummaryClampsProxySplitsWhenComponentsExceedTotals() {
+        // Estimated/rounded values can make a sub-component appear larger than its parent macro;
+        // the proxy splits must never go negative in that case.
+        let summary = NutritionReportSummary(nutrients: [
+            NutrientValue(key: "fat", label: "Fat", value: 1, unit: "g", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .estimated),
+            NutrientValue(key: "saturated_fat", label: "Saturated fat", value: 1.5, unit: "g", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .estimated),
+            NutrientValue(key: "carbohydrates", label: "Carbohydrates", value: 1, unit: "g", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .estimated),
+            NutrientValue(key: "sugars", label: "Sugars", value: 1.5, unit: "g", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .estimated)
+        ])
+        XCTAssertEqual(summary.unsaturatedFat, 0)
+        XCTAssertEqual(summary.complexCarbs, 0)
+    }
+
+    func testReportSummaryIgnoresNutrientsWithoutMatchingKeys() {
+        XCTAssertEqual(NutritionReportSummary(), NutritionReportSummary(nutrients: []))
+    }
+
+    func testReportSummaryFlagsWhichBreakdownsWereExplicitlyStated() {
+        // Only fat/carbohydrates were logged today — no fiber, sugars, or saturated fat on any entry.
+        let unstated = NutritionReportSummary(nutrients: [
+            NutrientValue(key: "fat", label: "Fat", value: 10, unit: "g", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .stated),
+            NutrientValue(key: "carbohydrates", label: "Carbohydrates", value: 20, unit: "g", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .stated)
+        ])
+        XCTAssertFalse(unstated.hasFiber)
+        XCTAssertFalse(unstated.hasSugars)
+        XCTAssertFalse(unstated.hasSaturatedFat)
+
+        let stated = NutritionReportSummary(nutrients: PreviewNutrition.nutrients + [
+            NutrientValue(key: "saturated_fat", label: "Saturated fat", value: 0.1, unit: "g", qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: .stated)
+        ])
+        XCTAssertTrue(stated.hasFiber)
+        XCTAssertTrue(stated.hasSugars)
+        XCTAssertTrue(stated.hasSaturatedFat)
+    }
+
     func testStoreNavigatesIntoFuture() async {
         let store = NutritionStore(repository: PreviewNutritionRepository())
         let initial = store.selectedDate
