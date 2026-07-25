@@ -55,17 +55,30 @@ enum FoodQuantity: Codable, Hashable, Sendable {
     case grams(Double)
     case milliliters(Double)
     case pieces(Double, size: String)
+    case serving(Double, label: String?, servingSizeId: String?)
+    case asConsumed(label: String)
 
-    private enum CodingKeys: String, CodingKey { case unit, amount, size }
+    private enum CodingKeys: String, CodingKey { case unit, amount, size, label, servingSizeId }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let unit = try container.decode(String.self, forKey: .unit)
-        let amount = try container.decode(Double.self, forKey: .amount)
         switch unit {
-        case "g": self = .grams(amount)
-        case "ml": self = .milliliters(amount)
-        case "piece": self = .pieces(amount, size: try container.decode(String.self, forKey: .size))
+        case "g": self = .grams(try container.decode(Double.self, forKey: .amount))
+        case "ml": self = .milliliters(try container.decode(Double.self, forKey: .amount))
+        case "piece":
+            self = .pieces(
+                try container.decode(Double.self, forKey: .amount),
+                size: try container.decode(String.self, forKey: .size)
+            )
+        case "serving":
+            self = .serving(
+                try container.decode(Double.self, forKey: .amount),
+                label: try container.decodeIfPresent(String.self, forKey: .label),
+                servingSizeId: try container.decodeIfPresent(String.self, forKey: .servingSizeId)
+            )
+        case "as_consumed":
+            self = .asConsumed(label: try container.decode(String.self, forKey: .label))
         default:
             throw DecodingError.dataCorruptedError(forKey: .unit, in: container, debugDescription: "Unknown food unit")
         }
@@ -84,12 +97,23 @@ enum FoodQuantity: Codable, Hashable, Sendable {
             try container.encode("piece", forKey: .unit)
             try container.encode(amount, forKey: .amount)
             try container.encode(size, forKey: .size)
+        case let .serving(amount, label, servingSizeId):
+            try container.encode("serving", forKey: .unit)
+            try container.encode(amount, forKey: .amount)
+            try container.encodeIfPresent(label, forKey: .label)
+            try container.encodeIfPresent(servingSizeId, forKey: .servingSizeId)
+        case let .asConsumed(label):
+            try container.encode("as_consumed", forKey: .unit)
+            try container.encode(label, forKey: .label)
         }
     }
 
     var amount: Double {
         switch self {
-        case let .grams(value), let .milliliters(value), let .pieces(value, _): value
+        case let .grams(value), let .milliliters(value): value
+        case let .pieces(value, _): value
+        case let .serving(value, _, _): value
+        case .asConsumed: 1
         }
     }
 
@@ -98,6 +122,8 @@ enum FoodQuantity: Codable, Hashable, Sendable {
         case .grams: "g"
         case .milliliters: "ml"
         case let .pieces(_, size): size
+        case let .serving(_, label, servingSizeId): label ?? servingSizeId ?? "serving"
+        case .asConsumed(let label): label
         }
     }
 }
@@ -113,7 +139,7 @@ struct FoodProductSnapshot: Codable, Hashable, Sendable {
 }
 
 struct FoodEntryPayload: Codable, Hashable, Sendable {
-    let productId: String
+    let productId: String?
     let mealType: MealType
     let quantity: FoodQuantity
     let productSnapshot: FoodProductSnapshot
@@ -125,7 +151,7 @@ struct FoodEntry: Codable, Identifiable, Hashable, Sendable {
     let occurredAt: Date
     let timezone: String
     let note: String?
-    let productId: String
+    let productId: String?
     let mealType: MealType
     let quantity: FoodQuantity
     let productSnapshot: FoodProductSnapshot
@@ -272,6 +298,9 @@ extension NutritionProduct {
         case let .pieces(count, size):
             guard let option = pieceSizes.first(where: { $0.size == size }) else { return NutritionSummary() }
             amountInBaseUnit = option.grams * count
+        case .serving, .asConsumed:
+            // Server-computed only: the client doesn't have the product's servingSizes catalog here.
+            return NutritionSummary()
         }
         let multiplier = amountInBaseUnit / base.amount
         let scaled = base.nutrients.map { nutrient in

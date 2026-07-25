@@ -78,7 +78,7 @@ extension TimelineEvent: Decodable {
         case "inbody": self = .inbody(base)
         case "nutrition_entry":
             self = .nutritionEntry(base, FoodEntryPayload(
-                productId: try container.decode(String.self, forKey: .productId),
+                productId: try container.decodeIfPresent(String.self, forKey: .productId),
                 mealType: try container.decode(MealType.self, forKey: .mealType),
                 quantity: try container.decode(FoodQuantity.self, forKey: .quantity),
                 productSnapshot: try container.decode(FoodProductSnapshot.self, forKey: .productSnapshot)
