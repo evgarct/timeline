@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   describeQuantity,
+  foodQuantitySchema,
   nutritionEntryPayloadSchema,
   productInputSchema,
   quantityInBaseUnit,
@@ -86,6 +87,20 @@ describe("nutrition domain", () => {
       servingSizes: [{ id: "bar-40g", label: "1 bar (40 g)", amount: 40, provenance: "stated" as const }]
     });
     expect(quantityInBaseUnit(productWithId, { unit: "serving", amount: 1, label: "irrelevant", servingSizeId: "bar-40g" })).toBe(40);
+  });
+
+  it("accepts a serving quantity with only servingSizeId and no label", () => {
+    const productWithId = productInputSchema.parse({
+      ...product,
+      servingSizes: [{ id: "bar-40g", label: "1 bar (40 g)", amount: 40, provenance: "stated" as const }]
+    });
+    const parsed = foodQuantitySchema.parse({ unit: "serving", amount: 1, servingSizeId: "bar-40g" });
+    expect(quantityInBaseUnit(productWithId, parsed)).toBe(40);
+    expect(describeQuantity(parsed)).toBe("1x (serving id: bar-40g)");
+  });
+
+  it("rejects a serving quantity with neither label nor servingSizeId", () => {
+    expect(() => foodQuantitySchema.parse({ unit: "serving", amount: 1 })).toThrow();
   });
 
   it("rejects an unknown servingSizeId and lists ids alongside labels", () => {

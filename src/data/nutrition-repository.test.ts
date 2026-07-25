@@ -247,4 +247,25 @@ describe("memory nutrition repository", () => {
     });
     expect(entry.productSnapshot.nutrients.find((value) => value.key === "energy_kcal")?.value).toBe(76);
   });
+
+  it("records food with only servingSizeId and no label in quantity", async () => {
+    const created = await repository.upsertProduct(userId, {
+      ...productInput,
+      barcode: "8591234567444",
+      name: "Banana 2",
+      servingSizes: [{ label: "1 small banana", amount: 101, provenance: "estimated" }]
+    });
+    const assignedId = created.servingSizes[0].id!;
+
+    const entry = await repository.recordFood(userId, {
+      productId: created.id,
+      mealType: "snack",
+      quantity: { unit: "serving", amount: 2, servingSizeId: assignedId },
+      occurredAt: new Date("2026-07-25T15:00:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "serving-id-only-1"
+    });
+    expect(entry.quantity).toEqual({ unit: "serving", amount: 2, servingSizeId: assignedId });
+    expect(entry.productSnapshot.nutrients.find((value) => value.key === "energy_kcal")?.value).toBeCloseTo(80 * 2.02, 5);
+  });
 });
