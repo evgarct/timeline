@@ -1,6 +1,6 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, ilike, or } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { database } from "@/db/client";
 import { events, products } from "@/db/schema";
 import {
@@ -11,6 +11,7 @@ import {
   productSchema,
   snapshotNutrients,
   type FoodQuantity,
+  type NutrientSnapshot,
   type Product,
   type ProductInput
 } from "@/domain/nutrition";
@@ -123,8 +124,15 @@ export async function upsertProduct(userId: string, rawInput: ProductInput) {
     existing = exact[0];
   }
 
+  const servingSizes = input.servingSizes.map((serving) => ({
+    ...serving,
+    id: serving.id
+      ?? existing?.servingSizes.find((existingServing) => existingServing.label === serving.label)?.id
+      ?? randomUUID()
+  }));
   const product = productSchema.parse({
     ...input,
+    servingSizes,
     id: existing?.id ?? randomUUID(),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now
@@ -207,14 +215,55 @@ export async function recordFood(userId: string, rawInput: RecordFoodInput) {
     note: rawInput.note,
     ...payload
   });
+  return insertNutritionEntry(userId, entry, rawInput.idempotencyKey);
+}
+
+export interface RecordAdHocFoodInput {
+  mealType: "breakfast" | "lunch" | "dinner" | "snack";
+  name: string;
+  brand?: string;
+  quantityLabel: string;
+  nutrients: NutrientSnapshot[];
+  occurredAt: Date;
+  timezone: string;
+  note?: string;
+  idempotencyKey: string;
+}
+
+export async function recordAdHocFood(userId: string, rawInput: RecordAdHocFoodInput) {
+  const mealType = mealTypeSchema.parse(rawInput.mealType);
+  if (!rawInput.idempotencyKey.trim()) throw new Error("idempotency_key_required");
+  const existing = await findEntryByIdempotencyKey(userId, rawInput.idempotencyKey);
+  if (existing) return existing;
+  const payload = nutritionEntryPayloadSchema.parse({
+    mealType,
+    quantity: { unit: "as_consumed", label: rawInput.quantityLabel },
+    productSnapshot: {
+      name: rawInput.name,
+      brand: rawInput.brand,
+      nutrients: rawInput.nutrients
+    }
+  });
+  const entry = nutritionEntryEventSchema.parse({
+    id: randomUUID(),
+    type: "nutrition_entry",
+    occurredAt: rawInput.occurredAt,
+    timezone: rawInput.timezone,
+    note: rawInput.note,
+    ...payload
+  });
+  return insertNutritionEntry(userId, entry, rawInput.idempotencyKey);
+}
+
+async function insertNutritionEntry(userId: string, entry: NutritionEntryEvent, idempotencyKey: string) {
   if (useMemory || !database) {
-    memoryEntries.unshift({ ...entry, userId, idempotencyKey: rawInput.idempotencyKey });
+    memoryEntries.unshift({ ...entry, userId, idempotencyKey });
     return entry;
   }
   const { id, type, occurredAt, timezone, note, ...storedPayload } = entry;
   await database.insert(events).values({
     id, userId, type, occurredAt, timezone, note, payload: storedPayload,
-    idempotencyKey: rawInput.idempotencyKey
+    idempotencyKey
   });
   return entry;
 }
@@ -265,25 +314,50 @@ export async function getFoodEntry(userId: string, id: string) {
   return row ? entryFromRow(row) : undefined;
 }
 
-export async function updateFoodEntry(
-  userId: string,
-  id: string,
-  changes: Partial<Pick<RecordFoodInput, "mealType" | "quantity" | "occurredAt" | "timezone" | "note">>
-) {
+export interface UpdateFoodEntryChanges {
+  mealType?: RecordFoodInput["mealType"];
+  quantity?: FoodQuantity;
+  occurredAt?: Date;
+  timezone?: string;
+  note?: string;
+  nutrients?: NutrientSnapshot[];
+  name?: string;
+  brand?: string;
+}
+
+export async function updateFoodEntry(userId: string, id: string, changes: UpdateFoodEntryChanges) {
   const current = await getFoodEntry(userId, id);
   if (!current) throw new Error("entry_not_found");
-  const product = await getProduct(userId, current.productId);
-  if (!product) throw new Error("product_not_found");
+
+  const overridesDerivedFields = changes.nutrients !== undefined || changes.name !== undefined || changes.brand !== undefined;
+  let productSnapshot = current.productSnapshot;
   const quantity = changes.quantity ?? current.quantity;
-  const payload = nutritionEntryPayloadSchema.parse({
-    productId: product.id,
-    mealType: changes.mealType ?? current.mealType,
-    quantity,
-    productSnapshot: {
+
+  if (current.productId) {
+    if (overridesDerivedFields) throw new Error("cannot_override_nutrients_for_product_entry");
+    const product = await getProduct(userId, current.productId);
+    if (!product) throw new Error("product_not_found");
+    productSnapshot = {
       name: current.productSnapshot.name,
       brand: current.productSnapshot.brand,
       nutrients: snapshotNutrients(product, quantity)
+    };
+  } else {
+    if (changes.quantity && changes.quantity.unit !== "as_consumed") {
+      throw new Error("invalid_quantity_for_ad_hoc_entry");
     }
+    productSnapshot = {
+      name: changes.name ?? current.productSnapshot.name,
+      brand: changes.brand ?? current.productSnapshot.brand,
+      nutrients: changes.nutrients ?? current.productSnapshot.nutrients
+    };
+  }
+
+  const payload = nutritionEntryPayloadSchema.parse({
+    productId: current.productId,
+    mealType: changes.mealType ?? current.mealType,
+    quantity,
+    productSnapshot
   });
   const updated = nutritionEntryEventSchema.parse({
     ...current,
@@ -297,10 +371,10 @@ export async function updateFoodEntry(
     if (index >= 0) memoryEntries[index] = { ...memoryEntries[index], ...updated };
     return updated;
   }
-  const { occurredAt, timezone, note, productId, mealType, quantity: storedQuantity, productSnapshot } = updated;
+  const { occurredAt, timezone, note, productId, mealType, quantity: storedQuantity, productSnapshot: storedSnapshot } = updated;
   await database.update(events).set({
     occurredAt, timezone, note,
-    payload: { productId, mealType, quantity: storedQuantity, productSnapshot },
+    payload: { productId, mealType, quantity: storedQuantity, productSnapshot: storedSnapshot },
     updatedAt: new Date()
   }).where(and(eq(events.userId, userId), eq(events.id, id), eq(events.type, "nutrition_entry")));
   return updated;
@@ -315,6 +389,74 @@ export async function deleteFoodEntry(userId: string, id: string) {
   await database.delete(events).where(and(
     eq(events.userId, userId), eq(events.id, id), eq(events.type, "nutrition_entry")
   ));
+}
+
+export interface MergeFoodEntriesInput {
+  ids: string[];
+  mealType?: RecordFoodInput["mealType"];
+  occurredAt?: Date;
+  timezone?: string;
+  note?: string;
+  name?: string;
+  idempotencyKey: string;
+}
+
+export async function mergeFoodEntries(userId: string, rawInput: MergeFoodEntriesInput) {
+  if (rawInput.ids.length < 2) throw new Error("merge_requires_at_least_two_entries");
+  if (!rawInput.idempotencyKey.trim()) throw new Error("idempotency_key_required");
+  const existing = await findEntryByIdempotencyKey(userId, rawInput.idempotencyKey);
+  if (existing) return existing;
+
+  const fetched = await Promise.all(rawInput.ids.map((id) => getFoodEntry(userId, id)));
+  const missing = rawInput.ids.filter((_, index) => !fetched[index]);
+  if (missing.length) throw new Error(`entries_not_found:${missing.join(",")}`);
+  const found = fetched as NutritionEntryEvent[];
+
+  const nutrients = aggregateNutrients(found);
+  const distinctNames = [...new Set(found.map((entry) => entry.productSnapshot.name))];
+  const name = rawInput.name ?? distinctNames.join(" + ");
+  const mealType = mealTypeSchema.parse(rawInput.mealType ?? found[0].mealType);
+  const occurredAt = rawInput.occurredAt ?? found.reduce(
+    (earliest, entry) => (entry.occurredAt < earliest ? entry.occurredAt : earliest),
+    found[0].occurredAt
+  );
+  const timezone = rawInput.timezone ?? found[0].timezone;
+  const label = `Merged ${found.length} entries: ${distinctNames.join(", ")}`;
+
+  const payload = nutritionEntryPayloadSchema.parse({
+    mealType,
+    quantity: { unit: "as_consumed", label },
+    productSnapshot: { name, nutrients }
+  });
+  const merged = nutritionEntryEventSchema.parse({
+    id: randomUUID(),
+    type: "nutrition_entry",
+    occurredAt,
+    timezone,
+    note: rawInput.note,
+    ...payload
+  });
+
+  if (useMemory || !database) {
+    for (const id of rawInput.ids) {
+      const index = memoryEntries.findIndex((entry) => entry.userId === userId && entry.id === id);
+      if (index >= 0) memoryEntries.splice(index, 1);
+    }
+    memoryEntries.unshift({ ...merged, userId, idempotencyKey: rawInput.idempotencyKey });
+    return merged;
+  }
+
+  const { id, type, occurredAt: mergedOccurredAt, timezone: mergedTimezone, note, ...storedPayload } = merged;
+  await database.batch([
+    database.delete(events).where(and(
+      eq(events.userId, userId), inArray(events.id, rawInput.ids), eq(events.type, "nutrition_entry")
+    )),
+    database.insert(events).values({
+      id, userId, type, occurredAt: mergedOccurredAt, timezone: mergedTimezone, note,
+      payload: storedPayload, idempotencyKey: rawInput.idempotencyKey
+    })
+  ]);
+  return merged;
 }
 
 export function aggregateNutrients(entries: Awaited<ReturnType<typeof listFoodEntries>>) {

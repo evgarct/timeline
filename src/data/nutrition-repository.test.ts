@@ -155,4 +155,133 @@ describe("memory nutrition repository", () => {
       idempotencyKey: "bad-unit"
     })).rejects.toThrow("incompatible_unit");
   });
+
+  it("records an ad hoc entry without creating or touching a Product", async () => {
+    const before = await repository.searchProducts(userId, "pancakes", 1, 30);
+    const entry = await repository.recordAdHocFood(userId, {
+      mealType: "breakfast",
+      name: "3 pancakes, eyeballed",
+      quantityLabel: "3 pancakes (~150 g, estimated)",
+      nutrients: [{ key: "energy_kcal", label: "Energy", value: 300, unit: "kcal", provenance: "estimated" }],
+      occurredAt: new Date("2026-07-25T08:00:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "ad-hoc-1"
+    });
+
+    expect(entry.productId).toBeUndefined();
+    expect(entry.quantity).toEqual({ unit: "as_consumed", label: "3 pancakes (~150 g, estimated)" });
+    expect(entry.productSnapshot.nutrients[0].value).toBe(300);
+    const after = await repository.searchProducts(userId, "pancakes", 1, 30);
+    expect(after.items).toHaveLength(before.items.length);
+
+    const retry = await repository.recordAdHocFood(userId, {
+      mealType: "breakfast",
+      name: "3 pancakes, eyeballed",
+      quantityLabel: "3 pancakes (~150 g, estimated)",
+      nutrients: [{ key: "energy_kcal", label: "Energy", value: 300, unit: "kcal", provenance: "estimated" }],
+      occurredAt: new Date("2026-07-25T08:00:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "ad-hoc-1"
+    });
+    expect(retry.id).toBe(entry.id);
+  });
+
+  it("edits an ad hoc entry's nutrients directly and rejects that override on a product-backed entry", async () => {
+    const adHoc = await repository.recordAdHocFood(userId, {
+      mealType: "snack",
+      name: "Homemade soup",
+      quantityLabel: "1 bowl",
+      nutrients: [{ key: "energy_kcal", label: "Energy", value: 150, unit: "kcal", provenance: "estimated" }],
+      occurredAt: new Date("2026-07-25T12:00:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "ad-hoc-2"
+    });
+    const editedAdHoc = await repository.updateFoodEntry(userId, adHoc.id, {
+      nutrients: [{ key: "energy_kcal", label: "Energy", value: 180, unit: "kcal", provenance: "estimated" }]
+    });
+    expect(editedAdHoc.productSnapshot.nutrients[0].value).toBe(180);
+
+    const product = await repository.upsertProduct(userId, { ...productInput, barcode: "8591234567111", name: "Third product" });
+    const productEntry = await repository.recordFood(userId, {
+      productId: product.id,
+      mealType: "snack",
+      quantity: { unit: "g", amount: 100 },
+      occurredAt: new Date("2026-07-25T13:00:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "product-entry-1"
+    });
+    await expect(repository.updateFoodEntry(userId, productEntry.id, {
+      nutrients: [{ key: "energy_kcal", label: "Energy", value: 999, unit: "kcal", provenance: "estimated" }]
+    })).rejects.toThrow("cannot_override_nutrients_for_product_entry");
+  });
+
+  it("merges two entries into one ad hoc entry, sums nutrients, and deletes the originals", async () => {
+    const product = await repository.upsertProduct(userId, { ...productInput, barcode: "8591234567222", name: "Coffee" });
+    const first = await repository.recordFood(userId, {
+      productId: product.id,
+      mealType: "breakfast",
+      quantity: { unit: "g", amount: 100 },
+      occurredAt: new Date("2026-07-25T09:00:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "merge-source-1"
+    });
+    const second = await repository.recordFood(userId, {
+      productId: product.id,
+      mealType: "breakfast",
+      quantity: { unit: "g", amount: 100 },
+      occurredAt: new Date("2026-07-25T09:30:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "merge-source-2"
+    });
+
+    const merged = await repository.mergeFoodEntries(userId, {
+      ids: [first.id, second.id],
+      idempotencyKey: "merge-1"
+    });
+
+    expect(merged.productId).toBeUndefined();
+    expect(merged.occurredAt).toEqual(first.occurredAt);
+    expect(merged.productSnapshot.nutrients.find((value) => value.key === "energy_kcal")?.value).toBe(160);
+    expect(await repository.getFoodEntry(userId, first.id)).toBeUndefined();
+    expect(await repository.getFoodEntry(userId, second.id)).toBeUndefined();
+    expect(await repository.getFoodEntry(userId, merged.id)).toBeDefined();
+
+    await expect(repository.mergeFoodEntries(userId, { ids: [merged.id], idempotencyKey: "merge-2" }))
+      .rejects.toThrow("merge_requires_at_least_two_entries");
+    await expect(repository.mergeFoodEntries(userId, {
+      ids: [merged.id, "00000000-0000-0000-0000-000000000000"],
+      idempotencyKey: "merge-3"
+    })).rejects.toThrow("entries_not_found");
+  });
+
+  it("auto-assigns servingSizes ids and keeps them stable across re-upserts", async () => {
+    const created = await repository.upsertProduct(userId, {
+      ...productInput,
+      barcode: "8591234567333",
+      name: "Banana",
+      servingSizes: [{ label: "1 small banana", amount: 90, provenance: "estimated" }]
+    });
+    const assignedId = created.servingSizes[0].id;
+    expect(assignedId).toBeTruthy();
+
+    const resaved = await repository.upsertProduct(userId, {
+      ...productInput,
+      id: created.id,
+      barcode: "8591234567333",
+      name: "Banana",
+      servingSizes: [{ label: "1 small banana", amount: 95, provenance: "estimated" }]
+    });
+    expect(resaved.servingSizes[0].id).toBe(assignedId);
+    expect(resaved.servingSizes[0].amount).toBe(95);
+
+    const entry = await repository.recordFood(userId, {
+      productId: created.id,
+      mealType: "snack",
+      quantity: { unit: "serving", amount: 1, label: "irrelevant", servingSizeId: assignedId },
+      occurredAt: new Date("2026-07-25T14:00:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "serving-id-1"
+    });
+    expect(entry.productSnapshot.nutrients.find((value) => value.key === "energy_kcal")?.value).toBe(76);
+  });
 });

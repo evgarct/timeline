@@ -17,13 +17,23 @@ import {
   getFoodEntry,
   getProduct,
   listFoodEntries,
+  mergeFoodEntries,
+  recordAdHocFood,
   recordFood,
   searchProducts,
   aggregateNutrients,
   updateFoodEntry,
   upsertProduct
 } from "@/data/nutrition-repository";
-import { foodQuantitySchema, mealTypeSchema, productInputSchema } from "@/domain/nutrition";
+import {
+  describeQuantity,
+  foodQuantitySchema,
+  mealTypeSchema,
+  nutrientSnapshotSchema,
+  productInputSchema,
+  selectCalculationBase,
+  summarizeMacros
+} from "@/domain/nutrition";
 import { isTaskCompleted, latestEvent } from "@/domain/timeline";
 import { resolveMcpUser } from "@/data/repository";
 import { TIMELINE_WIDGET_URI, timelineWidgetHtml } from "./widget";
@@ -193,7 +203,7 @@ export function createTimelineMcpServer(userId: string) {
 
   registerAppTool(server, "upsert_product", {
     title: "Create or update a personal product",
-    description: "Save every readable row from a nutrition label, not only calories and macros. Preserve original labels, units, '<'/trace qualifiers, multiple bases such as per 100 g and per serving, and unknown nutrients. Never invent missing packaged-food values. Mark label values stated, derived values calculated, and reference fruit/vegetable values estimated. Exact barcodes are reused; ambiguous name matches return an error. When the package states a whole-container size (e.g. a 330 ml can, a 250 g cup, a 1 L bottle) AND you are not already recording it as its own nutrientBases entry (a \"per portion\" base with directly stated values), add it to servingSizes as { label: \"1 банка (330 мл)\", amount: 330, provenance: \"stated\" } so the app can offer it as a one-tap quantity; amount is always expressed in the product's own baseUnit (g or ml), never invented when the label doesn't state a container size. Do not add both a \"per portion\" nutrientBases entry and a servingSizes entry for the same container size — that duplicates the same quick-select option; prefer the nutrientBases entry when the label states per-serving values directly, and servingSizes only when you'd otherwise have to scale from the reference base. CRITICAL: every nutrient you recognize MUST also carry its canonical `key` in addition to the original label, or the app's calorie/macro totals will silently show zero for this product. Always set key: \"energy_kcal\" for the kcal energy row (not the kJ row), \"protein\" for protein, \"fat\" for total fat, \"carbohydrates\" for total carbohydrate — these four are required whenever present on the label. Also set canonical keys when recognizable: \"saturated_fat\", \"sugars\", \"fiber\", \"salt\", \"sodium\", \"cholesterol\", and \"vitamin_*\"/mineral names (e.g. \"potassium\", \"calcium\", \"iron\"). Leave key unset only for rows you cannot confidently map (e.g. a kJ energy row when energy_kcal is already set, or a genuinely unrecognized nutrient) — never guess a key for those.",
+    description: "Save every readable row from a nutrition label, not only calories and macros. Preserve original labels, units, '<'/trace qualifiers, multiple bases such as per 100 g and per serving, and unknown nutrients. Never invent missing packaged-food values. Mark label values stated, derived values calculated, and reference fruit/vegetable values estimated. Exact barcodes are reused; ambiguous name matches return an error. When the package states a whole-container size (e.g. a 330 ml can, a 250 g cup, a 1 L bottle) AND you are not already recording it as its own nutrientBases entry (a \"per portion\" base with directly stated values), add it to servingSizes as { label: \"1 банка (330 мл)\", amount: 330, provenance: \"stated\" } so the app can offer it as a one-tap quantity; amount is always expressed in the product's own baseUnit (g or ml), never invented when the label doesn't state a container size. Do not add both a \"per portion\" nutrientBases entry and a servingSizes entry for the same container size — that duplicates the same quick-select option; prefer the nutrientBases entry when the label states per-serving values directly, and servingSizes only when you'd otherwise have to scale from the reference base. pieceSizes is a SEPARATE array from servingSizes, only for gram-based products (baseUnit \"g\"): each entry is { size: \"small\"|\"regular\"|\"medium\"|\"large\", grams, provenance } — a fixed 4-value relative sizing (not a container size or free text). Prefer servingSizes for almost everything (a banana, a capsule, a slice, a can) since its label is free text matched by record_food's unit: \"serving\"; only use pieceSizes when the product genuinely comes in those exact small/regular/medium/large variants. Both pieceSizes and servingSizes are per-product — there is no shared or built-in catalog, so record_food's unit: \"piece\"/\"serving\" only resolves against sizes/labels already saved on that specific product via upsert_product. Each servingSizes entry gets a stable id (auto-assigned if you omit it, and preserved across re-saves as long as the label stays the same) — read it back via get_product and pass it as record_food's quantity.servingSizeId for exact matching instead of relying on the label string, which breaks on whitespace/punctuation differences. CRITICAL: every nutrient you recognize MUST also carry its canonical `key` in addition to the original label, or the app's calorie/macro totals will silently show zero for this product. Always set key: \"energy_kcal\" for the kcal energy row (not the kJ row), \"protein\" for protein, \"fat\" for total fat, \"carbohydrates\" for total carbohydrate — these four are required whenever present on the label. Also set canonical keys when recognizable: \"saturated_fat\", \"sugars\", \"fiber\", \"salt\", \"sodium\", \"cholesterol\", and \"vitamin_*\"/mineral names (e.g. \"potassium\", \"calcium\", \"iron\"). Leave key unset only for rows you cannot confidently map (e.g. a kJ energy row when energy_kcal is already set, or a genuinely unrecognized nutrient) — never guess a key for those.",
     inputSchema: { product: productInputSchema },
     _meta: appMeta
   }, async ({ product }) => {
@@ -201,7 +211,11 @@ export function createTimelineMcpServer(userId: string) {
     if (!parsed.success) return { content: [{ type: "text" as const, text: parsed.error.message }], isError: true };
     try {
       const saved = await upsertProduct(userId, parsed.data);
-      return result("Product saved", saved.name, saved, [], { id: saved.id });
+      const macros = summarizeMacros(selectCalculationBase(saved).nutrients);
+      return result("Product saved", saved.name, saved, [], {
+        id: saved.id,
+        text: `${saved.name} (id: ${saved.id}) — ${macros}`
+      });
     } catch (error) {
       return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "product_save_failed" }], isError: true };
     }
@@ -209,7 +223,7 @@ export function createTimelineMcpServer(userId: string) {
 
   registerAppTool(server, "record_food", {
     title: "Record food",
-    description: "Record food without confirmation when the user's intent is unambiguous. Use the user's current local date by default; explicit past and future dates are allowed. Provide an existing productId or a full new product with every visible nutrient. If meal is not stated and cannot be inferred, use snack. Photos are analyzed by ChatGPT and are never sent to or stored by this server. Reuse the same idempotencyKey when retrying. quantity.unit accepts \"g\" or \"ml\" (amount in that unit), \"piece\" (amount x a product's pieceSizes entry, matched by size), or \"serving\" (amount x a product's servingSizes entry, matched by exact label — call get_product first to read the available labels). Never hand-convert a known serving size into g/ml yourself; pass unit: \"serving\" with the label instead.",
+    description: "Record food without confirmation when the user's intent is unambiguous. Use the user's current local date by default; explicit past and future dates are allowed. Provide an existing productId or a full new product with every visible nutrient. If meal is not stated and cannot be inferred, use snack. Photos are analyzed by ChatGPT and are never sent to or stored by this server. Reuse the same idempotencyKey when retrying. quantity.unit accepts \"g\" or \"ml\" (amount in that unit), \"piece\" (amount x a product's pieceSizes entry, matched by its small/regular/medium/large size), or \"serving\" (amount x a product's servingSizes entry — call get_product first to read the available entries, then prefer matching by servingSizeId; label is accepted as a fallback but must match the stored label exactly, including whitespace/punctuation, so servingSizeId is more reliable). pieceSizes and servingSizes only resolve against entries already saved on that exact product via upsert_product — they are per-product, not a shared or built-in catalog, so even a common item like a banana must have its own servingSizes/pieceSizes set before unit: \"piece\"/\"serving\" works for it; if the lookup fails, the error lists what is actually available on that product. Never hand-convert a known serving size into g/ml yourself; pass unit: \"serving\" with the servingSizeId (or label) instead. If the meal has no reusable product (a one-off home-cooked or eyeballed dish you will never look up again), use record_ad_hoc_food instead — it never creates a Product row.",
     inputSchema: {
       productId: z.string().uuid().optional(),
       product: productInputSchema.optional(),
@@ -244,9 +258,81 @@ export function createTimelineMcpServer(userId: string) {
         note,
         idempotencyKey
       });
-      return result("Food recorded", entry.productSnapshot.name, entry, [], { id: entry.id });
+      const macros = summarizeMacros(entry.productSnapshot.nutrients);
+      return result("Food recorded", entry.productSnapshot.name, entry, [], {
+        id: entry.id,
+        text: `${entry.productSnapshot.name} (id: ${entry.id}) — ${macros}`
+      });
     } catch (error) {
       return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "entry_save_failed" }], isError: true };
+    }
+  });
+
+  registerAppTool(server, "record_ad_hoc_food", {
+    title: "Record ad hoc food",
+    description: "Record a one-off meal with inline nutrients, without creating or touching a Product. Use this instead of record_food when the meal is home-cooked, eyeballed, or otherwise not worth saving as a reusable product (e.g. \"3 pancakes, about 150 g, estimated\"). Provide the nutrients for the quantity actually eaten — they are stored as-is, never scaled. Reuse the same idempotencyKey when retrying.",
+    inputSchema: {
+      mealType: mealTypeSchema,
+      name: z.string().trim().min(1).max(300),
+      brand: z.string().trim().min(1).max(200).optional(),
+      quantityLabel: z.string().trim().min(1).max(120).describe("Human-readable description of the quantity eaten, e.g. \"3 pancakes (~150 g, estimated)\""),
+      nutrients: z.array(nutrientSnapshotSchema).min(1),
+      occurredAt: z.string().describe("ISO 8601 date-time, e.g. 2026-07-24T12:00:00Z"),
+      timezone: z.string().min(1),
+      note: z.string().max(2000).optional(),
+      idempotencyKey: z.string().min(1).max(200)
+    },
+    _meta: appMeta
+  }, async ({ mealType, name, brand, quantityLabel, nutrients, occurredAt, timezone, note, idempotencyKey }) => {
+    const parsedOccurredAt = new Date(occurredAt);
+    if (Number.isNaN(parsedOccurredAt.getTime())) {
+      return { content: [{ type: "text" as const, text: "Provide a valid occurredAt." }], isError: true };
+    }
+    try {
+      const entry = await recordAdHocFood(userId, {
+        mealType, name, brand, quantityLabel, nutrients,
+        occurredAt: parsedOccurredAt, timezone, note, idempotencyKey
+      });
+      const macros = summarizeMacros(entry.productSnapshot.nutrients);
+      return result("Food recorded", entry.productSnapshot.name, entry, [], {
+        id: entry.id,
+        text: `${entry.productSnapshot.name} (id: ${entry.id}) — ${macros}`
+      });
+    } catch (error) {
+      return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "entry_save_failed" }], isError: true };
+    }
+  });
+
+  registerAppTool(server, "merge_food_entries", {
+    title: "Merge food entries",
+    description: "Combine two or more food journal entries into one ad hoc entry, deleting the originals atomically. Nutrients are summed across all entries. Note: nutrient rows that only carry a qualifier (e.g. \"trace\", \"< 0.1 mg\") without a numeric value are dropped during the merge — only numeric nutrient values are summed. Reuse the same idempotencyKey when retrying.",
+    inputSchema: {
+      ids: z.array(z.string().uuid()).min(2).max(20),
+      mealType: mealTypeSchema.optional(),
+      occurredAt: z.string().optional().describe("ISO 8601 date-time; defaults to the earliest of the merged entries"),
+      timezone: z.string().min(1).optional(),
+      note: z.string().max(2000).optional(),
+      name: z.string().trim().min(1).max(300).optional().describe("Defaults to the merged entries' distinct names joined with \" + \""),
+      idempotencyKey: z.string().min(1).max(200)
+    },
+    annotations: { destructiveHint: true },
+    _meta: appMeta
+  }, async ({ ids, mealType, occurredAt, timezone, note, name, idempotencyKey }) => {
+    const parsedOccurredAt = occurredAt !== undefined ? new Date(occurredAt) : undefined;
+    if (parsedOccurredAt && Number.isNaN(parsedOccurredAt.getTime())) {
+      return { content: [{ type: "text" as const, text: "Provide a valid occurredAt." }], isError: true };
+    }
+    try {
+      const entry = await mergeFoodEntries(userId, {
+        ids, mealType, occurredAt: parsedOccurredAt, timezone, note, name, idempotencyKey
+      });
+      const macros = summarizeMacros(entry.productSnapshot.nutrients);
+      return result("Food entries merged", entry.productSnapshot.name, entry, [], {
+        id: entry.id,
+        text: `${entry.productSnapshot.name} (id: ${entry.id}) — ${macros}`
+      });
+    } catch (error) {
+      return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "merge_failed" }], isError: true };
     }
   });
 
@@ -263,7 +349,7 @@ export function createTimelineMcpServer(userId: string) {
 
   registerAppTool(server, "update_food_entry", {
     title: "Update food entry",
-    description: "Change the quantity, meal, date, timezone, or note of one food entry. Nutrients are recalculated and snapshotted. changes.quantity accepts the same unit forms as record_food, including unit: \"serving\" with a label matching one of the product's servingSizes.",
+    description: "Change the quantity, meal, date, timezone, or note of one food entry. For a product-backed entry, nutrients are recalculated and snapshotted; changes.quantity accepts the same unit forms as record_food, including unit: \"serving\" with a label matching one of the product's servingSizes. For an ad hoc entry (created via record_ad_hoc_food or merge_food_entries), changes.nutrients/name/brand may be set directly instead, and changes.quantity (if given) must keep unit: \"as_consumed\"; passing nutrients/name/brand for a product-backed entry is rejected.",
     inputSchema: {
       id: z.string().uuid(),
       changes: z.record(z.string(), z.unknown())
@@ -275,12 +361,30 @@ export function createTimelineMcpServer(userId: string) {
       quantity: foodQuantitySchema.optional(),
       occurredAt: z.coerce.date().optional(),
       timezone: z.string().min(1).optional(),
-      note: z.string().max(2000).optional()
+      note: z.string().max(2000).optional(),
+      nutrients: z.array(nutrientSnapshotSchema).optional(),
+      name: z.string().trim().min(1).max(300).optional(),
+      brand: z.string().trim().min(1).max(200).optional()
     }).safeParse(changes);
     if (!parsed.success) return { content: [{ type: "text" as const, text: parsed.error.message }], isError: true };
+    const before = await getFoodEntry(userId, id);
     try {
       const entry = await updateFoodEntry(userId, id, parsed.data);
-      return result("Food entry updated", entry.productSnapshot.name, entry, [], { id: entry.id });
+      const diffParts: string[] = [];
+      if (before) {
+        if (before.mealType !== entry.mealType) diffParts.push(`meal ${before.mealType}→${entry.mealType}`);
+        if (JSON.stringify(before.quantity) !== JSON.stringify(entry.quantity)) {
+          diffParts.push(`quantity ${describeQuantity(before.quantity)}→${describeQuantity(entry.quantity)}`);
+        }
+        if (before.occurredAt.getTime() !== entry.occurredAt.getTime()) {
+          diffParts.push(`time ${before.occurredAt.toISOString()}→${entry.occurredAt.toISOString()}`);
+        }
+        const beforeMacros = summarizeMacros(before.productSnapshot.nutrients);
+        const afterMacros = summarizeMacros(entry.productSnapshot.nutrients);
+        if (beforeMacros !== afterMacros) diffParts.push(`${beforeMacros} → ${afterMacros}`);
+      }
+      const text = `${entry.productSnapshot.name} (id: ${entry.id})${diffParts.length ? `: ${diffParts.join("; ")}` : ""}`;
+      return result("Food entry updated", entry.productSnapshot.name, entry, [], { id: entry.id, text });
     } catch (error) {
       return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "entry_update_failed" }], isError: true };
     }

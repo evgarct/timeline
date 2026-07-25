@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { productInputSchema, quantityInBaseUnit, snapshotNutrients } from "./nutrition";
+import {
+  describeQuantity,
+  nutritionEntryPayloadSchema,
+  productInputSchema,
+  quantityInBaseUnit,
+  snapshotNutrients,
+  summarizeMacros
+} from "./nutrition";
 
 const product = productInputSchema.parse({
   name: "Complete label",
@@ -68,9 +75,37 @@ describe("nutrition domain", () => {
     expect(quantityInBaseUnit(product, { unit: "serving", amount: 2.5, label: "1 bar (40 g)" })).toBe(100);
   });
 
-  it("rejects an unknown serving size label", () => {
+  it("rejects an unknown serving size label and lists what is registered", () => {
     expect(() => quantityInBaseUnit(product, { unit: "serving", amount: 1, label: "does not exist" }))
-      .toThrow("unknown_serving_size");
+      .toThrow('unknown_serving_size: requested label "does not exist", but this product\'s registered servingSizes are: "1 bar (40 g)"');
+  });
+
+  it("matches a serving size by servingSizeId, preferring it over label", () => {
+    const productWithId = productInputSchema.parse({
+      ...product,
+      servingSizes: [{ id: "bar-40g", label: "1 bar (40 g)", amount: 40, provenance: "stated" as const }]
+    });
+    expect(quantityInBaseUnit(productWithId, { unit: "serving", amount: 1, label: "irrelevant", servingSizeId: "bar-40g" })).toBe(40);
+  });
+
+  it("rejects an unknown servingSizeId and lists ids alongside labels", () => {
+    const productWithId = productInputSchema.parse({
+      ...product,
+      servingSizes: [{ id: "bar-40g", label: "1 bar (40 g)", amount: 40, provenance: "stated" as const }]
+    });
+    expect(() => quantityInBaseUnit(productWithId, { unit: "serving", amount: 1, label: "1 bar (40 g)", servingSizeId: "does-not-exist" }))
+      .toThrow('unknown_serving_size: requested servingSizeId "does-not-exist", but this product\'s registered servingSizes are: "1 bar (40 g)" (id: bar-40g)');
+  });
+
+  it("rejects an unknown piece size and points to servingSizes when pieceSizes is empty", () => {
+    const productWithoutPieceSizes = productInputSchema.parse({ ...product, pieceSizes: [] });
+    expect(() => quantityInBaseUnit(productWithoutPieceSizes, { unit: "piece", amount: 1, size: "large" }))
+      .toThrow('this product has no pieceSizes; it has servingSizes instead — use unit: "serving" with one of: "1 bar (40 g)"');
+  });
+
+  it("rejects an unknown piece size and lists what is registered when pieceSizes is non-empty", () => {
+    expect(() => quantityInBaseUnit(product, { unit: "piece", amount: 1, size: "large" }))
+      .toThrow("this product's registered pieceSizes are: regular");
   });
 
   it("rejects unmarked inferred values", () => {
@@ -81,5 +116,75 @@ describe("nutrition domain", () => {
         nutrients: [{ key: "fiber", label: "Fiber", value: 2, unit: "g" }]
       }]
     })).toThrow();
+  });
+
+  it("rejects an as_consumed quantity when computing a product's base amount", () => {
+    expect(() => quantityInBaseUnit(product, { unit: "as_consumed", label: "3 pancakes" }))
+      .toThrow("incompatible_unit");
+  });
+
+  describe("nutritionEntryPayloadSchema ad-hoc invariant", () => {
+    const nutrients = [{ key: "energy_kcal", label: "Energy", value: 100, unit: "kcal", provenance: "estimated" as const }];
+
+    it("accepts a productId paired with a scaled quantity", () => {
+      expect(() => nutritionEntryPayloadSchema.parse({
+        productId: "00000000-0000-0000-0000-000000000000",
+        mealType: "snack",
+        quantity: { unit: "g", amount: 100 },
+        productSnapshot: { name: "Product", nutrients }
+      })).not.toThrow();
+    });
+
+    it("accepts an ad-hoc entry (no productId) with an as_consumed quantity", () => {
+      expect(() => nutritionEntryPayloadSchema.parse({
+        mealType: "snack",
+        quantity: { unit: "as_consumed", label: "3 pancakes" },
+        productSnapshot: { name: "Pancakes", nutrients }
+      })).not.toThrow();
+    });
+
+    it("rejects a productId paired with an as_consumed quantity", () => {
+      expect(() => nutritionEntryPayloadSchema.parse({
+        productId: "00000000-0000-0000-0000-000000000000",
+        mealType: "snack",
+        quantity: { unit: "as_consumed", label: "3 pancakes" },
+        productSnapshot: { name: "Product", nutrients }
+      })).toThrow();
+    });
+
+    it("rejects an ad-hoc entry (no productId) with a scaled quantity", () => {
+      expect(() => nutritionEntryPayloadSchema.parse({
+        mealType: "snack",
+        quantity: { unit: "g", amount: 100 },
+        productSnapshot: { name: "Pancakes", nutrients }
+      })).toThrow();
+    });
+  });
+
+  describe("describeQuantity", () => {
+    it("formats every quantity variant", () => {
+      expect(describeQuantity({ unit: "g", amount: 100 })).toBe("100 g");
+      expect(describeQuantity({ unit: "ml", amount: 250 })).toBe("250 ml");
+      expect(describeQuantity({ unit: "piece", amount: 2, size: "regular" })).toBe("2x regular piece");
+      expect(describeQuantity({ unit: "serving", amount: 1, label: "1 bar (40 g)" })).toBe("1x \"1 bar (40 g)\"");
+      expect(describeQuantity({ unit: "as_consumed", label: "3 pancakes" })).toBe("3 pancakes");
+    });
+  });
+
+  describe("summarizeMacros", () => {
+    it("formats the canonical macros when present", () => {
+      const summary = summarizeMacros([
+        { key: "energy_kcal", label: "Energy", value: 210.4, unit: "kcal", provenance: "stated" },
+        { key: "protein", label: "Protein", value: 9, unit: "g", provenance: "stated" },
+        { key: "fat", label: "Fat", value: 8.2, unit: "g", provenance: "stated" },
+        { key: "carbohydrates", label: "Carbs", value: 22, unit: "g", provenance: "stated" }
+      ]);
+      expect(summary).toBe("210 kcal, 9.0g protein, 8.2g fat, 22.0g carbs");
+    });
+
+    it("falls back when no canonical macros are present", () => {
+      expect(summarizeMacros([{ key: "vitamin_c", label: "Vitamin C", value: 20, unit: "mg", provenance: "stated" }]))
+        .toBe("no macro data");
+    });
   });
 });

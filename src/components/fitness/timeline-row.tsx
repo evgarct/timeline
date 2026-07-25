@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { TimelineEvent } from "@/domain/events";
+import { describeQuantity } from "@/domain/nutrition";
 import type { Copy } from "@/i18n/messages";
 import { EventIcon } from "./icon";
 import { MediaStrip } from "./media-strip";
@@ -29,7 +30,7 @@ function detailsFor(event: TimelineEvent, copy: Copy) {
       .join(" · ");
   }
   if (event.type === "nutrition_entry") {
-    return `${event.productSnapshot.name} · ${event.quantity.amount} ${event.quantity.unit}`;
+    return `${event.productSnapshot.name} · ${describeQuantity(event.quantity)}`;
   }
   return copy.photoCount.replace("{count}", String(event.photos.length));
 }
