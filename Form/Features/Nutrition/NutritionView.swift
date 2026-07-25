@@ -705,6 +705,8 @@ private struct FoodEntryEditor: View {
         case .grams: .grams(amount)
         case .milliliters: .milliliters(amount)
         case let .pieces(_, size): .pieces(amount, size: size)
+        case let .serving(_, label, servingSizeId): .serving(amount, label: label, servingSizeId: servingSizeId)
+        case .asConsumed: entry.quantity
         }
     }
 }

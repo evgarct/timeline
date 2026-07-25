@@ -170,7 +170,7 @@ struct PreviewNutritionRepository: NutritionRepository {
     }
     func recentProducts(forMeal meal: MealType, page: Int, pageSize: Int) async throws -> ProductSearchPage {
         var seen = Set<String>()
-        let productIds = entriesValue.filter { $0.mealType == meal }.map(\.productId).filter { seen.insert($0).inserted }
+        let productIds = entriesValue.filter { $0.mealType == meal }.compactMap(\.productId).filter { seen.insert($0).inserted }
         let products = productIds.compactMap { id in productsValue.first { $0.id == id } }
         return paginate(products, page: page, pageSize: pageSize)
     }
