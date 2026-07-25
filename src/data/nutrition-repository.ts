@@ -84,7 +84,7 @@ export async function recentProductsForMeal(
   const seen = new Set<string>();
   const productIds: string[] = [];
   for (const entry of history) {
-    if (entry.mealType !== mealType || seen.has(entry.productId)) continue;
+    if (entry.mealType !== mealType || !entry.productId || seen.has(entry.productId)) continue;
     seen.add(entry.productId);
     productIds.push(entry.productId);
   }
