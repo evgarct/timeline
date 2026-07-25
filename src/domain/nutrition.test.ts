@@ -77,7 +77,24 @@ describe("nutrition domain", () => {
 
   it("rejects an unknown serving size label and lists what is registered", () => {
     expect(() => quantityInBaseUnit(product, { unit: "serving", amount: 1, label: "does not exist" }))
-      .toThrow('unknown_serving_size: requested "does not exist", but this product\'s registered servingSizes are: "1 bar (40 g)"');
+      .toThrow('unknown_serving_size: requested label "does not exist", but this product\'s registered servingSizes are: "1 bar (40 g)"');
+  });
+
+  it("matches a serving size by servingSizeId, preferring it over label", () => {
+    const productWithId = productInputSchema.parse({
+      ...product,
+      servingSizes: [{ id: "bar-40g", label: "1 bar (40 g)", amount: 40, provenance: "stated" as const }]
+    });
+    expect(quantityInBaseUnit(productWithId, { unit: "serving", amount: 1, label: "irrelevant", servingSizeId: "bar-40g" })).toBe(40);
+  });
+
+  it("rejects an unknown servingSizeId and lists ids alongside labels", () => {
+    const productWithId = productInputSchema.parse({
+      ...product,
+      servingSizes: [{ id: "bar-40g", label: "1 bar (40 g)", amount: 40, provenance: "stated" as const }]
+    });
+    expect(() => quantityInBaseUnit(productWithId, { unit: "serving", amount: 1, label: "1 bar (40 g)", servingSizeId: "does-not-exist" }))
+      .toThrow('unknown_serving_size: requested servingSizeId "does-not-exist", but this product\'s registered servingSizes are: "1 bar (40 g)" (id: bar-40g)');
   });
 
   it("rejects an unknown piece size and points to servingSizes when pieceSizes is empty", () => {

@@ -96,8 +96,15 @@ export async function upsertProduct(userId: string, rawInput: ProductInput) {
     existing = exact[0];
   }
 
+  const servingSizes = input.servingSizes.map((serving) => ({
+    ...serving,
+    id: serving.id
+      ?? existing?.servingSizes.find((existingServing) => existingServing.label === serving.label)?.id
+      ?? randomUUID()
+  }));
   const product = productSchema.parse({
     ...input,
+    servingSizes,
     id: existing?.id ?? randomUUID(),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now
