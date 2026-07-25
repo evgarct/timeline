@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { productInputSchema, snapshotNutrients } from "./nutrition";
+import { productInputSchema, quantityInBaseUnit, snapshotNutrients } from "./nutrition";
 
 const product = productInputSchema.parse({
   name: "Complete label",
@@ -32,7 +32,8 @@ const product = productInputSchema.parse({
       ]
     }
   ],
-  pieceSizes: [{ size: "regular", grams: 50, provenance: "estimated" }]
+  pieceSizes: [{ size: "regular", grams: 50, provenance: "estimated" }],
+  servingSizes: [{ label: "1 bar (40 g)", amount: 40, provenance: "stated" }]
 });
 
 describe("nutrition domain", () => {
@@ -56,6 +57,20 @@ describe("nutrition domain", () => {
   it("uses product-specific piece weights", () => {
     const snapshot = snapshotNutrients(product, { unit: "piece", amount: 2, size: "regular" });
     expect(snapshot.find((value) => value.key === "energy_kcal")?.value).toBe(200);
+  });
+
+  it("resolves quantities expressed as a named serving size", () => {
+    const snapshot = snapshotNutrients(product, { unit: "serving", amount: 1, label: "1 bar (40 g)" });
+    expect(snapshot.find((value) => value.key === "energy_kcal")?.value).toBe(80);
+  });
+
+  it("scales a serving size by a fractional multiplier", () => {
+    expect(quantityInBaseUnit(product, { unit: "serving", amount: 2.5, label: "1 bar (40 g)" })).toBe(100);
+  });
+
+  it("rejects an unknown serving size label", () => {
+    expect(() => quantityInBaseUnit(product, { unit: "serving", amount: 1, label: "does not exist" }))
+      .toThrow("unknown_serving_size");
   });
 
   it("rejects unmarked inferred values", () => {

@@ -43,11 +43,25 @@ export async function authenticateMcpToken(token: string) {
   return resolveMcpUser(hashToken(token));
 }
 
-function result(title: string, summary: string, data: unknown, items: Array<{ label: string; value: string }> = []) {
+function result(
+  title: string,
+  summary: string,
+  data: unknown,
+  items: Array<{ label: string; value: string }> = [],
+  opts: { id?: string; text?: string } = {}
+) {
+  const text = opts.text ?? (opts.id ? `${summary} (id: ${opts.id})` : summary);
   return {
-    content: [{ type: "text" as const, text: summary }],
-    structuredContent: { title, summary, items, data }
+    content: [{ type: "text" as const, text }],
+    structuredContent: { title, summary, items, data, ...(opts.id ? { id: opts.id } : {}) }
   };
+}
+
+function itemizeText(count: number, noun: string, labels: string[]) {
+  if (!count) return `No ${noun}`;
+  const shown = labels.slice(0, 10);
+  const more = count - shown.length;
+  return `${count} ${noun}: ${shown.join("; ")}${more > 0 ? `; +${more} more` : ""}`;
 }
 
 export function createTimelineMcpServer(userId: string) {
@@ -159,11 +173,11 @@ export function createTimelineMcpServer(userId: string) {
       pageSize: z.number().int().min(1).max(100).default(30)
     },
     _meta: appMeta
-  }, async ({ query, page, pageSize }) => result(
-    "Products",
-    `Personal product search: ${query || "all"}`,
-    await searchProducts(userId, query, page, pageSize)
-  ));
+  }, async ({ query, page, pageSize }) => {
+    const found = await searchProducts(userId, query, page, pageSize);
+    const text = itemizeText(found.items.length, "products", found.items.map((product) => `${product.name} (id: ${product.id})`));
+    return result("Products", `Personal product search: ${query || "all"}`, found, [], { text });
+  });
 
   registerAppTool(server, "get_product", {
     title: "Get product with all nutrients",
@@ -180,14 +194,14 @@ export function createTimelineMcpServer(userId: string) {
   registerAppTool(server, "upsert_product", {
     title: "Create or update a personal product",
     description: "Save every readable row from a nutrition label, not only calories and macros. Preserve original labels, units, '<'/trace qualifiers, multiple bases such as per 100 g and per serving, and unknown nutrients. Never invent missing packaged-food values. Mark label values stated, derived values calculated, and reference fruit/vegetable values estimated. Exact barcodes are reused; ambiguous name matches return an error. When the package states a whole-container size (e.g. a 330 ml can, a 250 g cup, a 1 L bottle) AND you are not already recording it as its own nutrientBases entry (a \"per portion\" base with directly stated values), add it to servingSizes as { label: \"1 банка (330 мл)\", amount: 330, provenance: \"stated\" } so the app can offer it as a one-tap quantity; amount is always expressed in the product's own baseUnit (g or ml), never invented when the label doesn't state a container size. Do not add both a \"per portion\" nutrientBases entry and a servingSizes entry for the same container size — that duplicates the same quick-select option; prefer the nutrientBases entry when the label states per-serving values directly, and servingSizes only when you'd otherwise have to scale from the reference base. CRITICAL: every nutrient you recognize MUST also carry its canonical `key` in addition to the original label, or the app's calorie/macro totals will silently show zero for this product. Always set key: \"energy_kcal\" for the kcal energy row (not the kJ row), \"protein\" for protein, \"fat\" for total fat, \"carbohydrates\" for total carbohydrate — these four are required whenever present on the label. Also set canonical keys when recognizable: \"saturated_fat\", \"sugars\", \"fiber\", \"salt\", \"sodium\", \"cholesterol\", and \"vitamin_*\"/mineral names (e.g. \"potassium\", \"calcium\", \"iron\"). Leave key unset only for rows you cannot confidently map (e.g. a kJ energy row when energy_kcal is already set, or a genuinely unrecognized nutrient) — never guess a key for those.",
-    inputSchema: { product: z.record(z.string(), z.unknown()) },
+    inputSchema: { product: productInputSchema },
     _meta: appMeta
   }, async ({ product }) => {
     const parsed = productInputSchema.safeParse(product);
     if (!parsed.success) return { content: [{ type: "text" as const, text: parsed.error.message }], isError: true };
     try {
       const saved = await upsertProduct(userId, parsed.data);
-      return result("Product saved", saved.name, saved);
+      return result("Product saved", saved.name, saved, [], { id: saved.id });
     } catch (error) {
       return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "product_save_failed" }], isError: true };
     }
@@ -195,12 +209,12 @@ export function createTimelineMcpServer(userId: string) {
 
   registerAppTool(server, "record_food", {
     title: "Record food",
-    description: "Record food without confirmation when the user's intent is unambiguous. Use the user's current local date by default; explicit past and future dates are allowed. Provide an existing productId or a full new product with every visible nutrient. If meal is not stated and cannot be inferred, use snack. Photos are analyzed by ChatGPT and are never sent to or stored by this server. Reuse the same idempotencyKey when retrying.",
+    description: "Record food without confirmation when the user's intent is unambiguous. Use the user's current local date by default; explicit past and future dates are allowed. Provide an existing productId or a full new product with every visible nutrient. If meal is not stated and cannot be inferred, use snack. Photos are analyzed by ChatGPT and are never sent to or stored by this server. Reuse the same idempotencyKey when retrying. quantity.unit accepts \"g\" or \"ml\" (amount in that unit), \"piece\" (amount x a product's pieceSizes entry, matched by size), or \"serving\" (amount x a product's servingSizes entry, matched by exact label — call get_product first to read the available labels). Never hand-convert a known serving size into g/ml yourself; pass unit: \"serving\" with the label instead.",
     inputSchema: {
       productId: z.string().uuid().optional(),
-      product: z.record(z.string(), z.unknown()).optional(),
+      product: productInputSchema.optional(),
       mealType: mealTypeSchema,
-      quantity: z.record(z.string(), z.unknown()),
+      quantity: foodQuantitySchema,
       occurredAt: z.string().describe("ISO 8601 date-time, e.g. 2026-07-24T12:00:00Z"),
       timezone: z.string().min(1),
       note: z.string().max(2000).optional(),
@@ -230,7 +244,7 @@ export function createTimelineMcpServer(userId: string) {
         note,
         idempotencyKey
       });
-      return result("Food recorded", entry.productSnapshot.name, entry);
+      return result("Food recorded", entry.productSnapshot.name, entry, [], { id: entry.id });
     } catch (error) {
       return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "entry_save_failed" }], isError: true };
     }
@@ -243,12 +257,13 @@ export function createTimelineMcpServer(userId: string) {
     _meta: appMeta
   }, async ({ date, timezone }) => {
     const entries = await listFoodEntries(userId, date, timezone);
-    return result("Food journal", `${entries.length} entries`, entries);
+    const text = itemizeText(entries.length, "entries", entries.map((entry) => `${entry.productSnapshot.name} (id: ${entry.id})`));
+    return result("Food journal", `${entries.length} entries`, entries, [], { text });
   });
 
   registerAppTool(server, "update_food_entry", {
     title: "Update food entry",
-    description: "Change the quantity, meal, date, timezone, or note of one food entry. Nutrients are recalculated and snapshotted.",
+    description: "Change the quantity, meal, date, timezone, or note of one food entry. Nutrients are recalculated and snapshotted. changes.quantity accepts the same unit forms as record_food, including unit: \"serving\" with a label matching one of the product's servingSizes.",
     inputSchema: {
       id: z.string().uuid(),
       changes: z.record(z.string(), z.unknown())
@@ -265,7 +280,7 @@ export function createTimelineMcpServer(userId: string) {
     if (!parsed.success) return { content: [{ type: "text" as const, text: parsed.error.message }], isError: true };
     try {
       const entry = await updateFoodEntry(userId, id, parsed.data);
-      return result("Food entry updated", entry.productSnapshot.name, entry);
+      return result("Food entry updated", entry.productSnapshot.name, entry, [], { id: entry.id });
     } catch (error) {
       return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "entry_update_failed" }], isError: true };
     }
