@@ -125,12 +125,26 @@ export function quantityInBaseUnit(
 ) {
   if (quantity.unit === "piece") {
     const option = product.pieceSizes.find((size) => size.size === quantity.size);
-    if (!option) throw new Error("unknown_piece_size");
+    if (!option) {
+      const available = product.pieceSizes.map((size) => size.size);
+      const hint = available.length
+        ? `this product's registered pieceSizes are: ${available.join(", ")}`
+        : product.servingSizes.length
+          ? `this product has no pieceSizes; it has servingSizes instead — use unit: "serving" with one of: ${product.servingSizes.map((serving) => JSON.stringify(serving.label)).join(", ")}`
+          : "this product has no pieceSizes or servingSizes registered — add one via upsert_product first (pieceSizes and servingSizes are per-product, there is no shared/built-in catalog)";
+      throw new Error(`unknown_piece_size: requested "${quantity.size}", but ${hint}`);
+    }
     return option.grams * quantity.amount;
   }
   if (quantity.unit === "serving") {
     const option = product.servingSizes.find((serving) => serving.label === quantity.label);
-    if (!option) throw new Error("unknown_serving_size");
+    if (!option) {
+      const available = product.servingSizes.map((serving) => JSON.stringify(serving.label));
+      const hint = available.length
+        ? `this product's registered servingSizes are: ${available.join(", ")}`
+        : "this product has no servingSizes registered — add one via upsert_product first (servingSizes are per-product, there is no shared/built-in catalog)";
+      throw new Error(`unknown_serving_size: requested ${JSON.stringify(quantity.label)}, but ${hint}`);
+    }
     return option.amount * quantity.amount;
   }
   if (quantity.unit === "as_consumed") throw new Error("incompatible_unit");

@@ -75,9 +75,20 @@ describe("nutrition domain", () => {
     expect(quantityInBaseUnit(product, { unit: "serving", amount: 2.5, label: "1 bar (40 g)" })).toBe(100);
   });
 
-  it("rejects an unknown serving size label", () => {
+  it("rejects an unknown serving size label and lists what is registered", () => {
     expect(() => quantityInBaseUnit(product, { unit: "serving", amount: 1, label: "does not exist" }))
-      .toThrow("unknown_serving_size");
+      .toThrow('unknown_serving_size: requested "does not exist", but this product\'s registered servingSizes are: "1 bar (40 g)"');
+  });
+
+  it("rejects an unknown piece size and points to servingSizes when pieceSizes is empty", () => {
+    const productWithoutPieceSizes = productInputSchema.parse({ ...product, pieceSizes: [] });
+    expect(() => quantityInBaseUnit(productWithoutPieceSizes, { unit: "piece", amount: 1, size: "large" }))
+      .toThrow('this product has no pieceSizes; it has servingSizes instead — use unit: "serving" with one of: "1 bar (40 g)"');
+  });
+
+  it("rejects an unknown piece size and lists what is registered when pieceSizes is non-empty", () => {
+    expect(() => quantityInBaseUnit(product, { unit: "piece", amount: 1, size: "large" }))
+      .toThrow("this product's registered pieceSizes are: regular");
   });
 
   it("rejects unmarked inferred values", () => {
