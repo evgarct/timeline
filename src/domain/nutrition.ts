@@ -70,7 +70,8 @@ export const productSchema = productInputSchema.safeExtend({
 export const foodQuantitySchema = z.discriminatedUnion("unit", [
   z.object({ unit: z.literal("g"), amount: z.number().positive() }),
   z.object({ unit: z.literal("ml"), amount: z.number().positive() }),
-  z.object({ unit: z.literal("piece"), amount: z.number().positive(), size: pieceSizeSchema })
+  z.object({ unit: z.literal("piece"), amount: z.number().positive(), size: pieceSizeSchema }),
+  z.object({ unit: z.literal("serving"), amount: z.number().positive(), label: z.string().trim().min(1).max(60) })
 ]);
 
 export const nutrientSnapshotSchema = z.object({
@@ -116,6 +117,11 @@ export function quantityInBaseUnit(
     const option = product.pieceSizes.find((size) => size.size === quantity.size);
     if (!option) throw new Error("unknown_piece_size");
     return option.grams * quantity.amount;
+  }
+  if (quantity.unit === "serving") {
+    const option = product.servingSizes.find((serving) => serving.label === quantity.label);
+    if (!option) throw new Error("unknown_serving_size");
+    return option.amount * quantity.amount;
   }
   if (quantity.unit !== product.baseUnit) throw new Error("incompatible_unit");
   return quantity.amount;
