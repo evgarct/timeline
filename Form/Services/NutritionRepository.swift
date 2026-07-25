@@ -3,6 +3,10 @@ import Foundation
 protocol NutritionRepository: Sendable {
     func entries(date: Date, timezone: TimeZone) async throws -> [FoodEntry]
     func search(query: String, page: Int) async throws -> ProductSearchPage
+    /// Products ordered by most recent use/edit, for browsing without a search query.
+    func recentProducts(page: Int, pageSize: Int) async throws -> ProductSearchPage
+    /// Products previously logged for a specific meal, most recent first.
+    func recentProducts(forMeal meal: MealType, page: Int, pageSize: Int) async throws -> ProductSearchPage
     func record(product: NutritionProduct, meal: MealType, quantity: FoodQuantity, date: Date, timezone: TimeZone) async throws -> FoodEntry
     func update(entry: FoodEntry, meal: MealType, quantity: FoodQuantity, date: Date, timezone: TimeZone) async throws -> FoodEntry
     func delete(entryID: String) async throws
@@ -36,6 +40,26 @@ actor RemoteNutritionRepository: NutritionRepository {
             URLQueryItem(name: "query", value: query),
             URLQueryItem(name: "page", value: String(page)),
             URLQueryItem(name: "pageSize", value: "30")
+        ]
+        return try await request(components.url!)
+    }
+
+    func recentProducts(page: Int, pageSize: Int) async throws -> ProductSearchPage {
+        var components = URLComponents(url: baseURL.appending(path: "api/nutrition/products"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "query", value: ""),
+            URLQueryItem(name: "page", value: String(page)),
+            URLQueryItem(name: "pageSize", value: String(pageSize))
+        ]
+        return try await request(components.url!)
+    }
+
+    func recentProducts(forMeal meal: MealType, page: Int, pageSize: Int) async throws -> ProductSearchPage {
+        var components = URLComponents(url: baseURL.appending(path: "api/nutrition/products/recent"), resolvingAgainstBaseURL: false)!
+        components.queryItems = [
+            URLQueryItem(name: "mealType", value: meal.rawValue),
+            URLQueryItem(name: "page", value: String(page)),
+            URLQueryItem(name: "pageSize", value: String(pageSize))
         ]
         return try await request(components.url!)
     }
@@ -112,6 +136,20 @@ struct PreviewNutritionRepository: NutritionRepository {
     func search(query: String, page: Int) async throws -> ProductSearchPage {
         let values = productsValue.filter { query.isEmpty || $0.name.localizedCaseInsensitiveContains(query) }
         return ProductSearchPage(items: values, page: page, pageSize: 30, hasMore: false)
+    }
+    func recentProducts(page: Int, pageSize: Int) async throws -> ProductSearchPage {
+        paginate(productsValue, page: page, pageSize: pageSize)
+    }
+    func recentProducts(forMeal meal: MealType, page: Int, pageSize: Int) async throws -> ProductSearchPage {
+        var seen = Set<String>()
+        let productIds = entriesValue.filter { $0.mealType == meal }.map(\.productId).filter { seen.insert($0).inserted }
+        let products = productIds.compactMap { id in productsValue.first { $0.id == id } }
+        return paginate(products, page: page, pageSize: pageSize)
+    }
+    private func paginate(_ values: [NutritionProduct], page: Int, pageSize: Int) -> ProductSearchPage {
+        let offset = (page - 1) * pageSize
+        let items = Array(values.dropFirst(offset).prefix(pageSize))
+        return ProductSearchPage(items: items, page: page, pageSize: pageSize, hasMore: offset + pageSize < values.count)
     }
     func record(product: NutritionProduct, meal: MealType, quantity: FoodQuantity, date: Date, timezone: TimeZone) async throws -> FoodEntry {
         FoodEntry(

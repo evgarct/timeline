@@ -12,6 +12,16 @@ final class NutritionStore {
     private(set) var isSearching = false
     private(set) var searchError: String?
     private(set) var saveError: String?
+
+    private(set) var mealHistoryProducts: [NutritionProduct] = []
+    private(set) var mealHistoryHasMore = false
+    private(set) var isLoadingMealHistory = false
+    private var mealHistoryPage = 0
+
+    private(set) var discoverProducts: [NutritionProduct] = []
+    private(set) var discoverHasMore = false
+    private(set) var isLoadingDiscover = false
+    private var discoverPage = 0
     private(set) var todaySummary = NutritionSummary()
     var selectedDate: Date
 
@@ -82,6 +92,51 @@ final class NutritionStore {
         }
     }
 
+    /// Resets and loads the first page of both product browse sections for a meal's add-product sheet.
+    func beginBrowsing(meal: MealType) async {
+        mealHistoryProducts = []
+        mealHistoryHasMore = false
+        mealHistoryPage = 0
+        discoverProducts = []
+        discoverHasMore = false
+        discoverPage = 0
+        async let history: () = loadMoreMealHistory(meal: meal)
+        async let discover: () = loadMoreDiscoverProducts()
+        _ = await (history, discover)
+    }
+
+    func loadMoreMealHistory(meal: MealType) async {
+        guard !isLoadingMealHistory else { return }
+        isLoadingMealHistory = true
+        defer { isLoadingMealHistory = false }
+        do {
+            let nextPage = mealHistoryPage + 1
+            let page = try await repository.recentProducts(forMeal: meal, page: nextPage, pageSize: 20)
+            mealHistoryProducts.append(contentsOf: page.items)
+            mealHistoryHasMore = page.hasMore
+            mealHistoryPage = nextPage
+        } catch {
+            mealHistoryHasMore = false
+        }
+    }
+
+    /// Loads more of "everything else" by recency, skipping products already surfaced in the meal-history section.
+    func loadMoreDiscoverProducts() async {
+        guard !isLoadingDiscover else { return }
+        isLoadingDiscover = true
+        defer { isLoadingDiscover = false }
+        do {
+            let nextPage = discoverPage + 1
+            let page = try await repository.recentProducts(page: nextPage, pageSize: 20)
+            let excluded = Set(mealHistoryProducts.map(\.id))
+            discoverProducts.append(contentsOf: page.items.filter { !excluded.contains($0.id) })
+            discoverHasMore = page.hasMore
+            discoverPage = nextPage
+        } catch {
+            discoverHasMore = false
+        }
+    }
+
     func add(product: NutritionProduct, meal: MealType, quantity: FoodQuantity) async throws {
         saveError = nil
         do {
@@ -134,6 +189,8 @@ final class NutritionStore {
     func reset() {
         entries = []
         products = []
+        mealHistoryProducts = []
+        discoverProducts = []
         todaySummary = NutritionSummary()
         state = .idle
     }

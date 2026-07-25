@@ -119,6 +119,7 @@ final class FormUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Banana"].exists)
         XCTAssertTrue(app.buttons["Next day"].isEnabled)
 
+        app.buttons["nutrition.menu"].tap()
         app.buttons["All nutrients"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrients.screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrient.sugars"].waitForExistence(timeout: 5))

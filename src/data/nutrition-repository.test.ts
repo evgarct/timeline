@@ -99,6 +99,43 @@ describe("memory nutrition repository", () => {
     expect(await repository.getFoodEntry(userId, entry.id)).toBeUndefined();
   });
 
+  it("lists recent products for a meal, most recent first, deduplicated and paginated", async () => {
+    const recentUserId = "nutrition-recent-owner";
+    const productA = await repository.upsertProduct(recentUserId, { ...productInput, barcode: "9001", name: "Product A" });
+    const productB = await repository.upsertProduct(recentUserId, { ...productInput, barcode: "9002", name: "Product B" });
+    const productC = await repository.upsertProduct(recentUserId, { ...productInput, barcode: "9003", name: "Product C" });
+
+    await repository.recordFood(recentUserId, {
+      productId: productA.id, mealType: "breakfast", quantity: { unit: "g", amount: 100 },
+      occurredAt: new Date("2026-07-20T08:00:00.000Z"), timezone: "UTC", idempotencyKey: "recent-a-1"
+    });
+    await repository.recordFood(recentUserId, {
+      productId: productC.id, mealType: "lunch", quantity: { unit: "g", amount: 100 },
+      occurredAt: new Date("2026-07-21T12:00:00.000Z"), timezone: "UTC", idempotencyKey: "recent-c-1"
+    });
+    await repository.recordFood(recentUserId, {
+      productId: productB.id, mealType: "breakfast", quantity: { unit: "g", amount: 100 },
+      occurredAt: new Date("2026-07-22T08:00:00.000Z"), timezone: "UTC", idempotencyKey: "recent-b-1"
+    });
+    await repository.recordFood(recentUserId, {
+      productId: productA.id, mealType: "breakfast", quantity: { unit: "g", amount: 50 },
+      occurredAt: new Date("2026-07-23T08:00:00.000Z"), timezone: "UTC", idempotencyKey: "recent-a-2"
+    });
+
+    const firstPage = await repository.recentProductsForMeal(recentUserId, "breakfast", 1, 1);
+    expect(firstPage.items).toHaveLength(1);
+    expect(firstPage.items[0].id).toBe(productA.id);
+    expect(firstPage.hasMore).toBe(true);
+
+    const secondPage = await repository.recentProductsForMeal(recentUserId, "breakfast", 2, 1);
+    expect(secondPage.items).toHaveLength(1);
+    expect(secondPage.items[0].id).toBe(productB.id);
+    expect(secondPage.hasMore).toBe(false);
+
+    const full = await repository.recentProductsForMeal(recentUserId, "breakfast", 1, 20);
+    expect(full.items.map((item) => item.id)).toEqual([productA.id, productB.id]);
+  });
+
   it("rejects invalid product and quantity relationships", async () => {
     const product = await repository.upsertProduct(userId, productInput);
     await expect(repository.recordFood(userId, {
