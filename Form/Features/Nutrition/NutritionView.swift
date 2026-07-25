@@ -1,11 +1,16 @@
 import SwiftUI
 
-/// Fixed size for each row's trailing accessory (add button / chevron).
-let nutritionTrailingAccessoryWidth: CGFloat = 40
+/// Shared warm editorial background for the nutrition screen and every sheet it presents.
+func nutritionBackgroundGradient() -> some View {
+    LinearGradient(
+        colors: [Color.black, Color(red: 0.10, green: 0.085, blue: 0.07), .black],
+        startPoint: .topLeading, endPoint: .bottomTrailing
+    ).ignoresSafeArea()
+}
 
-/// One-time column header ("Fat / Carbs / Protein / kcal") shown once at the top of the nutrition
-/// screen. Columns share the row width equally (like MacroColumns below), so labels land directly
-/// above the numbers in every subsequent row regardless of what precedes those rows.
+/// One-time column header ("Fat / Carbs / Protein / kcal") shown once at the top of a group of rows.
+/// Columns share the row width equally (like MacroColumns below), so labels land directly above the
+/// numbers in every subsequent row regardless of what precedes those rows.
 struct MacroColumnsHeader: View {
     var body: some View {
         HStack(spacing: 0) {
@@ -22,7 +27,8 @@ struct MacroColumnsHeader: View {
 
 /// Fat/carbs/protein/kcal values, numbers only (labels live in MacroColumnsHeader), spanning the
 /// full row width in four equal columns — a standalone row, never sharing space with a title, icon,
-/// or button, so it can never get crushed into character-wrapping on a real iPhone width.
+/// or button, so it can never get crushed into character-wrapping on a real iPhone width. kcal is the
+/// only emphasized column, so it stands in for a separate calorie headline wherever this row appears.
 struct MacroColumns: View {
     let summary: NutritionSummary
     var font: Font = .subheadline
@@ -45,6 +51,33 @@ struct MacroColumns: View {
     }
 }
 
+/// Reusable single-line item row for both logged entries and browsable products: a name, an optional
+/// trailing caption (quantity or reference amount), and the macro breakdown beneath it. No secondary
+/// title line — brand/store metadata isn't shown here, keeping lists compact and scannable.
+struct NutritionItemRow: View {
+    let title: String
+    var trailingCaption: String?
+    let summary: NutritionSummary
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                Text(title).font(.body).lineLimit(1)
+                Spacer(minLength: 8)
+                if let trailingCaption {
+                    Text(trailingCaption).font(.caption).foregroundStyle(.secondary)
+                }
+                Image(systemName: "chevron.right").font(.caption2).foregroundStyle(.tertiary)
+            }
+            if summary.calories > 0 {
+                MacroColumns(summary: summary, font: .caption)
+            }
+        }
+        .padding(.vertical, 10)
+        .contentShape(Rectangle())
+    }
+}
+
 struct NutritionView: View {
     @Bindable var store: NutritionStore
 
@@ -57,21 +90,14 @@ struct NutritionView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(spacing: 18) {
+                LazyVStack(alignment: .leading, spacing: 32) {
                     header
-                    summary
-                    nutrientButton
                     journal
                 }
                 .padding(.horizontal, 18)
                 .padding(.bottom, 100)
             }
-            .background {
-                LinearGradient(
-                    colors: [Color.black, Color(red: 0.10, green: 0.085, blue: 0.07), .black],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ).ignoresSafeArea()
-            }
+            .background { nutritionBackgroundGradient() }
             .toolbar(.hidden, for: .navigationBar)
         }
         .sheet(isPresented: $calendarPresented) {
@@ -85,6 +111,15 @@ struct NutritionView: View {
         }
         .sheet(item: $selectedEntry) { entry in
             FoodEntryEditor(store: store, entry: entry)
+        }
+        .sheet(isPresented: $nutrientsPresented) {
+            NavigationStack {
+                NutrientDetailsView(
+                    title: String(localized: "nutrition.allNutrients"),
+                    nutrients: store.entries.flatMap(\.productSnapshot.nutrients)
+                )
+            }
+            .presentationDragIndicator(.visible)
         }
         .task(id: store.selectedDate) {
             if store.state == .idle { await store.load() }
@@ -103,57 +138,50 @@ struct NutritionView: View {
         .accessibilityIdentifier("nutrition.screen")
     }
 
+    /// Compact date navigation and an overflow menu, gathered into the top-right corner — no page title.
     private var header: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("tab.nutrition")
-                        .font(.system(size: 48, weight: .regular, design: .serif))
-                    Text(store.selectedDate.formatted(.dateTime.day().month(.wide).year()))
-                        .foregroundStyle(.secondary)
+        HStack(spacing: 8) {
+            Spacer()
+            Menu {
+                Button { nutrientsPresented = true } label: {
+                    Label("nutrition.allNutrients", systemImage: "slider.horizontal.3")
                 }
-                Spacer()
-                Button { calendarPresented = true } label: {
-                    Image(systemName: "calendar")
-                        .frame(width: 42, height: 42)
-                }
-                .buttonStyle(.glass)
-                .accessibilityLabel("nutrition.calendar")
+            } label: {
+                Image(systemName: "ellipsis").frame(width: 36, height: 36)
             }
-            HStack {
+            .buttonStyle(.glass)
+            .accessibilityLabel("nutrition.moreOptions")
+            .accessibilityIdentifier("nutrition.menu")
+
+            HStack(spacing: 2) {
                 Button { Task { await store.moveDay(-1) } } label: {
-                    Label("nutrition.previousDay", systemImage: "chevron.left")
+                    Image(systemName: "chevron.left").frame(width: 36, height: 36)
                 }
-                Spacer()
-                Button("nutrition.today") {
-                    Task { await store.select(date: .now) }
+                .accessibilityLabel("nutrition.previousDay")
+
+                Button { calendarPresented = true } label: {
+                    Text(dateLabel)
+                        .font(.subheadline.weight(.medium))
+                        .padding(.horizontal, 10)
+                        .frame(height: 36)
                 }
-                Spacer()
+                .accessibilityLabel("nutrition.calendar")
+
                 Button { Task { await store.moveDay(1) } } label: {
-                    Label("nutrition.nextDay", systemImage: "chevron.right")
-                        .labelStyle(.iconOnly)
+                    Image(systemName: "chevron.right").frame(width: 36, height: 36)
                 }
                 .accessibilityLabel("nutrition.nextDay")
             }
             .buttonStyle(.glass)
         }
-        .padding(.top, 16)
+        .padding(.top, 8)
     }
 
-    private var summary: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .lastTextBaseline, spacing: 8) {
-                Text(store.summary.calories.formatted(.number.precision(.fractionLength(0))))
-                    .font(.system(size: 64, weight: .regular, design: .serif))
-                    .contentTransition(.numericText())
-                Text("summary.calories.unit").foregroundStyle(.secondary)
-            }
-            MacroColumnsHeader()
-            MacroColumns(summary: store.summary, font: .body)
+    private var dateLabel: String {
+        if Calendar.current.isDateInToday(store.selectedDate) {
+            return String(localized: "nutrition.today")
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .glassEffect(.regular, in: .rect(cornerRadius: 28))
+        return store.selectedDate.formatted(.dateTime.day().month(.abbreviated))
     }
 
     @ViewBuilder
@@ -163,119 +191,70 @@ struct NutritionView: View {
         } else if store.state == .failed {
             ContentUnavailableView("nutrition.error", systemImage: "wifi.exclamationmark")
         } else {
-            VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 32) {
+                MacroColumnsHeader().padding(.leading, 26)
                 ForEach(MealType.allCases, id: \.self) { meal in
                     mealSection(meal)
-                    if meal != MealType.allCases.last { Divider().opacity(0.28) }
                 }
             }
-            .glassEffect(.regular, in: .rect(cornerRadius: 28))
         }
     }
 
     private func mealSection(_ meal: MealType) -> some View {
         let values = store.entries(for: meal)
         let mealSummary = NutritionSummary(entries: values)
-        return VStack(spacing: 0) {
-            VStack(spacing: 8) {
-                HStack {
-                    Button {
-                        withAnimation(.snappy) {
-                            if collapsedMeals.contains(meal) { collapsedMeals.remove(meal) }
-                            else { collapsedMeals.insert(meal) }
-                        }
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: meal.icon)
-                            Text(meal.localizedKey).font(.title3)
-                        }
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Button {
+                    withAnimation(.snappy) {
+                        if collapsedMeals.contains(meal) { collapsedMeals.remove(meal) }
+                        else { collapsedMeals.insert(meal) }
                     }
-                    .buttonStyle(.plain)
-                    Spacer(minLength: 8)
-                    Text("\(mealSummary.calories.formatted(.number.precision(.fractionLength(0)))) \(String(localized: "summary.calories.unit"))")
-                        .foregroundStyle(.secondary)
-                    Button { addMeal = meal } label: {
-                        Image(systemName: "plus").frame(width: nutritionTrailingAccessoryWidth, height: nutritionTrailingAccessoryWidth)
+                } label: {
+                    HStack(spacing: 10) {
+                        Image(systemName: meal.icon).font(.subheadline).foregroundStyle(.secondary)
+                        Text(meal.localizedKey).font(.title3.weight(.semibold))
                     }
-                    .buttonStyle(.glass)
-                    .accessibilityLabel("nutrition.add")
-                    .accessibilityIdentifier("nutrition.add.\(meal.rawValue)")
                 }
-                if !values.isEmpty {
-                    MacroColumns(summary: mealSummary)
+                .buttonStyle(.plain)
+                Spacer(minLength: 8)
+                Button { addMeal = meal } label: {
+                    Image(systemName: "plus").font(.subheadline).frame(width: 30, height: 30)
                 }
+                .buttonStyle(.glass)
+                .accessibilityLabel("nutrition.add")
+                .accessibilityIdentifier("nutrition.add.\(meal.rawValue)")
             }
-            .padding(16)
+            if !values.isEmpty {
+                MacroColumns(summary: mealSummary, font: .caption)
+                    .padding(.leading, 26)
+            }
 
             if !collapsedMeals.contains(meal) {
                 if values.isEmpty {
                     Text("nutrition.meal.empty")
                         .font(.subheadline)
                         .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 52)
-                        .padding(.bottom, 16)
+                        .padding(.top, 4)
+                        .padding(.leading, 26)
                 } else {
-                    ForEach(values) { entry in
-                        Button { selectedEntry = entry } label: {
-                            FoodEntryRow(entry: entry)
+                    VStack(spacing: 0) {
+                        ForEach(values) { entry in
+                            Button { selectedEntry = entry } label: {
+                                NutritionItemRow(
+                                    title: entry.productSnapshot.name,
+                                    trailingCaption: "\(entry.quantity.amount.formatted(.number.precision(.fractionLength(0...1)))) \(entry.quantity.unitLabel)",
+                                    summary: NutritionSummary(nutrients: entry.productSnapshot.nutrients)
+                                )
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
+                    .padding(.top, 6)
+                    .padding(.leading, 26)
                 }
             }
         }
-    }
-
-    private var nutrientButton: some View {
-        HStack {
-            Label("nutrition.allNutrients", systemImage: "slider.horizontal.3")
-            Spacer()
-            Image(systemName: "chevron.right").foregroundStyle(.secondary)
-        }
-        .padding(18)
-        .contentShape(Rectangle())
-        .onTapGesture { nutrientsPresented = true }
-        .accessibilityAddTraits(.isButton)
-        .sheet(isPresented: $nutrientsPresented) {
-            NavigationStack {
-                NutrientDetailsView(
-                    title: String(localized: "nutrition.allNutrients"),
-                    nutrients: store.entries.flatMap(\.productSnapshot.nutrients)
-                )
-            }
-        }
-    }
-}
-
-private struct FoodEntryRow: View {
-    let entry: FoodEntry
-
-    private var summary: NutritionSummary { NutritionSummary(nutrients: entry.productSnapshot.nutrients) }
-
-    var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(entry.productSnapshot.name).font(.body)
-                    if let brand = entry.productSnapshot.brand {
-                        Text(brand).font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-                Spacer(minLength: 8)
-                Text("\(entry.quantity.amount.formatted(.number.precision(.fractionLength(0...1)))) \(entry.quantity.unitLabel)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .frame(width: nutritionTrailingAccessoryWidth, alignment: .trailing)
-            }
-            MacroColumns(summary: summary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
     }
 }
 
@@ -289,32 +268,31 @@ private struct ProductSearchSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(store.products) { product in
-                        Button { selection = product } label: {
-                            ProductSearchRow(product: product)
-                        }
-                        .buttonStyle(.plain)
-                        if product.id != store.products.last?.id { Divider().opacity(0.28).padding(.leading, 16) }
+                LazyVStack(alignment: .leading, spacing: 28) {
+                    MacroColumnsHeader()
+                    if query.isEmpty {
+                        browseSections
+                    } else {
+                        searchResults
                     }
                 }
+                .padding(.horizontal, 18)
+                .padding(.top, 8)
+                .padding(.bottom, 40)
             }
-            .background {
-                LinearGradient(
-                    colors: [Color.black, Color(red: 0.10, green: 0.085, blue: 0.07), .black],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ).ignoresSafeArea()
-            }
+            .background { nutritionBackgroundGradient() }
             .scrollContentBackground(.hidden)
             .overlay {
-                if store.products.isEmpty && !store.isSearching {
+                if isEmptyState {
                     ContentUnavailableView("nutrition.search.empty", systemImage: "magnifyingglass")
                 }
             }
             .searchable(text: $query, prompt: "nutrition.search")
             .navigationTitle("nutrition.add")
             .navigationBarTitleDisplayMode(.inline)
+            .task { await store.beginBrowsing(meal: meal) }
             .task(id: query) {
+                guard !query.isEmpty else { return }
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }
                 await store.search(query)
@@ -326,40 +304,96 @@ private struct ProductSearchSheet: View {
                 }
             }
         }
+        .presentationDragIndicator(.visible)
         .preferredColorScheme(.dark)
     }
-}
 
-private struct ProductSearchRow: View {
-    let product: NutritionProduct
-
-    var body: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(product.name).font(.body)
-                    if let brand = product.brand { Text(brand).font(.caption).foregroundStyle(.secondary) }
-                }
-                Spacer(minLength: 8)
-                if let base = product.referenceBase {
-                    Text(referenceCaption(base)).font(.caption).foregroundStyle(.secondary)
-                }
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .frame(width: nutritionTrailingAccessoryWidth, alignment: .trailing)
-            }
-            if product.referenceSummary.calories > 0 {
-                MacroColumns(summary: product.referenceSummary)
-            }
+    private var isEmptyState: Bool {
+        if query.isEmpty {
+            return store.mealHistoryProducts.isEmpty && store.discoverProducts.isEmpty
+                && !store.isLoadingMealHistory && !store.isLoadingDiscover
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
+        return store.products.isEmpty && !store.isSearching
     }
 
-    private func referenceCaption(_ base: NutrientBase) -> String {
-        "\(String(localized: "nutrition.per")) \(base.amount.formatted(.number.precision(.fractionLength(0)))) \(product.baseUnit == "ml" ? String(localized: "nutrition.milliliters.short") : String(localized: "nutrition.grams.short"))"
+    @ViewBuilder
+    private var browseSections: some View {
+        if !store.mealHistoryProducts.isEmpty {
+            productSection(
+                title: "nutrition.recentInMeal",
+                products: store.mealHistoryProducts,
+                hasMore: store.mealHistoryHasMore,
+                isLoading: store.isLoadingMealHistory
+            ) { await store.loadMoreMealHistory(meal: meal) }
+        }
+        if !store.discoverProducts.isEmpty {
+            productSection(
+                title: "nutrition.moreProducts",
+                products: store.discoverProducts,
+                hasMore: store.discoverHasMore,
+                isLoading: store.isLoadingDiscover
+            ) { await store.loadMoreDiscoverProducts() }
+        }
+    }
+
+    private func productSection(
+        title: LocalizedStringKey,
+        products: [NutritionProduct],
+        hasMore: Bool,
+        isLoading: Bool,
+        loadMore: @escaping () async -> Void
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.caption).foregroundStyle(.tertiary).textCase(.uppercase)
+            VStack(spacing: 0) {
+                ForEach(products) { product in
+                    Button { selection = product } label: {
+                        NutritionItemRow(
+                            title: product.name,
+                            trailingCaption: referenceCaption(for: product),
+                            summary: product.referenceSummary
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if hasMore {
+                Button {
+                    Task { await loadMore() }
+                } label: {
+                    if isLoading {
+                        ProgressView()
+                    } else {
+                        Text("nutrition.showMore")
+                    }
+                }
+                .buttonStyle(.plain)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    private var searchResults: some View {
+        VStack(spacing: 0) {
+            ForEach(store.products) { product in
+                Button { selection = product } label: {
+                    NutritionItemRow(
+                        title: product.name,
+                        trailingCaption: referenceCaption(for: product),
+                        summary: product.referenceSummary
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private func referenceCaption(for product: NutritionProduct) -> String? {
+        guard let base = product.referenceBase else { return nil }
+        let unit = product.baseUnit == "ml" ? String(localized: "nutrition.milliliters.short") : String(localized: "nutrition.grams.short")
+        return "\(String(localized: "nutrition.per")) \(base.amount.formatted(.number.precision(.fractionLength(0)))) \(unit)"
     }
 }
 
@@ -393,14 +427,20 @@ private struct QuantityEditor: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(alignment: .leading, spacing: 22) {
+                    topBar
+
                     VStack(alignment: .leading, spacing: 2) {
                         Text(product.name).font(.system(size: 28, weight: .regular, design: .serif))
                         if let brand = product.brand { Text(brand).foregroundStyle(.secondary) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    previewCard
+                    VStack(alignment: .leading, spacing: 8) {
+                        MacroColumnsHeader()
+                        MacroColumns(summary: preview, font: .title3)
+                    }
+                    .animation(.snappy, value: preview)
 
                     quickSelect
 
@@ -410,66 +450,54 @@ private struct QuantityEditor: View {
 
                     Button { nutrientsPresented = true } label: {
                         HStack {
-                            Label("nutrition.allNutrients", systemImage: "slider.horizontal.3")
+                            Text("nutrition.allNutrients")
                             Spacer()
-                            Image(systemName: "chevron.right").foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right").foregroundStyle(.tertiary)
                         }
-                        .padding(16)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+                        .foregroundStyle(.secondary)
+                        .padding(.vertical, 8)
                     }
                     .buttonStyle(.plain)
                 }
-                .padding(18)
+                .padding(.horizontal, 18)
+                .padding(.top, 8)
+                .padding(.bottom, 40)
             }
-            .background {
-                LinearGradient(
-                    colors: [Color.black, Color(red: 0.10, green: 0.085, blue: 0.07), .black],
-                    startPoint: .topLeading, endPoint: .bottomTrailing
-                ).ignoresSafeArea()
-            }
+            .background { nutritionBackgroundGradient() }
             .scrollContentBackground(.hidden)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("common.cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("common.save") {
-                        saving = true
-                        Task {
-                            try? await onSave(quantity)
-                            saving = false
-                        }
-                    }.disabled(currentAmount <= 0 || saving)
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(isPresented: $nutrientsPresented) {
                 NavigationStack {
                     NutrientDetailsView(title: product.name, nutrients: product.referenceBase?.nutrients ?? [])
                 }
+                .presentationDragIndicator(.visible)
             }
         }
+        .presentationDragIndicator(.visible)
         .preferredColorScheme(.dark)
+    }
+
+    private var topBar: some View {
+        HStack {
+            Button("common.cancel") { dismiss() }.foregroundStyle(.secondary)
+            Spacer()
+            Button("common.save") {
+                saving = true
+                Task {
+                    try? await onSave(quantity)
+                    saving = false
+                }
+            }
+            .fontWeight(.semibold)
+            .disabled(currentAmount <= 0 || saving)
+        }
+        .buttonStyle(.plain)
     }
 
     private var currentAmount: Double {
         if pieceSelection != nil { return 1 }
         if let baseSelection { return baseSelection.amount }
         return amount
-    }
-
-    private var previewCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .lastTextBaseline, spacing: 8) {
-                Text(preview.calories.formatted(.number.precision(.fractionLength(0))))
-                    .font(.system(size: 48, weight: .regular, design: .serif))
-                    .contentTransition(.numericText())
-                Text("summary.calories.unit").foregroundStyle(.secondary)
-            }
-            MacroColumnsHeader()
-            MacroColumns(summary: preview)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(20)
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
-        .animation(.snappy, value: preview)
     }
 
     /// servingSizes hints that don't already have a matching alternate nutrientBase (which would carry
@@ -544,8 +572,7 @@ private struct QuantityEditor: View {
                 .focused($amountFocused)
             Text(unitLabel).foregroundStyle(.secondary)
         }
-        .padding(16)
-        .glassEffect(.regular, in: .rect(cornerRadius: 20))
+        .padding(.vertical, 8)
     }
 }
 
@@ -568,30 +595,49 @@ private struct FoodEntryEditor: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Picker("nutrition.meal", selection: $meal) {
-                    ForEach(MealType.allCases, id: \.self) { Text($0.localizedKey).tag($0) }
-                }
-                TextField("nutrition.quantity", value: $amount, format: .number)
-                    .keyboardType(.decimalPad)
-                DatePicker("nutrition.date", selection: $date, displayedComponents: .date)
-                NavigationLink("nutrition.allNutrients") {
-                    NutrientDetailsView(title: entry.productSnapshot.name, nutrients: entry.productSnapshot.nutrients)
-                }
-                Button("nutrition.delete", role: .destructive) { deleteConfirmation = true }
-            }
-            .navigationTitle(entry.productSnapshot.name)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("common.cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("common.save") {
-                        Task {
-                            try? await store.update(entry: entry, meal: meal, quantity: updatedQuantity, date: date)
-                            dismiss()
-                        }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 22) {
+                    topBar
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(entry.productSnapshot.name).font(.system(size: 28, weight: .regular, design: .serif))
+                        if let brand = entry.productSnapshot.brand { Text(brand).foregroundStyle(.secondary) }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Picker("nutrition.meal", selection: $meal) {
+                        ForEach(MealType.allCases, id: \.self) { Text($0.localizedKey).tag($0) }
+                    }
+                    .pickerStyle(.segmented)
+
+                    HStack {
+                        Text("nutrition.quantity").foregroundStyle(.secondary)
+                        Spacer()
+                        TextField("nutrition.quantity", value: $amount, format: .number)
+                            .keyboardType(.decimalPad)
+                            .multilineTextAlignment(.trailing)
+                        Text(entry.quantity.unitLabel).foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 8)
+
+                    DatePicker("nutrition.date", selection: $date, displayedComponents: .date)
+
+                    NavigationLink("nutrition.allNutrients") {
+                        NutrientDetailsView(title: entry.productSnapshot.name, nutrients: entry.productSnapshot.nutrients)
+                    }
+                    .foregroundStyle(.secondary)
+
+                    Button("nutrition.delete", role: .destructive) { deleteConfirmation = true }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.red)
                 }
+                .padding(.horizontal, 18)
+                .padding(.top, 8)
+                .padding(.bottom, 40)
             }
+            .background { nutritionBackgroundGradient() }
+            .scrollContentBackground(.hidden)
+            .toolbar(.hidden, for: .navigationBar)
             .confirmationDialog("nutrition.delete.confirm", isPresented: $deleteConfirmation) {
                 Button("nutrition.delete", role: .destructive) {
                     Task {
@@ -601,6 +647,23 @@ private struct FoodEntryEditor: View {
                 }
             }
         }
+        .presentationDragIndicator(.visible)
+        .preferredColorScheme(.dark)
+    }
+
+    private var topBar: some View {
+        HStack {
+            Button("common.cancel") { dismiss() }.foregroundStyle(.secondary)
+            Spacer()
+            Button("common.save") {
+                Task {
+                    try? await store.update(entry: entry, meal: meal, quantity: updatedQuantity, date: date)
+                    dismiss()
+                }
+            }
+            .fontWeight(.semibold)
+        }
+        .buttonStyle(.plain)
     }
 
     private var updatedQuantity: FoodQuantity {
@@ -720,6 +783,7 @@ private struct NutritionCalendarSheet: View {
                 }
         }
         .presentationDetents([.medium])
+        .presentationDragIndicator(.visible)
     }
 }
 

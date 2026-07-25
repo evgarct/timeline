@@ -67,6 +67,34 @@ export async function searchProducts(userId: string, query = "", page = 1, pageS
   };
 }
 
+export async function recentProductsForMeal(
+  userId: string,
+  mealType: "breakfast" | "lunch" | "dinner" | "snack",
+  page = 1,
+  pageSize = 20
+) {
+  const history: NutritionEntryEvent[] = useMemory || !database
+    ? memoryEntries.filter((entry) => entry.userId === userId)
+    : (await database.select().from(events).where(and(
+        eq(events.userId, userId),
+        eq(events.type, "nutrition_entry")
+      )).orderBy(desc(events.occurredAt))).map(entryFromRow);
+
+  const seen = new Set<string>();
+  const productIds: string[] = [];
+  for (const entry of history) {
+    if (entry.mealType !== mealType || seen.has(entry.productId)) continue;
+    seen.add(entry.productId);
+    productIds.push(entry.productId);
+  }
+
+  const offset = (page - 1) * pageSize;
+  const pageIds = productIds.slice(offset, offset + pageSize);
+  const items = (await Promise.all(pageIds.map((id) => getProduct(userId, id))))
+    .filter((product): product is Product => Boolean(product));
+  return { items, page, pageSize, hasMore: offset + pageSize < productIds.length };
+}
+
 export async function getProduct(userId: string, id: string) {
   if (useMemory || !database) return memoryProducts.find((product) => product.userId === userId && product.id === id);
   const [row] = await database.select().from(products).where(and(eq(products.userId, userId), eq(products.id, id))).limit(1);
