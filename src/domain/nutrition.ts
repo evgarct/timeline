@@ -33,6 +33,7 @@ export const pieceSizeOptionSchema = z.object({
 });
 
 export const servingSizeOptionSchema = z.object({
+  id: z.string().trim().min(1).optional(),
   label: z.string().trim().min(1).max(60),
   amount: z.number().positive(),
   provenance: nutrientProvenanceSchema
@@ -59,6 +60,10 @@ export const productInputSchema = z.object({
   if (new Set(servingLabels).size !== servingLabels.length) {
     context.addIssue({ code: "custom", message: "Serving sizes must be unique" });
   }
+  const servingIds = product.servingSizes.map((serving) => serving.id).filter((id): id is string => id !== undefined);
+  if (new Set(servingIds).size !== servingIds.length) {
+    context.addIssue({ code: "custom", message: "Serving size ids must be unique" });
+  }
 });
 
 export const productSchema = productInputSchema.safeExtend({
@@ -71,7 +76,12 @@ export const foodQuantitySchema = z.discriminatedUnion("unit", [
   z.object({ unit: z.literal("g"), amount: z.number().positive() }),
   z.object({ unit: z.literal("ml"), amount: z.number().positive() }),
   z.object({ unit: z.literal("piece"), amount: z.number().positive(), size: pieceSizeSchema }),
-  z.object({ unit: z.literal("serving"), amount: z.number().positive(), label: z.string().trim().min(1).max(60) }),
+  z.object({
+    unit: z.literal("serving"),
+    amount: z.number().positive(),
+    label: z.string().trim().min(1).max(60),
+    servingSizeId: z.string().trim().min(1).optional()
+  }),
   z.object({ unit: z.literal("as_consumed"), label: z.string().trim().min(1).max(120) })
 ]);
 
@@ -137,13 +147,18 @@ export function quantityInBaseUnit(
     return option.grams * quantity.amount;
   }
   if (quantity.unit === "serving") {
-    const option = product.servingSizes.find((serving) => serving.label === quantity.label);
+    const option = quantity.servingSizeId
+      ? product.servingSizes.find((serving) => serving.id === quantity.servingSizeId)
+      : product.servingSizes.find((serving) => serving.label === quantity.label);
     if (!option) {
-      const available = product.servingSizes.map((serving) => JSON.stringify(serving.label));
+      const available = product.servingSizes.map((serving) => (
+        serving.id ? `${JSON.stringify(serving.label)} (id: ${serving.id})` : JSON.stringify(serving.label)
+      ));
+      const requested = quantity.servingSizeId ? `servingSizeId ${JSON.stringify(quantity.servingSizeId)}` : `label ${JSON.stringify(quantity.label)}`;
       const hint = available.length
         ? `this product's registered servingSizes are: ${available.join(", ")}`
         : "this product has no servingSizes registered — add one via upsert_product first (servingSizes are per-product, there is no shared/built-in catalog)";
-      throw new Error(`unknown_serving_size: requested ${JSON.stringify(quantity.label)}, but ${hint}`);
+      throw new Error(`unknown_serving_size: requested ${requested}, but ${hint}`);
     }
     return option.amount * quantity.amount;
   }

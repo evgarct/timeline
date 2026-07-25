@@ -216,4 +216,35 @@ describe("memory nutrition repository", () => {
       idempotencyKey: "merge-3"
     })).rejects.toThrow("entries_not_found");
   });
+
+  it("auto-assigns servingSizes ids and keeps them stable across re-upserts", async () => {
+    const created = await repository.upsertProduct(userId, {
+      ...productInput,
+      barcode: "8591234567333",
+      name: "Banana",
+      servingSizes: [{ label: "1 small banana", amount: 90, provenance: "estimated" }]
+    });
+    const assignedId = created.servingSizes[0].id;
+    expect(assignedId).toBeTruthy();
+
+    const resaved = await repository.upsertProduct(userId, {
+      ...productInput,
+      id: created.id,
+      barcode: "8591234567333",
+      name: "Banana",
+      servingSizes: [{ label: "1 small banana", amount: 95, provenance: "estimated" }]
+    });
+    expect(resaved.servingSizes[0].id).toBe(assignedId);
+    expect(resaved.servingSizes[0].amount).toBe(95);
+
+    const entry = await repository.recordFood(userId, {
+      productId: created.id,
+      mealType: "snack",
+      quantity: { unit: "serving", amount: 1, label: "irrelevant", servingSizeId: assignedId },
+      occurredAt: new Date("2026-07-25T14:00:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "serving-id-1"
+    });
+    expect(entry.productSnapshot.nutrients.find((value) => value.key === "energy_kcal")?.value).toBe(76);
+  });
 });
