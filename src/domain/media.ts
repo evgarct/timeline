@@ -83,3 +83,10 @@ export function progressObjectKeys(userId: string, assetId: string) {
 export function inBodyObjectKey(userId: string, assetId: string, extension: string) {
   return `users/${userNamespace(userId)}/inbody/${assetId}/original.${extension}`;
 }
+
+export const MAX_NUTRITION_REPORT_BYTES = 8 * 1024 * 1024;
+
+export function nutritionReportObjectKeys(userId: string, reportId: string) {
+  const base = `users/${userNamespace(userId)}/nutrition-reports/${reportId}`;
+  return { pdfObjectKey: `${base}/report.pdf`, ogImageObjectKey: `${base}/og.jpg` };
+}

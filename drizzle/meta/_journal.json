@@ -43,6 +43,13 @@
       "when": 1784920049506,
       "tag": "0005_wide_red_wolf",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784983135439,
+      "tag": "0006_past_silverclaw",
+      "breakpoints": true
     }
   ]
 }

@@ -284,7 +284,7 @@ struct ActivityVisualContent: View {
                 Text(stepGoal.formatted(.number.locale(locale)))
                     .monospacedDigit()
                 Spacer()
-                Text(percentage.formatted(.percent.locale(locale)))
+                Text(percentage.formatted(.percent.precision(.fractionLength(0)).locale(locale)))
                     .monospacedDigit()
             }
             .font(.system(size: isShare ? 28 : detailMetricSize, weight: .medium))
@@ -355,7 +355,7 @@ struct ActivityVisualContent: View {
     }
 }
 
-private struct ActivityWeekChart: View {
+struct ActivityWeekChart: View {
     let snapshot: WeeklyActivitySnapshot
     let style: ActivityVisualContent.Style
 

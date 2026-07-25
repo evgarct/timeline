@@ -162,6 +162,89 @@ struct NutritionSummary: Equatable, Sendable {
     }
 }
 
+/// Day-level nutrition report aggregation: canonical macros plus fiber and the fat/carb sub-splits
+/// shown in the exportable nutrition report. Kept separate from `NutritionSummary` (used in every
+/// compact list row) so ordinary rows don't pay for summing nutrients the report-only UI needs.
+struct NutritionReportSummary: Equatable, Sendable {
+    var calories = 0.0
+    var protein = 0.0
+    var fat = 0.0
+    var carbohydrates = 0.0
+    var fiber = 0.0
+    var sugars = 0.0
+    var saturatedFat = 0.0
+
+    /// Whether at least one logged item explicitly carried this nutrient — as opposed to it summing to
+    /// zero because nothing logged today stated it. Drives whether the report shows the breakdown at
+    /// all: a proxy split derived from an unstated value is misleading, not just imprecise.
+    private(set) var hasFiber = false
+    private(set) var hasSugars = false
+    private(set) var hasSaturatedFat = false
+
+    /// Saturated fat skews toward animal sources, unsaturated toward plant sources — a composition-based
+    /// proxy, not a precise origin classification (the underlying nutrient data has no such field).
+    var unsaturatedFat: Double { max(fat - saturatedFat, 0) }
+
+    /// Sugars approximate "fast" carbs; the remainder (starches, fiber) approximates "slow" carbs — a
+    /// composition-based proxy, not a precise glycemic classification.
+    var complexCarbs: Double { max(carbohydrates - sugars, 0) }
+
+    init(entries: [FoodEntry] = []) {
+        self.init(nutrients: entries.flatMap(\.productSnapshot.nutrients))
+    }
+
+    init(nutrients: [NutrientValue]) {
+        for nutrient in nutrients {
+            guard let value = nutrient.value else { continue }
+            switch nutrient.key {
+            case "energy_kcal": calories += value
+            case "protein": protein += value
+            case "fat": fat += value
+            case "carbohydrates": carbohydrates += value
+            case "fiber": fiber += value; hasFiber = true
+            case "sugars": sugars += value; hasSugars = true
+            case "saturated_fat": saturatedFat += value; hasSaturatedFat = true
+            default: break
+            }
+        }
+    }
+}
+
+/// User-set daily macro targets — entirely optional per field, so the app never fabricates a target
+/// the person hasn't actually configured. Persisted via `@AppStorage` (see `RawRepresentable` below);
+/// edited from `NutritionView`'s overflow menu.
+struct NutritionGoals: Equatable, Codable, Sendable {
+    var calories: Double?
+    var protein: Double?
+    var fat: Double?
+    var carbohydrates: Double?
+}
+
+extension NutritionGoals: RawRepresentable {
+    init?(rawValue: String) {
+        guard let data = rawValue.data(using: .utf8),
+              let decoded = try? JSONDecoder().decode(NutritionGoals.self, from: data) else { return nil }
+        self = decoded
+    }
+
+    var rawValue: String {
+        guard let data = try? JSONEncoder().encode(self), let string = String(data: data, encoding: .utf8) else { return "{}" }
+        return string
+    }
+}
+
+/// Result of publishing a day's nutrition report: the id and the public HTML landing page URL to share
+/// (not the raw PDF URL — the landing page carries the Open Graph tags Telegram needs to unfurl a preview).
+struct NutritionReportUploadResult: Codable, Sendable {
+    let reportId: String
+    let shareURL: URL
+
+    private enum CodingKeys: String, CodingKey {
+        case reportId
+        case shareURL = "shareUrl"
+    }
+}
+
 extension NutritionProduct {
     /// The reference nutrient base used for scaling (matches the product's own base unit).
     var referenceBase: NutrientBase? {

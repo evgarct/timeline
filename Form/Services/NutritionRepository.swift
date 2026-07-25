@@ -10,6 +10,7 @@ protocol NutritionRepository: Sendable {
     func record(product: NutritionProduct, meal: MealType, quantity: FoodQuantity, date: Date, timezone: TimeZone) async throws -> FoodEntry
     func update(entry: FoodEntry, meal: MealType, quantity: FoodQuantity, date: Date, timezone: TimeZone) async throws -> FoodEntry
     func delete(entryID: String) async throws
+    func submitReport(pdf: Data, ogImage: Data, reportDate: Date, timezone: TimeZone) async throws -> NutritionReportUploadResult
 }
 
 actor RemoteNutritionRepository: NutritionRepository {
@@ -92,6 +93,33 @@ actor RemoteNutritionRepository: NutritionRepository {
         }
     }
 
+    func submitReport(pdf: Data, ogImage: Data, reportDate: Date, timezone: TimeZone) async throws -> NutritionReportUploadResult {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timezone
+        formatter.dateFormat = "yyyy-MM-dd"
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var body = Data()
+        body.appendMultipartField(name: "reportDate", value: formatter.string(from: reportDate), boundary: boundary)
+        body.appendMultipartField(name: "timezone", value: timezone.identifier, boundary: boundary)
+        body.appendMultipartFile(name: "pdf", filename: "report.pdf", contentType: "application/pdf", data: pdf, boundary: boundary)
+        body.appendMultipartFile(name: "ogImage", filename: "og.jpg", contentType: "image/jpeg", data: ogImage, boundary: boundary)
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+
+        var request = URLRequest(url: baseURL.appending(path: "api/nutrition/reports"))
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody = body
+
+        let (data, response) = try await session.urlSession.data(for: request)
+        guard let http = response as? HTTPURLResponse else { throw TimelineRepositoryError.invalidResponse }
+        guard http.statusCode != 401 else { throw TimelineRepositoryError.unauthorized }
+        guard (200..<300).contains(http.statusCode) else { throw TimelineRepositoryError.server(http.statusCode) }
+        return try JSONDecoder.formAPI.decode(NutritionReportUploadResult.self, from: data)
+    }
+
     private func request<T: Decodable>(_ url: URL) async throws -> T {
         try await request(url, method: "GET", body: Optional<String>.none)
     }
@@ -166,6 +194,26 @@ struct PreviewNutritionRepository: NutritionRepository {
         )
     }
     func delete(entryID: String) async throws {}
+    func submitReport(pdf: Data, ogImage: Data, reportDate: Date, timezone: TimeZone) async throws -> NutritionReportUploadResult {
+        NutritionReportUploadResult(reportId: "preview-report", shareURL: URL(string: "https://example.com/r/preview-report")!)
+    }
+}
+
+private extension Data {
+    mutating func appendMultipartField(name: String, value: String, boundary: String) {
+        append("--\(boundary)\r\n".data(using: .utf8)!)
+        append("Content-Disposition: form-data; name=\"\(name)\"\r\n\r\n".data(using: .utf8)!)
+        append(value.data(using: .utf8)!)
+        append("\r\n".data(using: .utf8)!)
+    }
+
+    mutating func appendMultipartFile(name: String, filename: String, contentType: String, data: Data, boundary: String) {
+        append("--\(boundary)\r\n".data(using: .utf8)!)
+        append("Content-Disposition: form-data; name=\"\(name)\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+        append("Content-Type: \(contentType)\r\n\r\n".data(using: .utf8)!)
+        append(data)
+        append("\r\n".data(using: .utf8)!)
+    }
 }
 
 extension JSONEncoder {

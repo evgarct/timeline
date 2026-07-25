@@ -1,4 +1,5 @@
 import { deleteMediaAssetRows, listCleanupMedia } from "@/data/media-repository";
+import { deleteNutritionReportRows, listExpiredNutritionReports } from "@/data/nutrition-report-repository";
 import { deleteObjects, isR2Configured } from "@/lib/r2";
 
 export async function POST(request: Request) {
@@ -22,7 +23,22 @@ export async function POST(request: Request) {
       // Retry on the next cleanup run.
     }
   }
-  return Response.json({ scanned: assets.length, deleted });
+
+  // Nutrition reports use an absolute 10-day expiry rather than the 24h orphan-sweep cutoff above,
+  // so they're queried separately even though both run off this same daily cron.
+  const expiredReports = await listExpiredNutritionReports(new Date());
+  let deletedReports = 0;
+  for (const report of expiredReports) {
+    try {
+      await deleteObjects([report.pdfObjectKey, report.ogImageObjectKey]);
+      await deleteNutritionReportRows([report.id]);
+      deletedReports += 1;
+    } catch {
+      // Retry on the next cleanup run.
+    }
+  }
+
+  return Response.json({ scanned: assets.length, deleted, reportsScanned: expiredReports.length, reportsDeleted: deletedReports });
 }
 
 export const GET = POST;

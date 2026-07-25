@@ -59,7 +59,7 @@ final class AppRuntime {
         return AppRuntime(
             authentication: auth,
             todayStore: TodayStore(repository: repository, steps: steps),
-            nutritionStore: NutritionStore(repository: nutritionRepository)
+            nutritionStore: NutritionStore(repository: nutritionRepository, stepProvider: steps)
         )
     }
 
