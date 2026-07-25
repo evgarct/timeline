@@ -71,7 +71,8 @@ export const foodQuantitySchema = z.discriminatedUnion("unit", [
   z.object({ unit: z.literal("g"), amount: z.number().positive() }),
   z.object({ unit: z.literal("ml"), amount: z.number().positive() }),
   z.object({ unit: z.literal("piece"), amount: z.number().positive(), size: pieceSizeSchema }),
-  z.object({ unit: z.literal("serving"), amount: z.number().positive(), label: z.string().trim().min(1).max(60) })
+  z.object({ unit: z.literal("serving"), amount: z.number().positive(), label: z.string().trim().min(1).max(60) }),
+  z.object({ unit: z.literal("as_consumed"), label: z.string().trim().min(1).max(120) })
 ]);
 
 export const nutrientSnapshotSchema = z.object({
@@ -85,7 +86,7 @@ export const nutrientSnapshotSchema = z.object({
 });
 
 export const nutritionEntryPayloadSchema = z.object({
-  productId: z.string().uuid(),
+  productId: z.string().uuid().optional(),
   mealType: mealTypeSchema,
   quantity: foodQuantitySchema,
   productSnapshot: z.object({
@@ -93,12 +94,21 @@ export const nutritionEntryPayloadSchema = z.object({
     brand: z.string().optional(),
     nutrients: z.array(nutrientSnapshotSchema)
   })
+}).superRefine((value, context) => {
+  const isAdHoc = value.quantity.unit === "as_consumed";
+  if (value.productId && isAdHoc) {
+    context.addIssue({ code: "custom", message: "productId requires a scaled quantity, not as_consumed" });
+  }
+  if (!value.productId && !isAdHoc) {
+    context.addIssue({ code: "custom", message: "Ad-hoc entries (no productId) require quantity.unit \"as_consumed\"" });
+  }
 });
 
 export type ProductInput = z.input<typeof productInputSchema>;
 export type Product = z.infer<typeof productSchema>;
 export type FoodQuantity = z.infer<typeof foodQuantitySchema>;
 export type NutritionEntryPayload = z.infer<typeof nutritionEntryPayloadSchema>;
+export type NutrientSnapshot = z.infer<typeof nutrientSnapshotSchema>;
 
 export function normalizeProductText(value: string) {
   return value.normalize("NFKC").trim().toLocaleLowerCase().replace(/\s+/g, " ");
@@ -123,6 +133,7 @@ export function quantityInBaseUnit(
     if (!option) throw new Error("unknown_serving_size");
     return option.amount * quantity.amount;
   }
+  if (quantity.unit === "as_consumed") throw new Error("incompatible_unit");
   if (quantity.unit !== product.baseUnit) throw new Error("incompatible_unit");
   return quantity.amount;
 }
@@ -150,3 +161,28 @@ export const canonicalMacroKeys = {
   fat: "fat",
   carbohydrates: "carbohydrates"
 } as const;
+
+export function describeQuantity(quantity: FoodQuantity): string {
+  switch (quantity.unit) {
+    case "g": return `${quantity.amount} g`;
+    case "ml": return `${quantity.amount} ml`;
+    case "piece": return `${quantity.amount}x ${quantity.size} piece`;
+    case "serving": return `${quantity.amount}x "${quantity.label}"`;
+    case "as_consumed": return quantity.label;
+  }
+}
+
+export function summarizeMacros(nutrients: NutrientSnapshot[]): string {
+  const find = (key: string) => nutrients.find((nutrient) => nutrient.key === key)?.value;
+  const kcal = find(canonicalMacroKeys.energy);
+  const protein = find(canonicalMacroKeys.protein);
+  const fat = find(canonicalMacroKeys.fat);
+  const carbs = find(canonicalMacroKeys.carbohydrates);
+  const parts = [
+    kcal !== undefined ? `${Math.round(kcal)} kcal` : undefined,
+    protein !== undefined ? `${protein.toFixed(1)}g protein` : undefined,
+    fat !== undefined ? `${fat.toFixed(1)}g fat` : undefined,
+    carbs !== undefined ? `${carbs.toFixed(1)}g carbs` : undefined
+  ].filter((part): part is string => part !== undefined);
+  return parts.length ? parts.join(", ") : "no macro data";
+}
