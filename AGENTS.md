@@ -24,6 +24,7 @@
 - For mobile-first app surfaces, use Ant Design Mobile primitives where they provide native mobile structure, but import their CSS from the root global stylesheet and keep wrappers Storybook-backed.
 - Avoid Ant Design Mobile components that read `window` during render on server-rendered app surfaces unless they are guarded behind a client-only boundary.
 - When the user provides an explicit design specification for implemented UI, update `docs/DESIGN.md` in the same change with the durable product/design principles unless the user labels it as a temporary experiment.
+- Before starting any implementation work, fetch and fast-forward local `main` to `origin/main`, then branch from that updated `main` — never assume a stale local `main` reflects what's actually merged upstream, and never build on top of an old unmerged branch without first checking whether it (or its PR) already landed.
 - For reviewable implementation work, finish by committing, pushing, opening a PR, and verifying the PR head unless the user explicitly asks not to create a PR.
 - Run Playwright with `E2E_DEMO_MODE=true`; E2E must never send real Neon OTP emails or write test events to the linked Neon database.
 - Before deploying code that depends on Drizzle schema changes, apply migrations and run `npm run db:verify` against staging first, then production before reporting the release as ready.

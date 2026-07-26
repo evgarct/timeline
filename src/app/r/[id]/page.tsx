@@ -1,13 +1,6 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
 import { getNutritionReport } from "@/data/nutrition-report-repository";
-
-async function originURL() {
-  const list = await headers();
-  const host = list.get("x-forwarded-host") ?? list.get("host") ?? "";
-  const protocol = list.get("x-forwarded-proto") ?? "https";
-  return `${protocol}://${host}`;
-}
+import { siteOrigin } from "@/lib/site-url";
 
 function formattedDate(reportDate: string) {
   const date = new Date(`${reportDate}T00:00:00Z`);
@@ -18,13 +11,12 @@ function formattedDate(reportDate: string) {
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const { id } = await params;
   const report = await getNutritionReport(id);
-  const origin = await originURL();
   if (!report || report.expiresAt <= new Date()) {
     return { title: "Отчёт недоступен" };
   }
   const title = `Отчёт о питании за ${formattedDate(report.reportDate)}`;
   const description = "Дневная сводка питания и активности.";
-  const imageUrl = `${origin}/api/nutrition/reports/${id}/og-image`;
+  const imageUrl = `${siteOrigin()}/api/nutrition/reports/${id}/og-image`;
   return {
     title,
     description,
@@ -61,6 +53,11 @@ export default async function NutritionReportPage({ params }: { params: Promise<
         </>
       ) : (
         <>
+          {/* Crawlers (Telegram's link-preview bot) only read the OG tags above and never run this —
+              real visitors get sent straight to the PDF instead of stopping on this landing page. */}
+          <script
+            dangerouslySetInnerHTML={{ __html: `window.location.replace(${JSON.stringify(`/api/nutrition/reports/${id}/pdf`)});` }}
+          />
           <h1 style={{ fontSize: "1.5rem", fontWeight: 500 }}>
             Отчёт о питании за {formattedDate(report.reportDate)}
           </h1>

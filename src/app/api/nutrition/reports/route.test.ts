@@ -57,7 +57,7 @@ describe("POST /api/nutrition/reports", () => {
       timezone: "Europe/Prague"
     }));
     expect(body.reportId).toMatch(/^[0-9a-f-]{36}$/);
-    expect(body.shareUrl).toBe(`https://timeline.test/r/${body.reportId}`);
+    expect(body.shareUrl).toBe(`https://form.safronov.dev/r/${body.reportId}`);
   });
 
   it("rejects a malformed report date", async () => {
