@@ -444,6 +444,9 @@ struct NutritionReportDetailPage: View {
     }
 }
 
+/// Cap on workouts shown on the fixed-height cover page — see the overflow comment where it's used.
+private let maxWorkoutsShownInCover = 3
+
 /// Full activity detail, text-first (no small inline icons paired with numbers — only the weekly
 /// chart, which is data, not decoration). Used on the cover page's left half.
 private struct ReportActivityBlock: View {
@@ -481,9 +484,20 @@ private struct ReportActivityBlock: View {
                     // space alone (no rule) — the gap itself reads as grouping here.
                     if !snapshot.workouts.isEmpty {
                         Spacer(minLength: 64)
+                        // Capped rather than unbounded: the cover page is a fixed 1600×1000 canvas, and
+                        // a day with several short workouts could otherwise push this column taller than
+                        // its reserved height, shoving the chart/distance row past the page edge where
+                        // ImageRenderer just clips it. Three fits comfortably; anything past that is
+                        // summarized as a plain "+N" rather than silently dropped.
                         VStack(alignment: .leading, spacing: 12) {
-                            ForEach(snapshot.workouts) { workout in
+                            ForEach(snapshot.workouts.prefix(maxWorkoutsShownInCover)) { workout in
                                 workoutCallout(workout)
+                            }
+                            if snapshot.workouts.count > maxWorkoutsShownInCover {
+                                Text("+\(snapshot.workouts.count - maxWorkoutsShownInCover)")
+                                    .font(.callout.weight(.medium))
+                                    .monospacedDigit()
+                                    .foregroundStyle(palette.muted)
                             }
                         }
                     }
@@ -544,7 +558,7 @@ private struct ReportActivityBlock: View {
                     .font(.title3.weight(.semibold))
                     .foregroundStyle(palette.foreground)
                 HStack(spacing: 8) {
-                    Text(Duration.seconds(workout.duration).formatted(.units(width: .narrow, maximumUnitCount: 2)))
+                    Text(Duration.seconds(workout.duration).formatted(.units(width: .narrow, maximumUnitCount: 2).locale(locale)))
                     if let kcal = workout.totalEnergyBurnedKcal {
                         Text("·")
                         kcalText(kcal.formatted(.number.precision(.fractionLength(0))))

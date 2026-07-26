@@ -8,10 +8,11 @@ The native iPhone app is read-oriented and production-connected:
 - latest progress-photo session and full-screen gallery;
 - current and historical HealthKit steps, contextual weekly average, walking/running distance, and theme-matched activity sharing;
 - latest body measurements and existing Timeline data;
-- a personal nutrition database, date-based food journal, complete label nutrients, and MCP food automation;
+- a personal nutrition database, date-based food journal, complete label nutrients, optional daily macro/calorie targets, and MCP food automation;
+- a shareable daily PDF report (macros, meals, activity, and any HealthKit workouts) with a public, time-limited link;
 - History tab as an explicit coming-soon state.
 
-New photos, comparison, recipes, nutrition targets, and trainer PDF reports remain outside the current native release.
+New photos, comparison, and recipes remain outside the current native release.
 
 ## Nutrition
 
