@@ -464,15 +464,29 @@ private struct ReportActivityBlock: View {
                 .foregroundStyle(palette.foreground)
 
             VStack(alignment: .leading, spacing: 28) {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(snapshot.selectedSteps.formatted(.number.locale(locale)))
-                        .font(.system(size: 84, weight: .regular, design: .serif))
-                        .monospacedDigit()
-                        .foregroundStyle(palette.foreground)
-                    Text("nutrition.report.activity.steps")
-                        .font(.caption.weight(.semibold))
-                        .textCase(.uppercase)
-                        .foregroundStyle(palette.muted)
+                HStack(alignment: .top, spacing: 0) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(snapshot.selectedSteps.formatted(.number.locale(locale)))
+                            .font(.system(size: 84, weight: .regular, design: .serif))
+                            .monospacedDigit()
+                            .foregroundStyle(palette.foreground)
+                        Text("nutrition.report.activity.steps")
+                            .font(.caption.weight(.semibold))
+                            .textCase(.uppercase)
+                            .foregroundStyle(palette.muted)
+                    }
+                    // The wide gap to the right of the steps figure used to sit empty — a logged
+                    // workout is a much better use of that space than a small line further down the
+                    // page. Pushed toward the column's right edge, separated from the steps figure by
+                    // space alone (no rule) — the gap itself reads as grouping here.
+                    if !snapshot.workouts.isEmpty {
+                        Spacer(minLength: 64)
+                        VStack(alignment: .leading, spacing: 12) {
+                            ForEach(snapshot.workouts) { workout in
+                                workoutCallout(workout)
+                            }
+                        }
+                    }
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
@@ -510,6 +524,35 @@ private struct ReportActivityBlock: View {
                     + Text(Measurement(value: meters, unit: UnitLength.meters).formatted(.measurement(width: .wide).locale(locale))))
                     .font(.callout)
                     .foregroundStyle(palette.muted)
+            }
+        }
+    }
+
+    /// Stands out through type and spacing alone — no card background, per docs/DESIGN.md's "avoid
+    /// boxed panels... use typography weight/size, color, and spacing/indentation instead" rule for
+    /// native Form screens. Icon on the left of each row (not stacked above it) so a day with several
+    /// workouts reads as a clean list — one icon per row lined up in its own column — rather than
+    /// repeating the same icon-then-name-then-line block over and over down the page.
+    private func workoutCallout(_ workout: WorkoutSummary) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: workout.kind.symbolName)
+                .font(.system(size: 22, weight: .light))
+                .foregroundStyle(palette.accent)
+                .frame(width: 24, alignment: .leading)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(workout.kind.localizedKey)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(palette.foreground)
+                HStack(spacing: 8) {
+                    Text(Duration.seconds(workout.duration).formatted(.units(width: .narrow, maximumUnitCount: 2)))
+                    if let kcal = workout.totalEnergyBurnedKcal {
+                        Text("·")
+                        kcalText(kcal.formatted(.number.precision(.fractionLength(0))))
+                    }
+                }
+                .font(.callout)
+                .monospacedDigit()
+                .foregroundStyle(palette.muted)
             }
         }
     }
@@ -714,35 +757,45 @@ struct NutritionReportOGCard: View {
         .environment(\.colorScheme, .light)
     }
 
-    /// Three content-sized columns (steps · calories · macros), centered as a block with generous
-    /// gaps between — deliberately not stretched to equal fractions of the 1200pt width, since at this
-    /// scale that wrapped the calorie figure (the widest, "ккал"-suffixed one) onto two lines.
+    /// Three columns (steps · calories · macros) laid out within a *fixed* width matching the card's
+    /// available content area (1200pt canvas minus the 64pt outer padding on each side) — never
+    /// `fixedSize()`, so the two hero numbers (`lineLimit(1)` + `minimumScaleFactor`) shrink instead of
+    /// overflowing the card when steps/calories run to more digits than usual. An unconstrained
+    /// intrinsic-width HStack was tried first and discarded: at 108pt the steps + calories figures
+    /// alone could exceed 1200pt, which silently overflowed the fixed canvas — pushing the block off
+    ///-center and clipping the macro labels at the right edge instead of wrapping or shrinking.
     private var content: some View {
         HStack(alignment: .center, spacing: 0) {
             if let activity = payload.activity {
-                VStack(alignment: .leading, spacing: 20) {
+                VStack(alignment: .leading, spacing: 14) {
+                    Image(systemName: "shoeprints.fill")
+                        .font(.system(size: 32, weight: .light))
+                        .foregroundStyle(palette.accent)
                     Text(activity.selectedSteps.formatted(.number.locale(locale)))
-                        .font(.system(size: 108, weight: .regular, design: .serif))
+                        .font(.system(size: 84, weight: .regular, design: .serif))
                         .monospacedDigit()
                         .foregroundStyle(palette.foreground)
-                        .fixedSize()
-                    Text("nutrition.report.activity.steps")
-                        .font(.title2.weight(.semibold))
-                        .textCase(.uppercase)
-                        .foregroundStyle(palette.muted)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.4)
                 }
-                Spacer(minLength: 64)
+                Spacer(minLength: 32)
                 Rectangle().fill(palette.track).frame(width: 2, height: 190)
-                Spacer(minLength: 64)
+                Spacer(minLength: 32)
             }
-            kcalText(payload.summary.calories.formatted(.number.precision(.fractionLength(0))))
-                .font(.system(size: 108, weight: .regular, design: .serif))
-                .monospacedDigit()
-                .foregroundStyle(palette.foreground)
-                .fixedSize()
-            Spacer(minLength: 72)
+            VStack(alignment: .leading, spacing: 14) {
+                Image(systemName: "fork.knife")
+                    .font(.system(size: 32, weight: .light))
+                    .foregroundStyle(palette.accent)
+                kcalText(payload.summary.calories.formatted(.number.precision(.fractionLength(0))))
+                    .font(.system(size: 84, weight: .regular, design: .serif))
+                    .monospacedDigit()
+                    .foregroundStyle(palette.foreground)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.4)
+            }
+            Spacer(minLength: 32)
             Rectangle().fill(palette.track).frame(width: 2, height: 190)
-            Spacer(minLength: 72)
+            Spacer(minLength: 32)
             VStack(alignment: .leading, spacing: 32) {
                 ogFigure(payload.summary.protein, "nutrition.protein.short")
                 ogFigure(payload.summary.fat, "nutrition.fat.short")

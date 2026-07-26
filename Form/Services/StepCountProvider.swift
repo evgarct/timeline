@@ -1,5 +1,6 @@
 import Foundation
 import HealthKit
+import SwiftUI
 
 struct DailyStepTotal: Identifiable, Equatable, Sendable {
     let date: Date
@@ -8,12 +9,88 @@ struct DailyStepTotal: Identifiable, Equatable, Sendable {
     var id: Date { date }
 }
 
+/// The handful of Apple Health workout types the report actually names and icons individually —
+/// everything else (there are 80+ `HKWorkoutActivityType` cases) falls back to `.other`, still shown
+/// with its duration/calories, just under a generic label. Our own `Sendable` enum rather than storing
+/// `HKWorkoutActivityType` directly: the mapping happens once inside the HealthKit query, so the
+/// report-rendering side never needs to import HealthKit or handle unmapped raw cases.
+enum WorkoutKind: String, Equatable, Sendable {
+    case running, walking, cycling, swimming, hiking, yoga
+    case functionalStrengthTraining, traditionalStrengthTraining
+    case highIntensityIntervalTraining, coreTraining, elliptical, rowing
+    case other
+
+    init(_ activityType: HKWorkoutActivityType) {
+        switch activityType {
+        case .running: self = .running
+        case .walking: self = .walking
+        case .cycling: self = .cycling
+        case .swimming: self = .swimming
+        case .hiking: self = .hiking
+        case .yoga: self = .yoga
+        case .functionalStrengthTraining: self = .functionalStrengthTraining
+        case .traditionalStrengthTraining: self = .traditionalStrengthTraining
+        case .highIntensityIntervalTraining: self = .highIntensityIntervalTraining
+        case .coreTraining: self = .coreTraining
+        case .elliptical: self = .elliptical
+        case .rowing: self = .rowing
+        default: self = .other
+        }
+    }
+
+    var localizedKey: LocalizedStringKey {
+        switch self {
+        case .running: "nutrition.report.workout.running"
+        case .walking: "nutrition.report.workout.walking"
+        case .cycling: "nutrition.report.workout.cycling"
+        case .swimming: "nutrition.report.workout.swimming"
+        case .hiking: "nutrition.report.workout.hiking"
+        case .yoga: "nutrition.report.workout.yoga"
+        case .functionalStrengthTraining, .traditionalStrengthTraining: "nutrition.report.workout.strength"
+        case .highIntensityIntervalTraining: "nutrition.report.workout.hiit"
+        case .coreTraining: "nutrition.report.workout.core"
+        case .elliptical: "nutrition.report.workout.elliptical"
+        case .rowing: "nutrition.report.workout.rowing"
+        case .other: "nutrition.report.workout.other"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .running: "figure.run"
+        case .walking: "figure.walk"
+        case .cycling: "figure.outdoor.cycle"
+        case .swimming: "figure.pool.swim"
+        case .hiking: "figure.hiking"
+        case .yoga: "figure.yoga"
+        case .functionalStrengthTraining, .traditionalStrengthTraining: "figure.strengthtraining.traditional"
+        case .highIntensityIntervalTraining: "figure.highintensity.intervaltraining"
+        case .coreTraining: "figure.core.training"
+        case .elliptical: "figure.elliptical"
+        case .rowing: "figure.rower"
+        case .other: "figure.mixed.cardio"
+        }
+    }
+}
+
+/// A single Apple Health workout on the selected day — only the fields the nutrition report's
+/// activity block actually shows (type, how long, energy burned if HealthKit has it).
+struct WorkoutSummary: Identifiable, Equatable, Sendable {
+    let id: UUID
+    let kind: WorkoutKind
+    let duration: TimeInterval
+    let totalEnergyBurnedKcal: Double?
+}
+
 struct WeeklyActivitySnapshot: Identifiable, Equatable, Sendable {
     let days: [DailyStepTotal]
     let selectedDate: Date
     let averageEndDate: Date
     let selectedDistanceMeters: Double?
     let fetchedAt: Date
+    /// Workouts logged in Apple Health on `selectedDate` — empty when there were none, HealthKit
+    /// couldn't be queried, or (for `.preview`) none was requested.
+    var workouts: [WorkoutSummary] = []
 
     var id: Date { selectedDate }
 
@@ -32,6 +109,7 @@ struct WeeklyActivitySnapshot: Identifiable, Equatable, Sendable {
         now: Date? = nil,
         selectedSteps: Int? = nil,
         selectedDistanceMeters: Double? = 7_040,
+        workouts: [WorkoutSummary] = [WorkoutSummary(id: UUID(), kind: .running, duration: 32 * 60, totalEnergyBurnedKcal: 340)],
         calendar: Calendar = .current
     ) -> WeeklyActivitySnapshot {
         let referenceNow = now ?? calendar.date(from: DateComponents(year: 2025, month: 7, day: 27, hour: 12))!
@@ -53,7 +131,8 @@ struct WeeklyActivitySnapshot: Identifiable, Equatable, Sendable {
             selectedDate: day,
             averageEndDate: window.averageEndDate,
             selectedDistanceMeters: selectedDistanceMeters,
-            fetchedAt: referenceNow
+            fetchedAt: referenceNow,
+            workouts: workouts
         )
     }
 
@@ -109,24 +188,55 @@ actor HealthKitStepCountProvider: StepCountProviding {
               let distanceType = HKObjectType.quantityType(forIdentifier: .distanceWalkingRunning) else {
             return .unavailable
         }
+        let workoutType = HKObjectType.workoutType()
+        let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)
+        let workoutReadTypes: Set<HKObjectType> = Set([stepType, distanceType, workoutType, energyType].compactMap { $0 })
 
         do {
-            try await store.requestAuthorization(toShare: [], read: [stepType, distanceType])
+            try await store.requestAuthorization(toShare: [], read: workoutReadTypes)
             let calendar = Calendar.autoupdatingCurrent
             let window = ActivityQueryWindow(selectedDate: selectedDate, now: now, calendar: calendar)
             async let days = dailySteps(type: stepType, window: window, calendar: calendar)
             async let distance = selectedDistance(type: distanceType, window: window)
+            // A workout query failure (e.g. this specific type was denied while steps/distance were
+            // granted) shouldn't take down the whole snapshot — it just means no workouts are shown.
+            async let workouts = (try? await selectedWorkouts(window: window)) ?? []
             return .value(WeeklyActivitySnapshot(
                 days: try await days,
                 selectedDate: window.selectedDate,
                 averageEndDate: window.averageEndDate,
                 selectedDistanceMeters: try await distance,
-                fetchedAt: now
+                fetchedAt: now,
+                workouts: await workouts
             ))
         } catch let error as HKError where error.code == .errorAuthorizationDenied {
             return .denied
         } catch {
             return .unavailable
+        }
+    }
+
+    private func selectedWorkouts(window: ActivityQueryWindow) async throws -> [WorkoutSummary] {
+        let predicate = HKQuery.predicateForSamples(withStart: window.selectedDate, end: window.selectedDayEnd)
+        let samples: [HKWorkout] = try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(sampleType: .workoutType(), predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                continuation.resume(returning: (samples as? [HKWorkout]) ?? [])
+            }
+            store.execute(query)
+        }
+        let energyType = HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)
+        return samples.map { workout in
+            WorkoutSummary(
+                id: workout.uuid,
+                kind: WorkoutKind(workout.workoutActivityType),
+                duration: workout.duration,
+                totalEnergyBurnedKcal: energyType.flatMap { workout.statistics(for: $0) }?
+                    .sumQuantity()?.doubleValue(for: .kilocalorie())
+            )
         }
     }
 

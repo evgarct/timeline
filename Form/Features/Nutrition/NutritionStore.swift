@@ -95,7 +95,7 @@ final class NutritionStore {
             entries = try await repository.entries(date: selectedDate, timezone: timezone)
             state = .loaded
         } catch {
-            state = .failed(error.localizedDescription)
+            state = .failed(localizedMessage(for: error))
         }
     }
 
@@ -118,7 +118,7 @@ final class NutritionStore {
             searchError = nil
         } catch {
             products = []
-            searchError = error.localizedDescription
+            searchError = localizedMessage(for: error)
         }
     }
 
@@ -178,7 +178,7 @@ final class NutritionStore {
             entries.append(entry)
             await refreshTodaySummary()
         } catch {
-            saveError = error.localizedDescription
+            saveError = localizedMessage(for: error)
             throw error
         }
     }
@@ -195,7 +195,7 @@ final class NutritionStore {
             if calendar.isDate(date, inSameDayAs: selectedDate) { entries.append(updated) }
             await refreshTodaySummary()
         } catch {
-            saveError = error.localizedDescription
+            saveError = localizedMessage(for: error)
             throw error
         }
     }
@@ -207,7 +207,7 @@ final class NutritionStore {
             entries.removeAll { $0.id == entry.id }
             await refreshTodaySummary()
         } catch {
-            saveError = error.localizedDescription
+            saveError = localizedMessage(for: error)
             throw error
         }
     }
@@ -242,7 +242,7 @@ final class NutritionStore {
             )
             return NutritionReportSharePayload(text: shareGreeting(for: payload.date), url: result.shareURL)
         } catch {
-            saveError = error.localizedDescription
+            saveError = localizedMessage(for: error)
             return nil
         }
     }
@@ -263,5 +263,15 @@ final class NutritionStore {
         discoverProducts = []
         todaySummary = NutritionSummary()
         state = .idle
+    }
+
+    /// `TimelineRepositoryError` isn't `LocalizedError`, so its `.localizedDescription` falls back to
+    /// Swift's generic "The operation couldn't be completed" — an implementation-oriented message, not
+    /// RU/EN/CS copy. Mirrors `TodayStore`'s session-vs-network split instead.
+    private func localizedMessage(for error: Error) -> String {
+        if case TimelineRepositoryError.unauthorized = error {
+            return String(localized: "today.error.session")
+        }
+        return String(localized: "today.error.network")
     }
 }
