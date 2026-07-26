@@ -190,6 +190,8 @@ struct NutritionView: View {
                 Button { calendarPresented = true } label: {
                     Text(dateLabel)
                         .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+                        .fixedSize()
                         .padding(.horizontal, 10)
                         .frame(height: 36)
                 }
@@ -226,8 +228,8 @@ struct NutritionView: View {
             ContentUnavailableView("nutrition.error", systemImage: "wifi.exclamationmark", description: Text(errorDescription))
         } else {
             VStack(alignment: .leading, spacing: 32) {
-                if !store.entries.isEmpty { daySummary }
                 MacroColumnsHeader().padding(.leading, 26)
+                if !store.entries.isEmpty { daySummary }
                 ForEach(MealType.allCases, id: \.self) { meal in
                     mealSection(meal)
                 }
@@ -236,17 +238,16 @@ struct NutritionView: View {
     }
 
     /// Compact whole-day total, above the per-meal breakdown — otherwise the day's overall calories/
-    /// macros are never visible without adding up every meal by eye.
+    /// macros are never visible without adding up every meal by eye. Pure typography, matching every
+    /// other row on this screen (see docs/DESIGN.md: no boxed panels — weight, size, and spacing carry
+    /// hierarchy instead of a card background).
     private var daySummary: some View {
-        HStack(spacing: 16) {
+        VStack(alignment: .leading, spacing: 6) {
             Text("nutrition.report.table.dayTotal")
-                .font(.subheadline.weight(.semibold))
-                .frame(width: 190, alignment: .leading)
-            MacroColumns(summary: NutritionSummary(entries: store.entries), font: .subheadline.weight(.semibold))
+                .font(.title3.weight(.semibold))
+            MacroColumns(summary: NutritionSummary(entries: store.entries), font: .body.weight(.semibold))
+                .padding(.leading, 26)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func mealSection(_ meal: MealType) -> some View {

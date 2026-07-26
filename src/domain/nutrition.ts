@@ -47,7 +47,9 @@ export const productInputSchema = z.object({
   baseUnit: measurementUnitSchema,
   nutrientBases: z.array(nutrientBaseSchema).min(1),
   pieceSizes: z.array(pieceSizeOptionSchema).default([]),
-  servingSizes: z.array(servingSizeOptionSchema).default([])
+  servingSizes: z.array(servingSizeOptionSchema).default([]),
+  // Extra search terms in other languages/spellings, e.g. ["кофе", "coffee", "káva"] on "Café au Lait".
+  searchAliases: z.array(z.string().trim().min(1).max(120)).max(20).default([])
 }).superRefine((product, context) => {
   if (product.pieceSizes.length && product.baseUnit !== "g") {
     context.addIssue({ code: "custom", message: "Piece sizes require a gram-based product" });

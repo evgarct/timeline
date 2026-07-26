@@ -50,6 +50,13 @@
       "when": 1784983135439,
       "tag": "0006_past_silverclaw",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1785056295166,
+      "tag": "0007_futuristic_barracuda",
+      "breakpoints": true
     }
   ]
 }
