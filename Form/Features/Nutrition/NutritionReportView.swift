@@ -699,56 +699,67 @@ struct NutritionReportOGCard: View {
             palette.background
             VStack(alignment: .leading, spacing: 0) {
                 HStack(alignment: .top) {
-                    brandMark(size: 64)
+                    brandMark(size: 76)
                     Spacer()
                     Text(payload.date.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(locale)))
-                        .font(.system(size: 22, weight: .regular, design: .serif))
+                        .font(.system(size: 30, weight: .regular, design: .serif))
                         .foregroundStyle(palette.muted)
                 }
-                Spacer(minLength: 0)
-                HStack(alignment: .center, spacing: 56) {
-                    if let activity = payload.activity {
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text(activity.selectedSteps.formatted(.number.locale(locale)))
-                                .font(.system(size: 60, weight: .regular, design: .serif))
-                                .monospacedDigit()
-                                .foregroundStyle(palette.foreground)
-                            Text("nutrition.report.activity.steps")
-                                .font(.caption.weight(.semibold))
-                                .textCase(.uppercase)
-                                .foregroundStyle(palette.muted)
-                        }
-                        Rectangle().fill(palette.track).frame(width: 1.5).frame(maxHeight: 130)
-                    }
-                    VStack(alignment: .leading, spacing: 18) {
-                        kcalText(payload.summary.calories.formatted(.number.precision(.fractionLength(0))))
-                            .font(.system(size: 60, weight: .regular, design: .serif))
-                            .monospacedDigit()
-                            .foregroundStyle(palette.foreground)
-                        HStack(spacing: 28) {
-                            ogFigure(payload.summary.protein, "nutrition.protein.short")
-                            ogFigure(payload.summary.fat, "nutrition.fat.short")
-                            ogFigure(payload.summary.carbohydrates, "nutrition.carbohydrates.short")
-                        }
-                    }
-                    Spacer(minLength: 0)
-                }
-                Spacer(minLength: 0)
+                content
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
             }
-            .padding(56)
+            .padding(64)
         }
         .frame(width: 1200, height: 630)
         .environment(\.colorScheme, .light)
     }
 
-    private func ogFigure(_ value: Double, _ label: LocalizedStringKey) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            gramsText(value.formatted(.number.precision(.fractionLength(0))))
-                .font(.system(size: 22, weight: .semibold))
+    /// Three content-sized columns (steps · calories · macros), centered as a block with generous
+    /// gaps between — deliberately not stretched to equal fractions of the 1200pt width, since at this
+    /// scale that wrapped the calorie figure (the widest, "ккал"-suffixed one) onto two lines.
+    private var content: some View {
+        HStack(alignment: .center, spacing: 0) {
+            if let activity = payload.activity {
+                VStack(alignment: .leading, spacing: 20) {
+                    Text(activity.selectedSteps.formatted(.number.locale(locale)))
+                        .font(.system(size: 108, weight: .regular, design: .serif))
+                        .monospacedDigit()
+                        .foregroundStyle(palette.foreground)
+                        .fixedSize()
+                    Text("nutrition.report.activity.steps")
+                        .font(.title2.weight(.semibold))
+                        .textCase(.uppercase)
+                        .foregroundStyle(palette.muted)
+                }
+                Spacer(minLength: 64)
+                Rectangle().fill(palette.track).frame(width: 2, height: 190)
+                Spacer(minLength: 64)
+            }
+            kcalText(payload.summary.calories.formatted(.number.precision(.fractionLength(0))))
+                .font(.system(size: 108, weight: .regular, design: .serif))
                 .monospacedDigit()
                 .foregroundStyle(palette.foreground)
+                .fixedSize()
+            Spacer(minLength: 72)
+            Rectangle().fill(palette.track).frame(width: 2, height: 190)
+            Spacer(minLength: 72)
+            VStack(alignment: .leading, spacing: 32) {
+                ogFigure(payload.summary.protein, "nutrition.protein.short")
+                ogFigure(payload.summary.fat, "nutrition.fat.short")
+                ogFigure(payload.summary.carbohydrates, "nutrition.carbohydrates.short")
+            }
+        }
+    }
+
+    private func ogFigure(_ value: Double, _ label: LocalizedStringKey) -> some View {
+        HStack(spacing: 14) {
+            gramsText(value.formatted(.number.precision(.fractionLength(0))))
+                .font(.system(size: 40, weight: .semibold))
+                .monospacedDigit()
+                .foregroundStyle(palette.foreground)
+                .frame(width: 130, alignment: .leading)
             Text(label)
-                .font(.caption.weight(.semibold))
+                .font(.title3.weight(.semibold))
                 .textCase(.uppercase)
                 .foregroundStyle(palette.muted)
         }
@@ -765,8 +776,10 @@ struct NutritionReportShareSheet: UIViewControllerRepresentable {
     let text: String
     let url: URL
 
+    /// A single combined string rather than separate `text`/`url` items: passed separately, Telegram's
+    /// share extension has been observed to drop the text item and post only the link.
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: [text, url], applicationActivities: nil)
+        UIActivityViewController(activityItems: ["\(text)\n\(url.absoluteString)"], applicationActivities: nil)
     }
 
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}

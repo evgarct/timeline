@@ -4,7 +4,7 @@ import Observation
 @MainActor
 @Observable
 final class NutritionStore {
-    enum State: Equatable { case idle, loading, loaded, failed }
+    enum State: Equatable { case idle, loading, loaded, failed(String) }
 
     private(set) var state: State = .idle
     private(set) var entries: [FoodEntry] = []
@@ -95,7 +95,7 @@ final class NutritionStore {
             entries = try await repository.entries(date: selectedDate, timezone: timezone)
             state = .loaded
         } catch {
-            state = .failed
+            state = .failed(error.localizedDescription)
         }
     }
 
@@ -253,7 +253,7 @@ final class NutritionStore {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ru_RU")
         formatter.dateFormat = "EEEE, d MMMM"
-        return "привет, отчет за \(formatter.string(from: date))"
+        return "Привет! Отчет за \(formatter.string(from: date))"
     }
 
     func reset() {

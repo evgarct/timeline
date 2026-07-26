@@ -3,6 +3,7 @@ import { createNutritionReport } from "@/data/nutrition-report-repository";
 import { MAX_NUTRITION_REPORT_BYTES, nutritionReportObjectKeys } from "@/domain/media";
 import { getCurrentUserId } from "@/lib/current-user";
 import { isR2Configured, putObject } from "@/lib/r2";
+import { siteOrigin } from "@/lib/site-url";
 
 const REPORT_LIFETIME_MS = 10 * 24 * 60 * 60 * 1000;
 const REPORT_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
@@ -66,6 +67,5 @@ export async function POST(request: Request) {
     expiresAt: new Date(Date.now() + REPORT_LIFETIME_MS)
   });
 
-  const origin = new URL(request.url).origin;
-  return Response.json({ reportId: id, shareUrl: `${origin}/r/${id}` }, { status: 201 });
+  return Response.json({ reportId: id, shareUrl: `${siteOrigin()}/r/${id}` }, { status: 201 });
 }

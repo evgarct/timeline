@@ -222,16 +222,31 @@ struct NutritionView: View {
     private var journal: some View {
         if store.state == .loading && store.entries.isEmpty {
             ProgressView("common.loading").frame(maxWidth: .infinity).padding(48)
-        } else if store.state == .failed {
-            ContentUnavailableView("nutrition.error", systemImage: "wifi.exclamationmark")
+        } else if case let .failed(errorDescription) = store.state {
+            ContentUnavailableView("nutrition.error", systemImage: "wifi.exclamationmark", description: Text(errorDescription))
         } else {
             VStack(alignment: .leading, spacing: 32) {
+                if !store.entries.isEmpty { daySummary }
                 MacroColumnsHeader().padding(.leading, 26)
                 ForEach(MealType.allCases, id: \.self) { meal in
                     mealSection(meal)
                 }
             }
         }
+    }
+
+    /// Compact whole-day total, above the per-meal breakdown — otherwise the day's overall calories/
+    /// macros are never visible without adding up every meal by eye.
+    private var daySummary: some View {
+        HStack(spacing: 16) {
+            Text("nutrition.report.table.dayTotal")
+                .font(.subheadline.weight(.semibold))
+                .frame(width: 190, alignment: .leading)
+            MacroColumns(summary: NutritionSummary(entries: store.entries), font: .subheadline.weight(.semibold))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func mealSection(_ meal: MealType) -> some View {
