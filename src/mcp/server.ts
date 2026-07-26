@@ -350,6 +350,7 @@ export function createTimelineMcpServer(userId: string) {
   }, async ({ date, timezone, mealType, limit, offset }) => {
     const all = await listFoodEntries(userId, date, timezone, { mealType });
     const entries = all.slice(offset, offset + limit);
+    const hasMore = offset + entries.length < all.length;
     const text = itemizeText(
       entries.length,
       "entries",
@@ -359,9 +360,9 @@ export function createTimelineMcpServer(userId: string) {
     return result(
       "Food journal",
       `${entries.length} of ${all.length} entries`,
-      entries,
+      { entries, totalCount: all.length },
       [],
-      { text: all.length > entries.length ? `${text} (${all.length} total; pass offset to see the rest)` : text }
+      { text: hasMore ? `${text} (${all.length} total; pass offset to see the rest)` : text }
     );
   });
 

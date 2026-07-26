@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { getNutritionReport } from "@/data/nutrition-report-repository";
 import { siteOrigin } from "@/lib/site-url";
+
+// Link-preview crawlers (Telegram, WhatsApp, iMessage, etc.) must see the OG-tagged HTML below to
+// build a rich preview — a real redirect would send them straight to the PDF with no card at all.
+// Real visitors get sent straight to the PDF via `redirect()`; this list only needs to catch the
+// crawlers that actually fetch link previews, not every bot on the internet.
+const PREVIEW_BOT_USER_AGENT_PATTERN =
+  /bot|facebookexternalhit|telegrambot|whatsapp|slackbot|discordbot|twitterbot|linkedinbot|skypeuripreview|vkshare|redditbot|pinterest|embedly|quora link preview|outbrain|w3c_validator|iframely/i;
 
 function formattedDate(reportDate: string) {
   const date = new Date(`${reportDate}T00:00:00Z`);
@@ -30,6 +39,13 @@ export default async function NutritionReportPage({ params }: { params: Promise<
   const report = await getNutritionReport(id);
   const expired = !report || report.expiresAt <= new Date();
 
+  if (!expired) {
+    const userAgent = (await headers()).get("user-agent") ?? "";
+    if (!PREVIEW_BOT_USER_AGENT_PATTERN.test(userAgent)) {
+      redirect(`/api/nutrition/reports/${id}/pdf`);
+    }
+  }
+
   return (
     <main
       style={{
@@ -52,30 +68,11 @@ export default async function NutritionReportPage({ params }: { params: Promise<
           <p style={{ opacity: 0.6 }}>Ссылки на отчёты о питании действуют 10 дней.</p>
         </>
       ) : (
-        <>
-          {/* Crawlers (Telegram's link-preview bot) only read the OG tags above and never run this —
-              real visitors get sent straight to the PDF instead of stopping on this landing page. */}
-          <script
-            dangerouslySetInnerHTML={{ __html: `window.location.replace(${JSON.stringify(`/api/nutrition/reports/${id}/pdf`)});` }}
-          />
-          <h1 style={{ fontSize: "1.5rem", fontWeight: 500 }}>
-            Отчёт о питании за {formattedDate(report.reportDate)}
-          </h1>
-          <a
-            href={`/api/nutrition/reports/${id}/pdf`}
-            style={{
-              marginTop: "0.5rem",
-              padding: "0.75rem 1.5rem",
-              borderRadius: "999px",
-              background: "#151109",
-              color: "#f2ede4",
-              textDecoration: "none",
-              fontWeight: 500
-            }}
-          >
-            Открыть PDF
-          </a>
-        </>
+        // Only link-preview crawlers reach this branch (real visitors were already redirected above) —
+        // this is the page they fetch to build the OG card, so it just needs to carry the OG tags.
+        <h1 style={{ fontSize: "1.5rem", fontWeight: 500 }}>
+          Отчёт о питании за {formattedDate(report.reportDate)}
+        </h1>
       )}
     </main>
   );
