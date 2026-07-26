@@ -1,15 +1,12 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { getNutritionReport } from "@/data/nutrition-report-repository";
 import { siteOrigin } from "@/lib/site-url";
 
-// Link-preview crawlers (Telegram, WhatsApp, iMessage, etc.) must see the OG-tagged HTML below to
-// build a rich preview — a real redirect would send them straight to the PDF with no card at all.
-// Real visitors get sent straight to the PDF via `redirect()`; this list only needs to catch the
-// crawlers that actually fetch link previews, not every bot on the internet.
-const PREVIEW_BOT_USER_AGENT_PATTERN =
-  /bot|facebookexternalhit|telegrambot|whatsapp|slackbot|discordbot|twitterbot|linkedinbot|skypeuripreview|vkshare|redditbot|pinterest|embedly|quora link preview|outbrain|w3c_validator|iframely/i;
+// The bot-vs-real-visitor redirect lives in src/middleware.ts, not here: `redirect()` called from this
+// async Server Component (which also has an async generateMetadata) does not reliably produce an HTTP
+// redirect in production — verified against the deployed app, a real browser UA still got a 200 HTML
+// page instead of a 307. Middleware runs before any rendering and doesn't have that race, so only
+// link-preview crawlers (which middleware lets through) ever reach this component.
 
 function formattedDate(reportDate: string) {
   const date = new Date(`${reportDate}T00:00:00Z`);
@@ -39,13 +36,6 @@ export default async function NutritionReportPage({ params }: { params: Promise<
   const report = await getNutritionReport(id);
   const expired = !report || report.expiresAt <= new Date();
 
-  if (!expired) {
-    const userAgent = (await headers()).get("user-agent") ?? "";
-    if (!PREVIEW_BOT_USER_AGENT_PATTERN.test(userAgent)) {
-      redirect(`/api/nutrition/reports/${id}/pdf`);
-    }
-  }
-
   return (
     <main
       style={{
@@ -68,8 +58,8 @@ export default async function NutritionReportPage({ params }: { params: Promise<
           <p style={{ opacity: 0.6 }}>Ссылки на отчёты о питании действуют 10 дней.</p>
         </>
       ) : (
-        // Only link-preview crawlers reach this branch (real visitors were already redirected above) —
-        // this is the page they fetch to build the OG card, so it just needs to carry the OG tags.
+        // Only link-preview crawlers reach this component at all (see the module comment above) — this
+        // is the page they fetch to build the OG card, so it just needs to carry the OG tags.
         <h1 style={{ fontSize: "1.5rem", fontWeight: 500 }}>
           Отчёт о питании за {formattedDate(report.reportDate)}
         </h1>
