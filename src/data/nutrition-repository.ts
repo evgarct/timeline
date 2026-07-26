@@ -31,6 +31,7 @@ function productFromRow(row: typeof products.$inferSelect): Product {
     nutrientBases: row.nutrientBases,
     pieceSizes: row.pieceSizes,
     servingSizes: row.servingSizes,
+    searchAliases: row.searchAliases,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   });
@@ -44,6 +45,7 @@ export async function searchProducts(userId: string, query = "", page = 1, pageS
       || normalizeProductText(product.name).includes(normalizedQuery)
       || (product.brand && normalizeProductText(product.brand).includes(normalizedQuery))
       || product.barcode?.includes(query)
+      || product.searchAliases.some((alias) => normalizeProductText(alias).includes(normalizedQuery))
     ));
     const offset = (page - 1) * pageSize;
     return { items: matches.slice(offset, offset + pageSize), page, pageSize, hasMore: offset + pageSize < matches.length };
@@ -55,7 +57,8 @@ export async function searchProducts(userId: string, query = "", page = 1, pageS
         or(
           ilike(products.normalizedName, `%${normalizedQuery}%`),
           ilike(products.normalizedBrand, `%${normalizedQuery}%`),
-          ilike(products.barcode, `%${query}%`)
+          ilike(products.barcode, `%${query}%`),
+          ilike(products.normalizedSearchAliases, `%${normalizedQuery}%`)
         )
       )
     : eq(products.userId, userId);
@@ -106,6 +109,9 @@ export async function upsertProduct(userId: string, rawInput: ProductInput) {
   const input = productInputSchema.parse(rawInput);
   const normalizedName = normalizeProductText(input.name);
   const normalizedBrand = input.brand ? normalizeProductText(input.brand) : undefined;
+  const normalizedSearchAliases = input.searchAliases.length
+    ? input.searchAliases.map(normalizeProductText).join(" | ")
+    : undefined;
   const now = new Date();
 
   let existing: Product | undefined;
@@ -156,6 +162,8 @@ export async function upsertProduct(userId: string, rawInput: ProductInput) {
     nutrientBases: product.nutrientBases,
     pieceSizes: product.pieceSizes,
     servingSizes: product.servingSizes,
+    searchAliases: product.searchAliases,
+    normalizedSearchAliases,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt
   };
@@ -171,6 +179,8 @@ export async function upsertProduct(userId: string, rawInput: ProductInput) {
       nutrientBases: values.nutrientBases,
       pieceSizes: values.pieceSizes,
       servingSizes: values.servingSizes,
+      searchAliases: values.searchAliases,
+      normalizedSearchAliases: values.normalizedSearchAliases,
       updatedAt: values.updatedAt
     }
   });
@@ -296,14 +306,20 @@ function dateKey(date: Date, timezone: string) {
   }).format(date);
 }
 
-export async function listFoodEntries(userId: string, date: string, timezone: string) {
+export async function listFoodEntries(
+  userId: string, date: string, timezone: string,
+  options: { mealType?: RecordFoodInput["mealType"] } = {}
+) {
   const all: NutritionEntryEvent[] = useMemory || !database
     ? memoryEntries.filter((entry) => entry.userId === userId)
     : (await database.select().from(events).where(and(
         eq(events.userId, userId),
         eq(events.type, "nutrition_entry")
       )).orderBy(desc(events.occurredAt))).map(entryFromRow);
-  return all.filter((entry) => dateKey(entry.occurredAt, timezone) === date);
+  return all.filter((entry) => (
+    dateKey(entry.occurredAt, timezone) === date
+    && (!options.mealType || entry.mealType === options.mealType)
+  ));
 }
 
 export async function getFoodEntry(userId: string, id: string) {

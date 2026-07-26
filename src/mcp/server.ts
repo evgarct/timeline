@@ -67,9 +67,9 @@ function result(
   };
 }
 
-function itemizeText(count: number, noun: string, labels: string[]) {
+function itemizeText(count: number, noun: string, labels: string[], maxShown = 10) {
   if (!count) return `No ${noun}`;
-  const shown = labels.slice(0, 10);
+  const shown = labels.slice(0, maxShown);
   const more = count - shown.length;
   return `${count} ${noun}: ${shown.join("; ")}${more > 0 ? `; +${more} more` : ""}`;
 }
@@ -176,7 +176,7 @@ export function createTimelineMcpServer(userId: string) {
 
   registerAppTool(server, "search_products", {
     title: "Search personal products",
-    description: "Search the user's complete personal product database by name, brand, or barcode. Results are paginated and are not limited to recent products.",
+    description: "Search the user's complete personal product database by name, brand, barcode, or searchAliases (extra terms saved on the product via upsert_product, e.g. a Russian/Czech/English name for a product whose own name is in a different language). Matches on substrings, so \"кофе\" only finds a product if it (or one of its aliases) actually contains that substring — it does not translate or fuzzy-match across languages on its own. Results are paginated and are not limited to recent products.",
     inputSchema: {
       query: z.string().default(""),
       page: z.number().int().min(1).default(1),
@@ -203,7 +203,7 @@ export function createTimelineMcpServer(userId: string) {
 
   registerAppTool(server, "upsert_product", {
     title: "Create or update a personal product",
-    description: "Save every readable row from a nutrition label, not only calories and macros. Preserve original labels, units, '<'/trace qualifiers, multiple bases such as per 100 g and per serving, and unknown nutrients. Never invent missing packaged-food values. Mark label values stated, derived values calculated, and reference fruit/vegetable values estimated. Exact barcodes are reused; ambiguous name matches return an error. When the package states a whole-container size (e.g. a 330 ml can, a 250 g cup, a 1 L bottle) AND you are not already recording it as its own nutrientBases entry (a \"per portion\" base with directly stated values), add it to servingSizes as { label: \"1 банка (330 мл)\", amount: 330, provenance: \"stated\" } so the app can offer it as a one-tap quantity; amount is always expressed in the product's own baseUnit (g or ml), never invented when the label doesn't state a container size. Do not add both a \"per portion\" nutrientBases entry and a servingSizes entry for the same container size — that duplicates the same quick-select option; prefer the nutrientBases entry when the label states per-serving values directly, and servingSizes only when you'd otherwise have to scale from the reference base. pieceSizes is a SEPARATE array from servingSizes, only for gram-based products (baseUnit \"g\"): each entry is { size: \"small\"|\"regular\"|\"medium\"|\"large\", grams, provenance } — a fixed 4-value relative sizing (not a container size or free text). Prefer servingSizes for almost everything (a banana, a capsule, a slice, a can) since its label is free text matched by record_food's unit: \"serving\"; only use pieceSizes when the product genuinely comes in those exact small/regular/medium/large variants. Both pieceSizes and servingSizes are per-product — there is no shared or built-in catalog, so record_food's unit: \"piece\"/\"serving\" only resolves against sizes/labels already saved on that specific product via upsert_product. Each servingSizes entry gets a stable id (auto-assigned if you omit it, and preserved across re-saves as long as the label stays the same) — read it back via get_product and pass it as record_food's quantity.servingSizeId for exact matching instead of relying on the label string, which breaks on whitespace/punctuation differences; quantity.label becomes optional once you have servingSizeId, but at least one of the two is required. CRITICAL: every nutrient you recognize MUST also carry its canonical `key` in addition to the original label, or the app's calorie/macro totals will silently show zero for this product. Always set key: \"energy_kcal\" for the kcal energy row (not the kJ row), \"protein\" for protein, \"fat\" for total fat, \"carbohydrates\" for total carbohydrate — these four are required whenever present on the label. Also set canonical keys when recognizable: \"saturated_fat\", \"sugars\", \"fiber\", \"salt\", \"sodium\", \"cholesterol\", and \"vitamin_*\"/mineral names (e.g. \"potassium\", \"calcium\", \"iron\"). Leave key unset only for rows you cannot confidently map (e.g. a kJ energy row when energy_kcal is already set, or a genuinely unrecognized nutrient) — never guess a key for those.",
+    description: "Save every readable row from a nutrition label, not only calories and macros. Preserve original labels, units, '<'/trace qualifiers, multiple bases such as per 100 g and per serving, and unknown nutrients. Never invent missing packaged-food values. Mark label values stated, derived values calculated, and reference fruit/vegetable values estimated. Exact barcodes are reused; ambiguous name matches return an error. When the package states a whole-container size (e.g. a 330 ml can, a 250 g cup, a 1 L bottle) AND you are not already recording it as its own nutrientBases entry (a \"per portion\" base with directly stated values), add it to servingSizes as { label: \"1 банка (330 мл)\", amount: 330, provenance: \"stated\" } so the app can offer it as a one-tap quantity; amount is always expressed in the product's own baseUnit (g or ml), never invented when the label doesn't state a container size. Do not add both a \"per portion\" nutrientBases entry and a servingSizes entry for the same container size — that duplicates the same quick-select option; prefer the nutrientBases entry when the label states per-serving values directly, and servingSizes only when you'd otherwise have to scale from the reference base. pieceSizes is a SEPARATE array from servingSizes, only for gram-based products (baseUnit \"g\"): each entry is { size: \"small\"|\"regular\"|\"medium\"|\"large\", grams, provenance } — a fixed 4-value relative sizing (not a container size or free text). Prefer servingSizes for almost everything (a banana, a capsule, a slice, a can) since its label is free text matched by record_food's unit: \"serving\"; only use pieceSizes when the product genuinely comes in those exact small/regular/medium/large variants. Both pieceSizes and servingSizes are per-product — there is no shared or built-in catalog, so record_food's unit: \"piece\"/\"serving\" only resolves against sizes/labels already saved on that specific product via upsert_product. Each servingSizes entry gets a stable id (auto-assigned if you omit it, and preserved across re-saves as long as the label stays the same) — read it back via get_product and pass it as record_food's quantity.servingSizeId for exact matching instead of relying on the label string, which breaks on whitespace/punctuation differences; quantity.label becomes optional once you have servingSizeId, but at least one of the two is required. CRITICAL: every nutrient you recognize MUST also carry its canonical `key` in addition to the original label, or the app's calorie/macro totals will silently show zero for this product. Always set key: \"energy_kcal\" for the kcal energy row (not the kJ row), \"protein\" for protein, \"fat\" for total fat, \"carbohydrates\" for total carbohydrate — these four are required whenever present on the label. Also set canonical keys when recognizable: \"saturated_fat\", \"sugars\", \"fiber\", \"salt\", \"sodium\", \"cholesterol\", and \"vitamin_*\"/mineral names (e.g. \"potassium\", \"calcium\", \"iron\"). Leave key unset only for rows you cannot confidently map (e.g. a kJ energy row when energy_kcal is already set, or a genuinely unrecognized nutrient) — never guess a key for those. If the product's own name is in one language, set searchAliases to the equivalent name/common terms in the other languages the user might search in (e.g. name \"Café au Lait\" with searchAliases [\"кофе\", \"coffee\", \"káva\"]) so search_products can find it later regardless of which language the user searches in.",
     inputSchema: { product: productInputSchema },
     _meta: appMeta
   }, async ({ product }) => {
@@ -338,13 +338,31 @@ export function createTimelineMcpServer(userId: string) {
 
   registerAppTool(server, "list_food_entries", {
     title: "List food journal",
-    description: "List all food entries for a local calendar day.",
-    inputSchema: { date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/), timezone: z.string().min(1) },
+    description: "List food entries for a local calendar day, most recently logged first. Optionally filter to one mealType, and page through a day with many entries via limit/offset — the returned text always lists every entry in the page (never silently truncated), and totalCount in the data reports how many entries match before paging.",
+    inputSchema: {
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      timezone: z.string().min(1),
+      mealType: mealTypeSchema.optional(),
+      limit: z.number().int().min(1).max(200).default(50),
+      offset: z.number().int().min(0).default(0)
+    },
     _meta: appMeta
-  }, async ({ date, timezone }) => {
-    const entries = await listFoodEntries(userId, date, timezone);
-    const text = itemizeText(entries.length, "entries", entries.map((entry) => `${entry.productSnapshot.name} (id: ${entry.id})`));
-    return result("Food journal", `${entries.length} entries`, entries, [], { text });
+  }, async ({ date, timezone, mealType, limit, offset }) => {
+    const all = await listFoodEntries(userId, date, timezone, { mealType });
+    const entries = all.slice(offset, offset + limit);
+    const text = itemizeText(
+      entries.length,
+      "entries",
+      entries.map((entry) => `${entry.productSnapshot.name} (id: ${entry.id})`),
+      entries.length
+    );
+    return result(
+      "Food journal",
+      `${entries.length} of ${all.length} entries`,
+      entries,
+      [],
+      { text: all.length > entries.length ? `${text} (${all.length} total; pass offset to see the rest)` : text }
+    );
   });
 
   registerAppTool(server, "update_food_entry", {
