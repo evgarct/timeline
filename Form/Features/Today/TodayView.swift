@@ -47,7 +47,12 @@ struct TodayView: View {
             .background(Color.black)
         }
         .sheet(isPresented: $galleryPresented) {
-            PhotoGalleryView(photos: store.latestPhotos, selection: $selectedPhoto)
+            PhotoGalleryView(
+                photos: store.latestPhotos,
+                selection: $selectedPhoto,
+                coverPhotoId: pinnedPhotoId,
+                onSetCover: { photo in store.setCoverPhoto(photo) }
+            )
         }
         .sheet(isPresented: $settingsPresented) {
             SettingsView(onSignOut: onSignOut)
@@ -90,6 +95,17 @@ struct TodayView: View {
             guard phase == .active else { return }
             Task { await store.refreshActivity() }
         }
+        .onChange(of: store.latestPhotos) { _, _ in
+            selectedPhoto = store.coverPhotoIndex
+        }
+    }
+
+    /// The id of the photo pinned as cover for the currently displayed event, if any — used to show
+    /// the pinned state in the full-screen gallery.
+    private var pinnedPhotoId: String? {
+        let photos = store.latestPhotos
+        let index = store.coverPhotoIndex
+        return photos.indices.contains(index) ? photos[index].id : nil
     }
 
     @ViewBuilder
@@ -130,7 +146,7 @@ struct TodayView: View {
                     summaryGlass
                 }
                 .padding(.horizontal, 18)
-                .padding(.bottom, 8)
+                .padding(.bottom, 16)
             }
             .frame(height: height)
             .contentShape(Rectangle())
@@ -209,7 +225,7 @@ struct TodayView: View {
     }
 
     private var photoActions: some View {
-        VStack(spacing: 7) {
+        VStack(spacing: 14) {
             if store.latestPhotos.count > 1 {
                 Text("\(selectedPhoto + 1) / \(store.latestPhotos.count)")
                     .font(.footnote.monospacedDigit())
@@ -237,7 +253,7 @@ struct TodayView: View {
     }
 
     private var summaryGlass: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 0) {
             MetricSummaryColumn(
                 title: "summary.nutrition",
                 value: nutritionStore.todaySummary.calories.formatted(.number.precision(.fractionLength(0))),
@@ -246,7 +262,7 @@ struct TodayView: View {
                 progress: nil,
                 footer: nutritionMacros
             )
-            Divider().overlay(.white.opacity(0.22)).padding(.vertical, 8)
+            Divider().overlay(.white.opacity(0.18)).padding(.vertical, 4)
             Button { Task { await store.refreshActivity() } } label: {
                 MetricSummaryColumn(
                     title: "summary.activity",
@@ -255,7 +271,7 @@ struct TodayView: View {
                     target: stepTargetText,
                 progress: stepProgress,
                     footer: stepProgressText,
-                    accessory: store.isRefreshingActivity ? "arrow.triangle.2.circlepath" : "ellipsis"
+                    accessory: store.isRefreshingActivity ? "arrow.triangle.2.circlepath" : nil
                 )
                 .contentShape(Rectangle())
             }
@@ -286,9 +302,9 @@ struct TodayView: View {
             .accessibilityValue(stepsValue)
             .accessibilityIdentifier("today.activity")
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .frame(height: 128)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, 18)
+        .padding(.vertical, 18)
         .glassEffect(.regular, in: .rect(cornerRadius: 30))
     }
 
@@ -396,45 +412,46 @@ private struct MetricSummaryColumn: View {
     var accessory: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            HStack {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
                 Text(title)
                     .font(.system(size: 12, weight: .medium))
                     .tracking(0.5)
                     .textCase(.uppercase)
                     .foregroundStyle(.secondary)
-                Spacer(minLength: 4)
                 if let accessory {
                     Image(systemName: accessory)
-                        .font(.system(size: 13, weight: .medium))
-                        .frame(width: 28, height: 28)
-                        .glassEffect(.regular, in: .circle)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
                 }
+                Spacer(minLength: 4)
             }
             HStack(alignment: .lastTextBaseline, spacing: 5) {
                 Text(value)
-                    .font(.system(size: 32, weight: .regular, design: .serif))
+                    .font(.system(size: 34, weight: .regular, design: .serif))
                     .lineLimit(1)
                     .minimumScaleFactor(0.65)
                 Text(unit).font(.system(size: 12)).foregroundStyle(.secondary)
             }
-            if !target.isEmpty {
-                Text(target)
-                    .font(.system(size: 12))
-                    .foregroundStyle(.secondary)
-            }
-            if let progress {
-                ProgressView(value: progress)
-                    .tint(.white)
-                    .scaleEffect(x: 1, y: 0.7, anchor: .center)
+            VStack(alignment: .leading, spacing: 6) {
+                if !target.isEmpty {
+                    Text(target)
+                        .font(.system(size: 12))
+                        .foregroundStyle(.secondary)
+                }
+                if let progress {
+                    ProgressView(value: progress)
+                        .tint(.white)
+                        .scaleEffect(x: 1, y: 0.7, anchor: .center)
+                }
             }
             Text(footer)
-                .font(.system(size: 11))
+                .font(.system(size: 12))
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 6)
     }
 }
 

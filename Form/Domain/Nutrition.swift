@@ -239,7 +239,7 @@ struct NutritionReportSummary: Equatable, Sendable {
 /// User-set daily macro targets — entirely optional per field, so the app never fabricates a target
 /// the person hasn't actually configured. Persisted via `@AppStorage` (see `RawRepresentable` below);
 /// edited from `NutritionView`'s overflow menu.
-struct NutritionGoals: Equatable, Codable, Sendable {
+struct NutritionGoals: Equatable, Sendable {
     var calories: Double?
     var protein: Double?
     var fat: Double?
@@ -247,14 +247,27 @@ struct NutritionGoals: Equatable, Codable, Sendable {
 }
 
 extension NutritionGoals: RawRepresentable {
+    /// Encodes/decodes through this private nested type rather than making `NutritionGoals` itself
+    /// `Codable` — a `Codable` type that also conforms to `RawRepresentable` picks up the stdlib's
+    /// `RawRepresentable where Self: Encodable, RawValue: Encodable` default `encode(to:)`, which calls
+    /// `rawValue`, which (as written below) called `JSONEncoder().encode(self)`, which calls
+    /// `encode(to:)` again — infinite recursion that overflows the stack and crashes on first save.
+    private struct Storage: Codable {
+        var calories: Double?
+        var protein: Double?
+        var fat: Double?
+        var carbohydrates: Double?
+    }
+
     init?(rawValue: String) {
         guard let data = rawValue.data(using: .utf8),
-              let decoded = try? JSONDecoder().decode(NutritionGoals.self, from: data) else { return nil }
-        self = decoded
+              let decoded = try? JSONDecoder().decode(Storage.self, from: data) else { return nil }
+        self.init(calories: decoded.calories, protein: decoded.protein, fat: decoded.fat, carbohydrates: decoded.carbohydrates)
     }
 
     var rawValue: String {
-        guard let data = try? JSONEncoder().encode(self), let string = String(data: data, encoding: .utf8) else { return "{}" }
+        let storage = Storage(calories: calories, protein: protein, fat: fat, carbohydrates: carbohydrates)
+        guard let data = try? JSONEncoder().encode(storage), let string = String(data: data, encoding: .utf8) else { return "{}" }
         return string
     }
 }

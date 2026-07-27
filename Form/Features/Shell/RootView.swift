@@ -37,8 +37,8 @@ private struct AppTabs: View {
             Tab("tab.nutrition", systemImage: "fork.knife") {
                 NutritionView(store: runtime.nutritionStore)
             }
-            Tab("tab.history", systemImage: "chart.bar") {
-                PlaceholderView(title: "tab.history", icon: "chart.bar")
+            Tab("tab.timeline", systemImage: "chart.bar") {
+                TimelineView(store: runtime.todayStore)
             }
         }
         .tabBarMinimizeBehavior(.onScrollDown)

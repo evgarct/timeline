@@ -3,7 +3,17 @@ import SwiftUI
 struct PhotoGalleryView: View {
     let photos: [ProgressPhoto]
     @Binding var selection: Int
+    var coverPhotoId: String?
+    var onSetCover: ((ProgressPhoto) -> Void)?
     @Environment(\.dismiss) private var dismiss
+
+    private var currentPhoto: ProgressPhoto? {
+        photos.indices.contains(selection) ? photos[selection] : nil
+    }
+
+    private var isCurrentPinned: Bool {
+        currentPhoto?.id == coverPhotoId
+    }
 
     var body: some View {
         NavigationStack {
@@ -26,6 +36,17 @@ struct PhotoGalleryView: View {
             .navigationTitle("action.allPhotos")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                if onSetCover != nil, photos.count > 1 {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            if let photo = currentPhoto { onSetCover?(photo) }
+                        } label: {
+                            Label("action.setCoverPhoto", systemImage: isCurrentPinned ? "pin.fill" : "pin")
+                        }
+                        .disabled(isCurrentPinned)
+                        .accessibilityIdentifier("gallery.setCover")
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("common.done") { dismiss() }
                 }

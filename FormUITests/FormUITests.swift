@@ -22,7 +22,7 @@ final class FormUITests: XCTestCase {
         XCTAssertFalse(details.isHittable, "Details must stay below the initial viewport")
         XCTAssertTrue(app.tabBars.buttons["Today"].exists)
         XCTAssertTrue(app.tabBars.buttons["Nutrition"].exists)
-        XCTAssertTrue(app.tabBars.buttons["History"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Timeline"].exists)
 
         let activity = app.buttons["Refresh steps"]
         XCTAssertTrue(activity.exists)
@@ -31,6 +31,7 @@ final class FormUITests: XCTestCase {
             evaluatedWith: activity
         )
         waitForExpectations(timeout: 3)
+        attach(XCUIScreen.main.screenshot(), name: "00 Today hero and summary")
 
         activity.press(forDuration: 0.8)
         let detailAction = app.buttons["activity.menu.detail"]
@@ -125,6 +126,55 @@ final class FormUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrient.sugars"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrient.fiber"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrient.potassium"].exists)
+    }
+
+    func testNutritionGoalsSaveDoesNotCrash() {
+        let app = XCUIApplication()
+        app.launchArguments.append("-ui-testing-today")
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        app.tabBars.buttons["Nutrition"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["nutrition.screen"].waitForExistence(timeout: 5))
+
+        app.buttons["nutrition.menu"].tap()
+        app.buttons["Macro goals"].tap()
+        let editor = app.descendants(matching: .any)["nutrition.goals.screen"]
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+
+        let fields = ["nutrition.goals.field.calories", "nutrition.goals.field.protein",
+                      "nutrition.goals.field.fat", "nutrition.goals.field.carbs"]
+        let values = ["2200", "150", "70", "220"]
+        for (identifier, value) in zip(fields, values) {
+            let field = app.textFields[identifier]
+            XCTAssertTrue(field.waitForExistence(timeout: 3))
+            field.tap()
+            field.typeText(value)
+        }
+
+        app.buttons["nutrition.goals.save"].tap()
+        // The crash under test is a stack overflow inside NutritionGoals' RawRepresentable/Codable
+        // conformance on save, so surviving past the tap and finding the screen still alive is the point.
+        XCTAssertTrue(app.descendants(matching: .any)["nutrition.screen"].waitForExistence(timeout: 5))
+
+        // Reopen to confirm the values actually persisted (round-tripped through AppStorage) rather
+        // than silently resetting to blank, which was the original (non-crashing) grouping-separator bug.
+        app.buttons["nutrition.menu"].tap()
+        app.buttons["Macro goals"].tap()
+        XCTAssertTrue(editor.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.textFields["nutrition.goals.field.calories"].value as? String, "2200")
+        XCTAssertEqual(app.textFields["nutrition.goals.field.protein"].value as? String, "150")
+    }
+
+    func testTimelineShowsGroupedBodyRecords() {
+        let app = XCUIApplication()
+        app.launchArguments.append("-ui-testing-today")
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        app.tabBars.buttons["Timeline"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["timeline.screen"].waitForExistence(timeout: 5))
+        attach(XCUIScreen.main.screenshot(), name: "04 Timeline")
     }
 
     func testNutritionVisualQAScreenshots() {

@@ -24,11 +24,30 @@ final class TodayStore {
         self.stepProvider = steps
     }
 
-    var latestPhotos: [ProgressPhoto] {
-        events.compactMap { event -> (Date, [ProgressPhoto])? in
+    private var latestPhotoEvent: (id: String, occurredAt: Date, photos: [ProgressPhoto])? {
+        events.compactMap { event -> (String, Date, [ProgressPhoto])? in
             guard case let .progressPhoto(base, photos) = event else { return nil }
-            return (base.occurredAt, photos)
-        }.max(by: { $0.0 < $1.0 })?.1 ?? []
+            return (base.id, base.occurredAt, photos)
+        }.max(by: { $0.1 < $1.1 }).map { (id: $0.0, occurredAt: $0.1, photos: $0.2) }
+    }
+
+    var latestPhotos: [ProgressPhoto] {
+        latestPhotoEvent?.photos ?? []
+    }
+
+    /// Index of the photo pinned as cover for the latest photo event, or 0 if none is pinned yet.
+    var coverPhotoIndex: Int {
+        guard let event = latestPhotoEvent, !event.photos.isEmpty else { return 0 }
+        guard let pinnedId = CoverPhotoPreferences.shared.coverPhotoId(forEvent: event.id),
+              let index = event.photos.firstIndex(where: { $0.id == pinnedId }) else { return 0 }
+        return index
+    }
+
+    /// Pins `photo` as the cover for the latest photo event, so it keeps showing on Today instead of
+    /// resetting to the first photo on the next load.
+    func setCoverPhoto(_ photo: ProgressPhoto) {
+        guard let event = latestPhotoEvent else { return }
+        CoverPhotoPreferences.shared.setCoverPhotoId(photo.id, forEvent: event.id)
     }
 
     var latestPhotoDate: Date? {

@@ -227,8 +227,7 @@ struct NutritionView: View {
         } else if case let .failed(errorDescription) = store.state {
             ContentUnavailableView("nutrition.error", systemImage: "wifi.exclamationmark", description: Text(errorDescription))
         } else {
-            VStack(alignment: .leading, spacing: 32) {
-                MacroColumnsHeader().padding(.leading, 26)
+            VStack(alignment: .leading, spacing: 20) {
                 if !store.entries.isEmpty { daySummary }
                 ForEach(MealType.allCases, id: \.self) { meal in
                     mealSection(meal)
@@ -237,23 +236,25 @@ struct NutritionView: View {
         }
     }
 
-    /// Compact whole-day total, above the per-meal breakdown — otherwise the day's overall calories/
-    /// macros are never visible without adding up every meal by eye. Pure typography, matching every
-    /// other row on this screen (see docs/DESIGN.md: no boxed panels — weight, size, and spacing carry
-    /// hierarchy instead of a card background).
+    /// Whole-day total, above the per-meal breakdown — otherwise the day's overall calories/macros
+    /// are never visible without adding up every meal by eye. Grouped in one glass surface (see
+    /// docs/DESIGN.md's revised nutrition pattern) so it reads as the screen's single anchor figure
+    /// rather than floating text at the top of an otherwise ungrouped list.
     private var daySummary: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("nutrition.report.table.dayTotal")
                 .font(.title3.weight(.semibold))
-            MacroColumns(summary: NutritionSummary(entries: store.entries), font: .body.weight(.semibold))
-                .padding(.leading, 26)
+            MacroColumnsHeader()
+            MacroColumns(summary: NutritionSummary(entries: store.entries), font: .title2.weight(.semibold))
         }
+        .padding(18)
+        .glassEffect(.regular, in: .rect(cornerRadius: 26))
     }
 
     private func mealSection(_ meal: MealType) -> some View {
         let values = store.entries(for: meal)
         let mealSummary = NutritionSummary(entries: values)
-        return VStack(alignment: .leading, spacing: 6) {
+        return VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Button {
                     withAnimation(.snappy) {
@@ -277,7 +278,6 @@ struct NutritionView: View {
             }
             if !values.isEmpty {
                 MacroColumns(summary: mealSummary, font: .caption)
-                    .padding(.leading, 26)
             }
 
             if !collapsedMeals.contains(meal) {
@@ -285,11 +285,13 @@ struct NutritionView: View {
                     Text("nutrition.meal.empty")
                         .font(.subheadline)
                         .foregroundStyle(.tertiary)
-                        .padding(.top, 4)
-                        .padding(.leading, 26)
+                        .padding(.top, 2)
                 } else {
                     VStack(spacing: 0) {
-                        ForEach(values) { entry in
+                        ForEach(Array(values.enumerated()), id: \.element.id) { index, entry in
+                            if index > 0 {
+                                Divider().overlay(.white.opacity(0.12))
+                            }
                             Button { selectedEntry = entry } label: {
                                 NutritionItemRow(
                                     title: entry.productSnapshot.name,
@@ -300,11 +302,12 @@ struct NutritionView: View {
                             .buttonStyle(.plain)
                         }
                     }
-                    .padding(.top, 6)
-                    .padding(.leading, 26)
+                    .padding(.top, 2)
                 }
             }
         }
+        .padding(18)
+        .glassEffect(.regular, in: .rect(cornerRadius: 26))
     }
 }
 
@@ -741,10 +744,17 @@ private struct NutritionGoalsEditor: View {
 
     init(goals: Binding<NutritionGoals>) {
         _goals = goals
-        _caloriesText = State(initialValue: goals.wrappedValue.calories.map { $0.formatted(.number.precision(.fractionLength(0))) } ?? "")
-        _proteinText = State(initialValue: goals.wrappedValue.protein.map { $0.formatted(.number.precision(.fractionLength(0))) } ?? "")
-        _fatText = State(initialValue: goals.wrappedValue.fat.map { $0.formatted(.number.precision(.fractionLength(0))) } ?? "")
-        _carbsText = State(initialValue: goals.wrappedValue.carbohydrates.map { $0.formatted(.number.precision(.fractionLength(0))) } ?? "")
+        _caloriesText = State(initialValue: goals.wrappedValue.calories.map(Self.displayText) ?? "")
+        _proteinText = State(initialValue: goals.wrappedValue.protein.map(Self.displayText) ?? "")
+        _fatText = State(initialValue: goals.wrappedValue.fat.map(Self.displayText) ?? "")
+        _carbsText = State(initialValue: goals.wrappedValue.carbohydrates.map(Self.displayText) ?? "")
+    }
+
+    /// No grouping separator, so the value round-trips through `Double.init?(String)` on save —
+    /// with grouping on, values ≥ 1000 (e.g. "2,200" or "2 200") failed to parse back and silently
+    /// reset to nil every time the sheet reopened without an edit.
+    private static func displayText(_ value: Double) -> String {
+        value.formatted(.number.precision(.fractionLength(0)).grouping(.never))
     }
 
     var body: some View {
@@ -754,10 +764,10 @@ private struct NutritionGoalsEditor: View {
                 Text("nutrition.goals.message")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
-                field("summary.calories.unit", text: $caloriesText)
-                field("nutrition.protein.short", text: $proteinText)
-                field("nutrition.fat.short", text: $fatText)
-                field("nutrition.carbohydrates.short", text: $carbsText)
+                field("summary.calories.unit", text: $caloriesText, identifier: "nutrition.goals.field.calories")
+                field("nutrition.protein.short", text: $proteinText, identifier: "nutrition.goals.field.protein")
+                field("nutrition.fat.short", text: $fatText, identifier: "nutrition.goals.field.fat")
+                field("nutrition.carbohydrates.short", text: $carbsText, identifier: "nutrition.goals.field.carbs")
                 Spacer()
             }
             .padding(.horizontal, 18)
@@ -769,6 +779,7 @@ private struct NutritionGoalsEditor: View {
         .presentationDetents([.medium])
         .presentationDragIndicator(.visible)
         .preferredColorScheme(.dark)
+        .accessibilityIdentifier("nutrition.goals.screen")
     }
 
     private var topBar: some View {
@@ -783,15 +794,17 @@ private struct NutritionGoalsEditor: View {
                 dismiss()
             }
             .fontWeight(.semibold)
+            .accessibilityIdentifier("nutrition.goals.save")
         }
         .buttonStyle(.plain)
     }
 
-    private func field(_ label: LocalizedStringKey, text: Binding<String>) -> some View {
+    private func field(_ label: LocalizedStringKey, text: Binding<String>, identifier: String) -> some View {
         HStack {
             Text(label).foregroundStyle(.secondary)
             Spacer()
             TextField("nutrition.goals.placeholder", text: text)
+                .accessibilityIdentifier(identifier)
                 .keyboardType(.numberPad)
                 .multilineTextAlignment(.trailing)
         }
