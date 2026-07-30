@@ -408,9 +408,13 @@ struct NutritionReportDetailPage: View {
 
     /// Product name and quantity in one cell, on the same row as its Б/Ж/У/ккал — plain (non-localized)
     /// `Text` throughout, since both the name and the unit label (`g`/`ml`/a piece size) are the user's
-    /// own logged data, not report copy. The product's type (e.g. "Coffee"/"Кофе"), when set, shows as
-    /// a small leading badge resolved to the report's own locale — also user data, not report copy.
+    /// own logged data, not report copy. Prefers `genericName` resolved to the report's own locale (a
+    /// brand-stripped translation) over the raw logged name, so a day mixing products originally named
+    /// in different languages reads consistently in one language; falls back to the raw name when no
+    /// translation was saved. The product's type (e.g. "Coffee"/"Кофе"), when set, shows as a small
+    /// leading badge, also resolved to the report locale.
     private func itemLabel(_ entry: FoodEntry) -> some View {
+        let displayName = entry.productSnapshot.genericName?.resolved(for: locale) ?? entry.productSnapshot.name
         let quantity: String = "\(entry.quantity.amount.formatted(.number.precision(.fractionLength(0...1)))) \(entry.quantity.unitLabel)"
         return HStack(spacing: 6) {
             if let type = entry.productSnapshot.type?.resolved(for: locale) {
@@ -423,7 +427,7 @@ struct NutritionReportDetailPage: View {
                     .lineLimit(1)
                     .layoutPriority(1)
             }
-            (Text(entry.productSnapshot.name) + Text(" · ") + Text(quantity))
+            (Text(displayName) + Text(" · ") + Text(quantity))
                 .font(.callout)
                 .foregroundStyle(palette.foreground)
                 .lineLimit(1)
