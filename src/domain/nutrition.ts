@@ -122,7 +122,14 @@ export const nutritionEntryPayloadSchema = z.object({
     brand: z.string().optional(),
     nutrients: z.array(nutrientSnapshotSchema),
     type: localizedTextSchema,
-    genericName: localizedTextSchema
+    genericName: localizedTextSchema,
+    // The quantity actually consumed, converted to the product's own base unit (g/ml) — computed once
+    // at log time so the report can always show a real weight/volume instead of e.g. "2 capsules".
+    // Undefined for ad-hoc entries, which have no product/conversion to derive this from.
+    baseAmount: z.object({
+      amount: z.number().positive(),
+      unit: measurementUnitSchema
+    }).optional()
   })
 }).superRefine((value, context) => {
   const isAdHoc = value.quantity.unit === "as_consumed";

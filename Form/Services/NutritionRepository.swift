@@ -185,7 +185,7 @@ struct PreviewNutritionRepository: NutritionRepository {
             note: nil, productId: product.id, mealType: meal, quantity: quantity,
             productSnapshot: FoodProductSnapshot(
                 name: product.name, brand: product.brand, nutrients: product.nutrientBases[0].nutrients,
-                type: product.type, genericName: product.genericName
+                type: product.type, genericName: product.genericName, baseAmount: nil
             )
         )
     }

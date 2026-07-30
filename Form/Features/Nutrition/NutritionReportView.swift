@@ -28,6 +28,10 @@ private func gramsText(_ formattedValue: String) -> Text {
     Text(formattedValue) + Text(" ") + Text("nutrition.grams.short")
 }
 
+private func millilitersText(_ formattedValue: String) -> Text {
+    Text(formattedValue) + Text(" ") + Text("nutrition.milliliters.short")
+}
+
 private func kcalText(_ formattedValue: String) -> Text {
     Text(formattedValue) + Text(" ") + Text("summary.calories.unit")
 }
@@ -406,16 +410,26 @@ struct NutritionReportDetailPage: View {
         .frame(maxWidth: .infinity, alignment: .trailing)
     }
 
-    /// Product name and quantity in one cell, on the same row as its Б/Ж/У/ккал — plain (non-localized)
-    /// `Text` throughout, since both the name and the unit label (`g`/`ml`/a piece size) are the user's
-    /// own logged data, not report copy. Prefers `genericName` resolved to the report's own locale (a
-    /// brand-stripped translation) over the raw logged name, so a day mixing products originally named
-    /// in different languages reads consistently in one language; falls back to the raw name when no
-    /// translation was saved. The product's type (e.g. "Coffee"/"Кофе"), when set, shows as a small
-    /// leading badge, also resolved to the report locale.
+    /// Product name and quantity in one cell, on the same row as its Б/Ж/У/ккал. Prefers `genericName`
+    /// resolved to the report's own locale (a brand-stripped translation) over the raw logged name, so a
+    /// day mixing products originally named in different languages reads consistently in one language;
+    /// falls back to the raw name when no translation was saved. The product's type (e.g. "Coffee"/
+    /// "Кофе"), when set, shows as a small leading badge, also resolved to the report locale.
+    ///
+    /// Quantity always prefers `baseAmount` (the consumed amount converted to the product's own g/ml) —
+    /// falling back to the raw logged quantity (a piece size, serving label like "1 капсула", or free
+    /// text for ad-hoc entries) only when no conversion was captured, so a report never mixes weight/
+    /// volume with arbitrary serving-count labels.
     private func itemLabel(_ entry: FoodEntry) -> some View {
         let displayName = entry.productSnapshot.genericName?.resolved(for: locale) ?? entry.productSnapshot.name
-        let quantity: String = "\(entry.quantity.amount.formatted(.number.precision(.fractionLength(0...1)))) \(entry.quantity.unitLabel)"
+        let quantityText: Text
+        if let baseAmount = entry.productSnapshot.baseAmount {
+            let formatted = baseAmount.amount.formatted(.number.precision(.fractionLength(0...1)))
+            quantityText = baseAmount.unit == "ml" ? millilitersText(formatted) : gramsText(formatted)
+        } else {
+            let raw = "\(entry.quantity.amount.formatted(.number.precision(.fractionLength(0...1)))) \(entry.quantity.unitLabel)"
+            quantityText = Text(raw)
+        }
         return HStack(spacing: 6) {
             if let type = entry.productSnapshot.type?.resolved(for: locale) {
                 Text(type.uppercased())
@@ -427,7 +441,7 @@ struct NutritionReportDetailPage: View {
                     .lineLimit(1)
                     .layoutPriority(1)
             }
-            (Text(displayName) + Text(" · ") + Text(quantity))
+            (Text(displayName) + Text(" · ") + quantityText)
                 .font(.callout)
                 .foregroundStyle(palette.foreground)
                 .lineLimit(1)

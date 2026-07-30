@@ -151,12 +151,21 @@ enum MealType: String, CaseIterable, Codable, Sendable {
     case breakfast, lunch, dinner, snack
 }
 
+/// The quantity actually consumed, converted to the product's own base unit (g/ml) — computed once at
+/// log time so the report can always show a real weight/volume instead of e.g. "2 capsules". Absent for
+/// ad-hoc entries, which have no product/conversion to derive this from.
+struct FoodBaseAmount: Codable, Hashable, Sendable {
+    let amount: Double
+    let unit: String
+}
+
 struct FoodProductSnapshot: Codable, Hashable, Sendable {
     let name: String
     let brand: String?
     let nutrients: [NutrientValue]
     let type: LocalizedText?
     let genericName: LocalizedText?
+    let baseAmount: FoodBaseAmount?
 }
 
 struct FoodEntryPayload: Codable, Hashable, Sendable {

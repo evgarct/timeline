@@ -37,7 +37,7 @@ enum PreviewNutrition {
         FoodEntry(
             id: "entry-1", type: "nutrition_entry", occurredAt: .now, timezone: "Europe/Prague", note: nil,
             productId: banana.id, mealType: .breakfast, quantity: .pieces(1, size: "medium"),
-            productSnapshot: FoodProductSnapshot(name: "Banana", brand: nil, nutrients: nutrients, type: banana.type, genericName: nil)
+            productSnapshot: FoodProductSnapshot(name: "Banana", brand: nil, nutrients: nutrients, type: banana.type, genericName: nil, baseAmount: FoodBaseAmount(amount: 118, unit: "g"))
         )
     ]
 }

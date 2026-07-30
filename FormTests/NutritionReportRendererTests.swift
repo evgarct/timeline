@@ -43,14 +43,14 @@ final class NutritionReportRendererTests: XCTestCase {
         func nutrient(_ key: String, _ label: String, _ value: Double, _ unit: String, _ provenance: NutrientProvenance) -> NutrientValue {
             NutrientValue(key: key, label: label, value: value, unit: unit, qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: provenance)
         }
-        func entry(_ id: String, _ name: String, _ brand: String?, _ productId: String, _ meal: MealType, _ quantity: FoodQuantity, at hour: Int, minute: Int, _ nutrients: [NutrientValue], type: LocalizedText? = nil) -> FoodEntry {
+        func entry(_ id: String, _ name: String, _ brand: String?, _ productId: String, _ meal: MealType, _ quantity: FoodQuantity, at hour: Int, minute: Int, _ nutrients: [NutrientValue], type: LocalizedText? = nil, baseAmount: FoodBaseAmount? = nil) -> FoodEntry {
             var components = DateComponents(year: 2026, month: 7, day: 25, hour: hour, minute: minute)
             components.timeZone = TimeZone(identifier: "Europe/Prague")
             let occurredAt = Calendar(identifier: .gregorian).date(from: components)!
             return FoodEntry(
                 id: id, type: "nutrition_entry", occurredAt: occurredAt, timezone: "Europe/Prague", note: nil,
                 productId: productId, mealType: meal, quantity: quantity,
-                productSnapshot: FoodProductSnapshot(name: name, brand: brand, nutrients: nutrients, type: type, genericName: nil)
+                productSnapshot: FoodProductSnapshot(name: name, brand: brand, nutrients: nutrients, type: type, genericName: nil, baseAmount: baseAmount)
             )
         }
 
@@ -132,10 +132,12 @@ final class NutritionReportRendererTests: XCTestCase {
                 nutrient("protein", "Белки", 1.298, "g", .estimated)
             ]
         )
-        // Café au Lait (Bellarom/Lidl), per 100 ml, stated — 240 ml (afternoon coffee).
+        // Café au Lait (Bellarom/Lidl), per 100 ml, stated — logged as 2x "1 капсула" servings (180 ml
+        // each per the product's servingSizes), exercising the g/ml-normalized display instead of a raw
+        // "2 capsules" quantity label.
         let coffee = entry(
             "demo-coffee", "Café au Lait", "Bellarom (Lidl)", "065c246b-4f0a-473b-8502-07e51e09d0af",
-            .snack, .milliliters(240), at: 16, minute: 10, [
+            .snack, .serving(2, label: "1 капсула", servingSizeId: nil), at: 16, minute: 10, [
                 nutrient("energy_kcal", "Valor energético / Energetická hodnota", 57.6, "kcal", .stated),
                 nutrient("fat", "Grasas / Tuky / Grăsimi", 2.4, "g", .stated),
                 nutrient("saturated_fat", "de las cuales, saturadas", 1.68, "g", .stated),
@@ -143,7 +145,7 @@ final class NutritionReportRendererTests: XCTestCase {
                 nutrient("sugars", "de los cuales, azúcares", 5.04, "g", .stated),
                 nutrient("protein", "Proteínas / Bílkoviny", 3.6, "g", .stated),
                 nutrient("salt", "Sal / Sůl / Sarata", 0.12, "g", .stated)
-            ], type: LocalizedText(en: "Coffee", ru: "Кофе", cs: "Káva")
+            ], type: LocalizedText(en: "Coffee", ru: "Кофе", cs: "Káva"), baseAmount: FoodBaseAmount(amount: 360, unit: "ml")
         )
 
         let calendar = Calendar(identifier: .gregorian)

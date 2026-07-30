@@ -11,6 +11,7 @@ import {
   nutritionEntryPayloadSchema,
   productInputSchema,
   productSchema,
+  quantityInBaseUnit,
   snapshotNutrients,
   type FoodQuantity,
   type NutrientSnapshot,
@@ -212,6 +213,11 @@ export async function upsertProduct(userId: string, rawInput: ProductInput) {
   return product;
 }
 
+function baseAmountFor(product: Product, quantity: FoodQuantity) {
+  if (quantity.unit === "as_consumed") return undefined;
+  return { amount: quantityInBaseUnit(product, quantity), unit: product.baseUnit };
+}
+
 export interface RecordFoodInput {
   productId?: string;
   product?: ProductInput;
@@ -241,7 +247,8 @@ export async function recordFood(userId: string, rawInput: RecordFoodInput) {
       brand: product.brand,
       nutrients: snapshotNutrients(product, rawInput.quantity),
       type: product.type,
-      genericName: product.genericName
+      genericName: product.genericName,
+      baseAmount: baseAmountFor(product, rawInput.quantity)
     }
   });
   const entry = nutritionEntryEventSchema.parse({
@@ -392,7 +399,8 @@ export async function updateFoodEntry(userId: string, id: string, changes: Updat
       brand: current.productSnapshot.brand,
       nutrients: snapshotNutrients(product, quantity),
       type: current.productSnapshot.type,
-      genericName: current.productSnapshot.genericName
+      genericName: current.productSnapshot.genericName,
+      baseAmount: baseAmountFor(product, quantity)
     };
   } else {
     if (changes.quantity && changes.quantity.unit !== "as_consumed") {
