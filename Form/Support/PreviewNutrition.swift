@@ -15,6 +15,7 @@ enum PreviewNutrition {
         baseUnit: "g", nutrientBases: [NutrientBase(id: "per-100-g", label: "100 g", amount: 100, unit: "g", nutrients: nutrients)],
         pieceSizes: [PieceSizeOption(size: "medium", grams: 118, provenance: .estimated)],
         servingSizes: [],
+        type: LocalizedText(en: "Fruit", ru: "Фрукт", cs: "Ovoce"), genericName: nil,
         createdAt: .now, updatedAt: .now
     )
     static let proteinMilkNutrients = [
@@ -28,6 +29,7 @@ enum PreviewNutrition {
         baseUnit: "ml", nutrientBases: [NutrientBase(id: "per-100-ml", label: "100 ml", amount: 100, unit: "ml", nutrients: proteinMilkNutrients)],
         pieceSizes: [],
         servingSizes: [ServingSizeOption(label: "1 пачка (330 мл)", amount: 330, provenance: .stated)],
+        type: LocalizedText(en: "Protein drink", ru: "Протеиновый напиток", cs: "Proteinový nápoj"), genericName: nil,
         createdAt: .now, updatedAt: .now
     )
     static let products = [banana, proteinMilk]
@@ -35,7 +37,7 @@ enum PreviewNutrition {
         FoodEntry(
             id: "entry-1", type: "nutrition_entry", occurredAt: .now, timezone: "Europe/Prague", note: nil,
             productId: banana.id, mealType: .breakfast, quantity: .pieces(1, size: "medium"),
-            productSnapshot: FoodProductSnapshot(name: "Banana", brand: nil, nutrients: nutrients)
+            productSnapshot: FoodProductSnapshot(name: "Banana", brand: nil, nutrients: nutrients, type: banana.type, genericName: nil)
         )
     ]
 }

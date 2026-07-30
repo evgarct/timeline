@@ -408,13 +408,26 @@ struct NutritionReportDetailPage: View {
 
     /// Product name and quantity in one cell, on the same row as its Б/Ж/У/ккал — plain (non-localized)
     /// `Text` throughout, since both the name and the unit label (`g`/`ml`/a piece size) are the user's
-    /// own logged data, not report copy.
+    /// own logged data, not report copy. The product's type (e.g. "Coffee"/"Кофе"), when set, shows as
+    /// a small leading badge resolved to the report's own locale — also user data, not report copy.
     private func itemLabel(_ entry: FoodEntry) -> some View {
         let quantity: String = "\(entry.quantity.amount.formatted(.number.precision(.fractionLength(0...1)))) \(entry.quantity.unitLabel)"
-        return (Text(entry.productSnapshot.name) + Text(" · ") + Text(quantity))
-            .font(.callout)
-            .foregroundStyle(palette.foreground)
-            .lineLimit(1)
+        return HStack(spacing: 6) {
+            if let type = entry.productSnapshot.type?.resolved(for: locale) {
+                Text(type.uppercased())
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(palette.muted)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(palette.muted.opacity(0.12), in: Capsule())
+                    .lineLimit(1)
+                    .layoutPriority(1)
+            }
+            (Text(entry.productSnapshot.name) + Text(" · ") + Text(quantity))
+                .font(.callout)
+                .foregroundStyle(palette.foreground)
+                .lineLimit(1)
+        }
     }
 
     /// Notable nutrients this specific item's label explicitly stated (salt, fiber, sugars, saturated

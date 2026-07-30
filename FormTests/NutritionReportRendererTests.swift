@@ -43,14 +43,14 @@ final class NutritionReportRendererTests: XCTestCase {
         func nutrient(_ key: String, _ label: String, _ value: Double, _ unit: String, _ provenance: NutrientProvenance) -> NutrientValue {
             NutrientValue(key: key, label: label, value: value, unit: unit, qualifier: nil, originalText: nil, dailyValuePercent: nil, provenance: provenance)
         }
-        func entry(_ id: String, _ name: String, _ brand: String?, _ productId: String, _ meal: MealType, _ quantity: FoodQuantity, at hour: Int, minute: Int, _ nutrients: [NutrientValue]) -> FoodEntry {
+        func entry(_ id: String, _ name: String, _ brand: String?, _ productId: String, _ meal: MealType, _ quantity: FoodQuantity, at hour: Int, minute: Int, _ nutrients: [NutrientValue], type: LocalizedText? = nil) -> FoodEntry {
             var components = DateComponents(year: 2026, month: 7, day: 25, hour: hour, minute: minute)
             components.timeZone = TimeZone(identifier: "Europe/Prague")
             let occurredAt = Calendar(identifier: .gregorian).date(from: components)!
             return FoodEntry(
                 id: id, type: "nutrition_entry", occurredAt: occurredAt, timezone: "Europe/Prague", note: nil,
                 productId: productId, mealType: meal, quantity: quantity,
-                productSnapshot: FoodProductSnapshot(name: name, brand: brand, nutrients: nutrients)
+                productSnapshot: FoodProductSnapshot(name: name, brand: brand, nutrients: nutrients, type: type, genericName: nil)
             )
         }
 
@@ -79,7 +79,7 @@ final class NutritionReportRendererTests: XCTestCase {
                 nutrient("sugars", "of which sugars", 16, "g", .stated),
                 nutrient("protein", "Protein", 33, "g", .stated),
                 nutrient("salt", "Salt", 0.56, "g", .stated)
-            ]
+            ], type: LocalizedText(en: "Protein drink", ru: "Протеиновый напиток", cs: "Proteinový nápoj")
         )
         // HERO All-in-One (Fruit Shake) (Extrifit), per 100 g, stated — 1 scoop (~50 g per label).
         let shake = entry(
@@ -143,7 +143,7 @@ final class NutritionReportRendererTests: XCTestCase {
                 nutrient("sugars", "de los cuales, azúcares", 5.04, "g", .stated),
                 nutrient("protein", "Proteínas / Bílkoviny", 3.6, "g", .stated),
                 nutrient("salt", "Sal / Sůl / Sarata", 0.12, "g", .stated)
-            ]
+            ], type: LocalizedText(en: "Coffee", ru: "Кофе", cs: "Káva")
         )
 
         let calendar = Calendar(identifier: .gregorian)

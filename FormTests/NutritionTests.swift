@@ -104,7 +104,7 @@ final class NutritionTests: XCTestCase {
                 NutrientBase(id: "per100ml", label: "per 100 ml", amount: 100, unit: "ml", nutrients: PreviewNutrition.proteinMilkNutrients),
                 NutrientBase(id: "perServing330ml", label: "per portion (330 ml)", amount: 330, unit: "ml", nutrients: servingNutrients)
             ],
-            pieceSizes: [], servingSizes: [], createdAt: .now, updatedAt: .now
+            pieceSizes: [], servingSizes: [], type: nil, genericName: nil, createdAt: .now, updatedAt: .now
         )
         XCTAssertEqual(product.alternateBases.count, 1)
         XCTAssertEqual(product.alternateBases.first?.id, "perServing330ml")

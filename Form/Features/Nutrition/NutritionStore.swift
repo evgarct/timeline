@@ -227,7 +227,9 @@ final class NutritionStore {
         defer { isExportingReport = false }
 
         let payload = await NutritionReportBuilder.payload(for: self, stepGoal: stepGoal, goals: goals)
-        let renderLocale = Locale(identifier: "ru_RU")
+        let reportLanguage = UserDefaults.standard.string(forKey: AppLanguageStorageKey.reportLanguage)
+            .flatMap(AppLanguage.init(rawValue:)) ?? .systemDefault
+        let renderLocale = reportLanguage.locale
         guard let pdf = NutritionReportRenderer.pdf(payload: payload, locale: renderLocale),
               let ogImage = NutritionReportRenderer.ogImage(payload: payload, locale: renderLocale)?
                 .jpegData(compressionQuality: 0.85)

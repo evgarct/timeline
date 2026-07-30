@@ -183,7 +183,10 @@ struct PreviewNutritionRepository: NutritionRepository {
         FoodEntry(
             id: UUID().uuidString, type: "nutrition_entry", occurredAt: date, timezone: timezone.identifier,
             note: nil, productId: product.id, mealType: meal, quantity: quantity,
-            productSnapshot: FoodProductSnapshot(name: product.name, brand: product.brand, nutrients: product.nutrientBases[0].nutrients)
+            productSnapshot: FoodProductSnapshot(
+                name: product.name, brand: product.brand, nutrients: product.nutrientBases[0].nutrients,
+                type: product.type, genericName: product.genericName
+            )
         )
     }
     func update(entry: FoodEntry, meal: MealType, quantity: FoodQuantity, date: Date, timezone: TimeZone) async throws -> FoodEntry {

@@ -1,9 +1,11 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
+import type { z } from "zod";
 import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
 import { database } from "@/db/client";
 import { events, products } from "@/db/schema";
 import {
+  localizedTextSchema,
   mealTypeSchema,
   normalizeProductText,
   nutritionEntryPayloadSchema,
@@ -21,6 +23,15 @@ const memoryProducts: Array<Product & { userId: string }> = [];
 const memoryEntries: Array<NutritionEntryEvent & { userId: string; idempotencyKey?: string }> = [];
 const useMemory = process.env.E2E_DEMO_MODE === "true" || !database;
 
+function localizedTextFromColumns(en: string | null, ru: string | null, cs: string | null) {
+  if (!en && !ru && !cs) return undefined;
+  return {
+    en: en ?? undefined,
+    ru: ru ?? undefined,
+    cs: cs ?? undefined
+  };
+}
+
 function productFromRow(row: typeof products.$inferSelect): Product {
   return productSchema.parse({
     id: row.id,
@@ -32,6 +43,8 @@ function productFromRow(row: typeof products.$inferSelect): Product {
     pieceSizes: row.pieceSizes,
     servingSizes: row.servingSizes,
     searchAliases: row.searchAliases,
+    type: localizedTextFromColumns(row.typeEn, row.typeRu, row.typeCs),
+    genericName: localizedTextFromColumns(row.genericNameEn, row.genericNameRu, row.genericNameCs),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt
   });
@@ -164,6 +177,12 @@ export async function upsertProduct(userId: string, rawInput: ProductInput) {
     servingSizes: product.servingSizes,
     searchAliases: product.searchAliases,
     normalizedSearchAliases,
+    typeEn: product.type?.en,
+    typeRu: product.type?.ru,
+    typeCs: product.type?.cs,
+    genericNameEn: product.genericName?.en,
+    genericNameRu: product.genericName?.ru,
+    genericNameCs: product.genericName?.cs,
     createdAt: product.createdAt,
     updatedAt: product.updatedAt
   };
@@ -181,6 +200,12 @@ export async function upsertProduct(userId: string, rawInput: ProductInput) {
       servingSizes: values.servingSizes,
       searchAliases: values.searchAliases,
       normalizedSearchAliases: values.normalizedSearchAliases,
+      typeEn: values.typeEn,
+      typeRu: values.typeRu,
+      typeCs: values.typeCs,
+      genericNameEn: values.genericNameEn,
+      genericNameRu: values.genericNameRu,
+      genericNameCs: values.genericNameCs,
       updatedAt: values.updatedAt
     }
   });
@@ -214,7 +239,9 @@ export async function recordFood(userId: string, rawInput: RecordFoodInput) {
     productSnapshot: {
       name: product.name,
       brand: product.brand,
-      nutrients: snapshotNutrients(product, rawInput.quantity)
+      nutrients: snapshotNutrients(product, rawInput.quantity),
+      type: product.type,
+      genericName: product.genericName
     }
   });
   const entry = nutritionEntryEventSchema.parse({
@@ -234,6 +261,8 @@ export interface RecordAdHocFoodInput {
   brand?: string;
   quantityLabel: string;
   nutrients: NutrientSnapshot[];
+  type?: z.infer<typeof localizedTextSchema>;
+  genericName?: z.infer<typeof localizedTextSchema>;
   occurredAt: Date;
   timezone: string;
   note?: string;
@@ -251,7 +280,9 @@ export async function recordAdHocFood(userId: string, rawInput: RecordAdHocFoodI
     productSnapshot: {
       name: rawInput.name,
       brand: rawInput.brand,
-      nutrients: rawInput.nutrients
+      nutrients: rawInput.nutrients,
+      type: rawInput.type,
+      genericName: rawInput.genericName
     }
   });
   const entry = nutritionEntryEventSchema.parse({
@@ -339,13 +370,16 @@ export interface UpdateFoodEntryChanges {
   nutrients?: NutrientSnapshot[];
   name?: string;
   brand?: string;
+  type?: z.infer<typeof localizedTextSchema>;
+  genericName?: z.infer<typeof localizedTextSchema>;
 }
 
 export async function updateFoodEntry(userId: string, id: string, changes: UpdateFoodEntryChanges) {
   const current = await getFoodEntry(userId, id);
   if (!current) throw new Error("entry_not_found");
 
-  const overridesDerivedFields = changes.nutrients !== undefined || changes.name !== undefined || changes.brand !== undefined;
+  const overridesDerivedFields = changes.nutrients !== undefined || changes.name !== undefined || changes.brand !== undefined
+    || changes.type !== undefined || changes.genericName !== undefined;
   let productSnapshot = current.productSnapshot;
   const quantity = changes.quantity ?? current.quantity;
 
@@ -356,7 +390,9 @@ export async function updateFoodEntry(userId: string, id: string, changes: Updat
     productSnapshot = {
       name: current.productSnapshot.name,
       brand: current.productSnapshot.brand,
-      nutrients: snapshotNutrients(product, quantity)
+      nutrients: snapshotNutrients(product, quantity),
+      type: current.productSnapshot.type,
+      genericName: current.productSnapshot.genericName
     };
   } else {
     if (changes.quantity && changes.quantity.unit !== "as_consumed") {
@@ -365,7 +401,9 @@ export async function updateFoodEntry(userId: string, id: string, changes: Updat
     productSnapshot = {
       name: changes.name ?? current.productSnapshot.name,
       brand: changes.brand ?? current.productSnapshot.brand,
-      nutrients: changes.nutrients ?? current.productSnapshot.nutrients
+      nutrients: changes.nutrients ?? current.productSnapshot.nutrients,
+      type: changes.type ?? current.productSnapshot.type,
+      genericName: changes.genericName ?? current.productSnapshot.genericName
     };
   }
 

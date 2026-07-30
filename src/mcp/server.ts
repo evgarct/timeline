@@ -28,6 +28,7 @@ import {
 import {
   describeQuantity,
   foodQuantitySchema,
+  localizedTextSchema,
   mealTypeSchema,
   nutrientSnapshotSchema,
   productInputSchema,
@@ -203,7 +204,7 @@ export function createTimelineMcpServer(userId: string) {
 
   registerAppTool(server, "upsert_product", {
     title: "Create or update a personal product",
-    description: "Save every readable row from a nutrition label, not only calories and macros. Preserve original labels, units, '<'/trace qualifiers, multiple bases such as per 100 g and per serving, and unknown nutrients. Never invent missing packaged-food values. Mark label values stated, derived values calculated, and reference fruit/vegetable values estimated. Exact barcodes are reused; ambiguous name matches return an error. When the package states a whole-container size (e.g. a 330 ml can, a 250 g cup, a 1 L bottle) AND you are not already recording it as its own nutrientBases entry (a \"per portion\" base with directly stated values), add it to servingSizes as { label: \"1 банка (330 мл)\", amount: 330, provenance: \"stated\" } so the app can offer it as a one-tap quantity; amount is always expressed in the product's own baseUnit (g or ml), never invented when the label doesn't state a container size. Do not add both a \"per portion\" nutrientBases entry and a servingSizes entry for the same container size — that duplicates the same quick-select option; prefer the nutrientBases entry when the label states per-serving values directly, and servingSizes only when you'd otherwise have to scale from the reference base. pieceSizes is a SEPARATE array from servingSizes, only for gram-based products (baseUnit \"g\"): each entry is { size: \"small\"|\"regular\"|\"medium\"|\"large\", grams, provenance } — a fixed 4-value relative sizing (not a container size or free text). Prefer servingSizes for almost everything (a banana, a capsule, a slice, a can) since its label is free text matched by record_food's unit: \"serving\"; only use pieceSizes when the product genuinely comes in those exact small/regular/medium/large variants. Both pieceSizes and servingSizes are per-product — there is no shared or built-in catalog, so record_food's unit: \"piece\"/\"serving\" only resolves against sizes/labels already saved on that specific product via upsert_product. Each servingSizes entry gets a stable id (auto-assigned if you omit it, and preserved across re-saves as long as the label stays the same) — read it back via get_product and pass it as record_food's quantity.servingSizeId for exact matching instead of relying on the label string, which breaks on whitespace/punctuation differences; quantity.label becomes optional once you have servingSizeId, but at least one of the two is required. CRITICAL: every nutrient you recognize MUST also carry its canonical `key` in addition to the original label, or the app's calorie/macro totals will silently show zero for this product. Always set key: \"energy_kcal\" for the kcal energy row (not the kJ row), \"protein\" for protein, \"fat\" for total fat, \"carbohydrates\" for total carbohydrate — these four are required whenever present on the label. Also set canonical keys when recognizable: \"saturated_fat\", \"sugars\", \"fiber\", \"salt\", \"sodium\", \"cholesterol\", and \"vitamin_*\"/mineral names (e.g. \"potassium\", \"calcium\", \"iron\"). Leave key unset only for rows you cannot confidently map (e.g. a kJ energy row when energy_kcal is already set, or a genuinely unrecognized nutrient) — never guess a key for those. If the product's own name is in one language, set searchAliases to the equivalent name/common terms in the other languages the user might search in (e.g. name \"Café au Lait\" with searchAliases [\"кофе\", \"coffee\", \"káva\"]) so search_products can find it later regardless of which language the user searches in.",
+    description: "Save every readable row from a nutrition label, not only calories and macros. Preserve original labels, units, '<'/trace qualifiers, multiple bases such as per 100 g and per serving, and unknown nutrients. Never invent missing packaged-food values. Mark label values stated, derived values calculated, and reference fruit/vegetable values estimated. Exact barcodes are reused; ambiguous name matches return an error. When the package states a whole-container size (e.g. a 330 ml can, a 250 g cup, a 1 L bottle) AND you are not already recording it as its own nutrientBases entry (a \"per portion\" base with directly stated values), add it to servingSizes as { label: \"1 банка (330 мл)\", amount: 330, provenance: \"stated\" } so the app can offer it as a one-tap quantity; amount is always expressed in the product's own baseUnit (g or ml), never invented when the label doesn't state a container size. Do not add both a \"per portion\" nutrientBases entry and a servingSizes entry for the same container size — that duplicates the same quick-select option; prefer the nutrientBases entry when the label states per-serving values directly, and servingSizes only when you'd otherwise have to scale from the reference base. pieceSizes is a SEPARATE array from servingSizes, only for gram-based products (baseUnit \"g\"): each entry is { size: \"small\"|\"regular\"|\"medium\"|\"large\", grams, provenance } — a fixed 4-value relative sizing (not a container size or free text). Prefer servingSizes for almost everything (a banana, a capsule, a slice, a can) since its label is free text matched by record_food's unit: \"serving\"; only use pieceSizes when the product genuinely comes in those exact small/regular/medium/large variants. Both pieceSizes and servingSizes are per-product — there is no shared or built-in catalog, so record_food's unit: \"piece\"/\"serving\" only resolves against sizes/labels already saved on that specific product via upsert_product. Each servingSizes entry gets a stable id (auto-assigned if you omit it, and preserved across re-saves as long as the label stays the same) — read it back via get_product and pass it as record_food's quantity.servingSizeId for exact matching instead of relying on the label string, which breaks on whitespace/punctuation differences; quantity.label becomes optional once you have servingSizeId, but at least one of the two is required. CRITICAL: every nutrient you recognize MUST also carry its canonical `key` in addition to the original label, or the app's calorie/macro totals will silently show zero for this product. Always set key: \"energy_kcal\" for the kcal energy row (not the kJ row), \"protein\" for protein, \"fat\" for total fat, \"carbohydrates\" for total carbohydrate — these four are required whenever present on the label. Also set canonical keys when recognizable: \"saturated_fat\", \"sugars\", \"fiber\", \"salt\", \"sodium\", \"cholesterol\", and \"vitamin_*\"/mineral names (e.g. \"potassium\", \"calcium\", \"iron\"). Leave key unset only for rows you cannot confidently map (e.g. a kJ energy row when energy_kcal is already set, or a genuinely unrecognized nutrient) — never guess a key for those. If the product's own name is in one language, set searchAliases to the equivalent name/common terms in the other languages the user might search in (e.g. name \"Café au Lait\" with searchAliases [\"кофе\", \"coffee\", \"káva\"]) so search_products can find it later regardless of which language the user searches in. Always also set type (the product category, e.g. { en: \"Coffee\", ru: \"Кофе\", cs: \"Káva\" }, or { en: \"Protein powder\", ru: \"Протеин\", cs: \"Protein\" }) and genericName (the product's name with any brand stripped, e.g. { en: \"Café au Lait\", ru: \"Кофе с молоком\", cs: \"Káva s mlékem\" }) in all three languages — the app shows these so a product is recognizable even when its own name alone doesn't make the category obvious. Fill in whichever of the three languages you can produce a reasonable translation for; it's fine to leave a language empty rather than guess badly.",
     inputSchema: { product: productInputSchema },
     _meta: appMeta
   }, async ({ product }) => {
@@ -270,27 +271,29 @@ export function createTimelineMcpServer(userId: string) {
 
   registerAppTool(server, "record_ad_hoc_food", {
     title: "Record ad hoc food",
-    description: "Record a one-off meal with inline nutrients, without creating or touching a Product. Use this instead of record_food when the meal is home-cooked, eyeballed, or otherwise not worth saving as a reusable product (e.g. \"3 pancakes, about 150 g, estimated\"). Provide the nutrients for the quantity actually eaten — they are stored as-is, never scaled. Reuse the same idempotencyKey when retrying.",
+    description: "Record a one-off meal with inline nutrients, without creating or touching a Product. Use this instead of record_food when the meal is home-cooked, eyeballed, or otherwise not worth saving as a reusable product (e.g. \"3 pancakes, about 150 g, estimated\"). Provide the nutrients for the quantity actually eaten — they are stored as-is, never scaled. Also set type (the food category in en/ru/cs, e.g. { en: \"Protein drink\", ru: \"Протеиновый напиток\", cs: \"Proteinový nápoj\" }) and genericName (the name with any brand stripped, in en/ru/cs) whenever you can produce a reasonable translation — leave a language empty rather than guess badly. Reuse the same idempotencyKey when retrying.",
     inputSchema: {
       mealType: mealTypeSchema,
       name: z.string().trim().min(1).max(300),
       brand: z.string().trim().min(1).max(200).optional(),
       quantityLabel: z.string().trim().min(1).max(120).describe("Human-readable description of the quantity eaten, e.g. \"3 pancakes (~150 g, estimated)\""),
       nutrients: z.array(nutrientSnapshotSchema).min(1),
+      type: localizedTextSchema.describe("Food category in en/ru/cs, e.g. { en: \"Coffee\", ru: \"Кофе\", cs: \"Káva\" }"),
+      genericName: localizedTextSchema.describe("Name with the brand stripped, in en/ru/cs"),
       occurredAt: z.string().describe("ISO 8601 date-time, e.g. 2026-07-24T12:00:00Z"),
       timezone: z.string().min(1),
       note: z.string().max(2000).optional(),
       idempotencyKey: z.string().min(1).max(200)
     },
     _meta: appMeta
-  }, async ({ mealType, name, brand, quantityLabel, nutrients, occurredAt, timezone, note, idempotencyKey }) => {
+  }, async ({ mealType, name, brand, quantityLabel, nutrients, type, genericName, occurredAt, timezone, note, idempotencyKey }) => {
     const parsedOccurredAt = new Date(occurredAt);
     if (Number.isNaN(parsedOccurredAt.getTime())) {
       return { content: [{ type: "text" as const, text: "Provide a valid occurredAt." }], isError: true };
     }
     try {
       const entry = await recordAdHocFood(userId, {
-        mealType, name, brand, quantityLabel, nutrients,
+        mealType, name, brand, quantityLabel, nutrients, type, genericName,
         occurredAt: parsedOccurredAt, timezone, note, idempotencyKey
       });
       const macros = summarizeMacros(entry.productSnapshot.nutrients);
@@ -368,7 +371,7 @@ export function createTimelineMcpServer(userId: string) {
 
   registerAppTool(server, "update_food_entry", {
     title: "Update food entry",
-    description: "Change the quantity, meal, date, timezone, or note of one food entry. For a product-backed entry, nutrients are recalculated and snapshotted; changes.quantity accepts the same unit forms as record_food, including unit: \"serving\" with a label matching one of the product's servingSizes. For an ad hoc entry (created via record_ad_hoc_food or merge_food_entries), changes.nutrients/name/brand may be set directly instead, and changes.quantity (if given) must keep unit: \"as_consumed\"; passing nutrients/name/brand for a product-backed entry is rejected.",
+    description: "Change the quantity, meal, date, timezone, or note of one food entry. For a product-backed entry, nutrients are recalculated and snapshotted; changes.quantity accepts the same unit forms as record_food, including unit: \"serving\" with a label matching one of the product's servingSizes. For an ad hoc entry (created via record_ad_hoc_food or merge_food_entries), changes.nutrients/name/brand/type/genericName may be set directly instead, and changes.quantity (if given) must keep unit: \"as_consumed\"; passing nutrients/name/brand/type/genericName for a product-backed entry is rejected.",
     inputSchema: {
       id: z.string().uuid(),
       changes: z.record(z.string(), z.unknown())
@@ -383,7 +386,9 @@ export function createTimelineMcpServer(userId: string) {
       note: z.string().max(2000).optional(),
       nutrients: z.array(nutrientSnapshotSchema).optional(),
       name: z.string().trim().min(1).max(300).optional(),
-      brand: z.string().trim().min(1).max(200).optional()
+      brand: z.string().trim().min(1).max(200).optional(),
+      type: localizedTextSchema,
+      genericName: localizedTextSchema
     }).safeParse(changes);
     if (!parsed.success) return { content: [{ type: "text" as const, text: parsed.error.message }], isError: true };
     const before = await getFoodEntry(userId, id);

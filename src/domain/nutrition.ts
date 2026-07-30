@@ -5,6 +5,14 @@ export const measurementUnitSchema = z.enum(["g", "ml"]);
 export const mealTypeSchema = z.enum(["breakfast", "lunch", "dinner", "snack"]);
 export const pieceSizeSchema = z.enum(["small", "regular", "medium", "large"]);
 
+// Free multilingual text — not a fixed enum. The assistant fills this in per-product/entry, the same
+// way it already fills searchAliases in other languages.
+export const localizedTextSchema = z.object({
+  en: z.string().trim().min(1).max(200).optional(),
+  ru: z.string().trim().min(1).max(200).optional(),
+  cs: z.string().trim().min(1).max(200).optional()
+}).optional();
+
 export const nutrientValueSchema = z.object({
   key: z.string().trim().min(1).optional(),
   label: z.string().trim().min(1),
@@ -49,7 +57,11 @@ export const productInputSchema = z.object({
   pieceSizes: z.array(pieceSizeOptionSchema).default([]),
   servingSizes: z.array(servingSizeOptionSchema).default([]),
   // Extra search terms in other languages/spellings, e.g. ["кофе", "coffee", "káva"] on "Café au Lait".
-  searchAliases: z.array(z.string().trim().min(1).max(120)).max(20).default([])
+  searchAliases: z.array(z.string().trim().min(1).max(120)).max(20).default([]),
+  // Category (e.g. coffee, protein drink, protein powder) in en/ru/cs — free text, not an enum.
+  type: localizedTextSchema,
+  // Product name with the brand stripped, in en/ru/cs.
+  genericName: localizedTextSchema
 }).superRefine((product, context) => {
   if (product.pieceSizes.length && product.baseUnit !== "g") {
     context.addIssue({ code: "custom", message: "Piece sizes require a gram-based product" });
@@ -108,7 +120,9 @@ export const nutritionEntryPayloadSchema = z.object({
   productSnapshot: z.object({
     name: z.string(),
     brand: z.string().optional(),
-    nutrients: z.array(nutrientSnapshotSchema)
+    nutrients: z.array(nutrientSnapshotSchema),
+    type: localizedTextSchema,
+    genericName: localizedTextSchema
   })
 }).superRefine((value, context) => {
   const isAdHoc = value.quantity.unit === "as_consumed";

@@ -38,6 +38,23 @@ struct ServingSizeOption: Codable, Identifiable, Hashable, Sendable {
     let provenance: NutrientProvenance
 }
 
+/// Free multilingual text (not an enum) — filled in by the assistant per product/entry, e.g. a
+/// product category ("Coffee"/"Кофе"/"Káva") or a brand-stripped generic name.
+struct LocalizedText: Codable, Hashable, Sendable {
+    let en: String?
+    let ru: String?
+    let cs: String?
+
+    /// Resolves to the given locale's language, falling back to English, then any language present.
+    func resolved(for locale: Locale) -> String? {
+        switch locale.language.languageCode?.identifier {
+        case "ru": ru ?? en ?? cs
+        case "cs": cs ?? en ?? ru
+        default: en ?? ru ?? cs
+        }
+    }
+}
+
 struct NutritionProduct: Codable, Identifiable, Hashable, Sendable {
     let id: String
     let name: String
@@ -47,6 +64,8 @@ struct NutritionProduct: Codable, Identifiable, Hashable, Sendable {
     let nutrientBases: [NutrientBase]
     let pieceSizes: [PieceSizeOption]
     let servingSizes: [ServingSizeOption]
+    let type: LocalizedText?
+    let genericName: LocalizedText?
     let createdAt: Date
     let updatedAt: Date
 }
@@ -136,6 +155,8 @@ struct FoodProductSnapshot: Codable, Hashable, Sendable {
     let name: String
     let brand: String?
     let nutrients: [NutrientValue]
+    let type: LocalizedText?
+    let genericName: LocalizedText?
 }
 
 struct FoodEntryPayload: Codable, Hashable, Sendable {

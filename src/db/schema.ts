@@ -34,6 +34,12 @@ export const products = pgTable("products", {
   servingSizes: jsonb("serving_sizes").notNull().default([]),
   searchAliases: jsonb("search_aliases").notNull().default([]),
   normalizedSearchAliases: text("normalized_search_aliases"),
+  typeEn: text("type_en"),
+  typeRu: text("type_ru"),
+  typeCs: text("type_cs"),
+  genericNameEn: text("generic_name_en"),
+  genericNameRu: text("generic_name_ru"),
+  genericNameCs: text("generic_name_cs"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
 }, (table) => [
