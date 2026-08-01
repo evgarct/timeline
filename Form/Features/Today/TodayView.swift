@@ -137,27 +137,19 @@ struct TodayView: View {
 
     @ViewBuilder
     private func heroChrome(height: CGFloat) -> some View {
-        VStack(spacing: 0) {
-            ZStack {
-                VStack(spacing: 0) {
-                    header
-                    Spacer()
-                    photoActions
-                    summaryGlass
-                }
-                .padding(.horizontal, 18)
-                .padding(.bottom, 16)
+        ZStack {
+            VStack(spacing: 0) {
+                header
+                Spacer()
+                photoActions
+                summaryGlass
             }
-            .frame(height: height)
-            .contentShape(Rectangle())
-            .simultaneousGesture(photoSelectionGesture)
-
-            // Keep the next timeline heading entirely below the initial viewport,
-            // including the system tab bar's overlay region on compact iPhones.
-            Color.black.frame(height: 84)
+            .padding(.horizontal, 18)
+            .padding(.bottom, 16)
         }
-        .frame(height: height + 84)
-        .clipped()
+        .frame(height: height)
+        .contentShape(Rectangle())
+        .simultaneousGesture(photoSelectionGesture)
         .accessibilityIdentifier("today.hero")
     }
 
@@ -382,23 +374,30 @@ struct TodayView: View {
     }
 
     private var timelineDetails: some View {
-        VStack(alignment: .leading, spacing: 24) {
-            Text("today.details")
-                .font(.system(size: 40, design: .serif))
+        VStack(alignment: .leading, spacing: 18) {
+            Text("timeline.eyebrow")
+                .font(.caption.weight(.semibold))
+                .tracking(1.6)
+                .foregroundStyle(.secondary)
+            Text("timeline.title")
+                .font(.system(size: 44, weight: .regular, design: .serif))
+                .tracking(-1.2)
                 .accessibilityIdentifier("today.details")
-            if let values = store.latestMeasurements {
-                MeasurementRows(values: values)
-            } else {
-                Text("today.empty.measurements").foregroundStyle(.secondary)
-            }
+            TimelineArchive(events: store.events, excludingPhotoEventID: store.latestPhotoEventID)
             if case let .failed(message) = store.state {
                 Label(message, systemImage: "wifi.exclamationmark").foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(24)
+        .padding(.horizontal, 18)
+        .padding(.top, 36)
         .padding(.bottom, 100)
-        .background(Color.black)
+        .background {
+            ZStack {
+                Color(red: 0.075, green: 0.065, blue: 0.058)
+                RadialGradient(colors: [Color(red: 0.34, green: 0.27, blue: 0.22).opacity(0.35), .clear], center: .topTrailing, startRadius: 0, endRadius: 520)
+            }
+        }
     }
 }
 
@@ -455,32 +454,20 @@ private struct MetricSummaryColumn: View {
     }
 }
 
-private struct MeasurementRows: View {
-    let values: BodyMeasurements
-
-    var body: some View {
-        VStack(spacing: 0) {
-            if let value = values.weightKg { row("measurement.weight", value, "measurement.kg") }
-            if let value = values.waistCm { row("measurement.waist", value, "measurement.cm") }
-            if let value = values.chestCm { row("measurement.chest", value, "measurement.cm") }
-        }
-        .glassEffect(.regular, in: .rect(cornerRadius: 24))
-    }
-
-    private func row(_ title: LocalizedStringKey, _ value: Double, _ unit: LocalizedStringKey) -> some View {
-        HStack {
-            Text(title)
-            Spacer()
-            Text(value.formatted(.number.precision(.fractionLength(0...1))))
-            Text(unit).foregroundStyle(.secondary)
-        }
-        .padding()
-    }
-}
-
 #Preview("Today empty") {
     TodayView(
         store: TodayStore(repository: PreviewTimelineRepository(), steps: PreviewStepCountProvider()),
+        nutritionStore: NutritionStore(repository: PreviewNutritionRepository()),
+        onSignOut: {}
+    )
+}
+
+#Preview("Today photo only") {
+    TodayView(
+        store: TodayStore(
+            repository: PreviewTimelineRepository(result: .success([.progressPhoto(PreviewData.photoBase, [])])),
+            steps: PreviewStepCountProvider()
+        ),
         nutritionStore: NutritionStore(repository: PreviewNutritionRepository()),
         onSignOut: {}
     )

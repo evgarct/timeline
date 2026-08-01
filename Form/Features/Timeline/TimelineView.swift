@@ -15,15 +15,11 @@ struct TimelineView: View {
                     ScrollView {
                         LazyVStack(alignment: .leading, spacing: 26) {
                             editorialHeader
-                            if bodyEvents.isEmpty {
+            if bodyEvents.isEmpty {
                                 ContentUnavailableView("timeline.empty", systemImage: "clock", description: Text("timeline.empty.description"))
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 60)
-                            } else {
-                                ForEach(groupedDays, id: \.0) { day, events in
-                                    daySection(day: day, events: events)
-                                }
-                            }
+                            } else { TimelineArchive(events: bodyEvents) }
                         }
                         .padding(.horizontal, 18)
                         .padding(.top, 12)
@@ -116,21 +112,84 @@ struct TimelineView: View {
         return current - prior
     }
 
+}
+
+private struct PhotoSession: Identifiable, Hashable { let id: String; let photos: [ProgressPhoto] }
+private enum TimelineSheet: String, Identifiable { case measurements; var id: String { rawValue } }
+
+struct TimelineArchive: View {
+    let events: [TimelineEvent]
+    var excludingPhotoEventID: String?
+    @State private var photoSession: PhotoSession?
+    @State private var selectedPhoto = 0
+
+    init(events: [TimelineEvent], excludingPhotoEventID: String? = nil) {
+        self.events = events
+        self.excludingPhotoEventID = excludingPhotoEventID
+    }
+
+    var body: some View {
+        Group {
+            if bodyEvents.isEmpty {
+                ContentUnavailableView(
+                    "timeline.empty",
+                    systemImage: "clock",
+                    description: Text("timeline.empty.description")
+                )
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 44)
+                .accessibilityIdentifier("timeline.archive.empty")
+            } else {
+                LazyVStack(alignment: .leading, spacing: 26) {
+                    ForEach(groupedDays, id: \.0) { day, dayEvents in
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(dayLabel(day)).font(.system(size: 21, design: .serif)).foregroundStyle(.secondary)
+                            ForEach(dayEvents) { event in
+                                switch event {
+                                case let .progressPhoto(base, photos):
+                                    TimelinePhotoCard(base: base, photos: photos) {
+                                        selectedPhoto = 0
+                                        photoSession = PhotoSession(id: base.id, photos: photos)
+                                    }
+                                case let .measurements(base, values):
+                                    MeasurementArchiveCard(values: values, previous: previousMeasurements(before: base.occurredAt))
+                                default:
+                                    TimelineMediaRow(event: event)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .sheet(item: $photoSession) { session in
+            PhotoGalleryView(photos: session.photos, selection: $selectedPhoto)
+        }
+        .accessibilityIdentifier("timeline.archive")
+    }
+
+    private var bodyEvents: [TimelineEvent] {
+        events.filter { event in
+            switch event {
+            case let .progressPhoto(base, _): base.id != excludingPhotoEventID
+            case .measurements, .inbody: true
+            case .workout, .nutritionEntry, .unsupported: false
+            }
+        }
+    }
+
+    private var measurementEvents: [(EventBase, BodyMeasurements)] {
+        events.compactMap { if case let .measurements(base, values) = $0 { return (base, values) }; return nil }
+            .sorted { $0.0.occurredAt > $1.0.occurredAt }
+    }
+
     private var groupedDays: [(Date, [TimelineEvent])] {
         let groups = Dictionary(grouping: bodyEvents) { Calendar.current.startOfDay(for: $0.base.occurredAt) }
         return groups.keys.sorted(by: >).map { ($0, groups[$0, default: []].sorted { $0.base.occurredAt > $1.base.occurredAt }) }
     }
 
-    private func daySection(day: Date, events: [TimelineEvent]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(dayLabel(day)).font(.system(size: 21, design: .serif)).foregroundStyle(.secondary)
-            ForEach(events) { event in
-                switch event {
-                case let .measurements(_, values): MeasurementArchiveCard(values: values)
-                default: TimelineMediaRow(event: event)
-                }
-            }
-        }
+    private func previousMeasurements(before date: Date) -> BodyMeasurements? {
+        measurementEvents.first { $0.0.occurredAt < date }?.1
     }
 
     private func dayLabel(_ day: Date) -> String {
@@ -140,10 +199,9 @@ struct TimelineView: View {
     }
 }
 
-private enum TimelineSheet: String, Identifiable { case measurements; var id: String { rawValue } }
-
 private struct MeasurementArchiveCard: View {
     let values: BodyMeasurements
+    let previous: BodyMeasurements?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -152,11 +210,14 @@ private struct MeasurementArchiveCard: View {
                     .font(.headline)
                 Spacer()
                 if let weight = values.weightKg {
-                    Text("\(weight.formatted(.number.precision(.fractionLength(0...2)))) \(String(localized: "measurement.kg"))")
-                        .font(.title3.weight(.medium))
+                    VStack(alignment: .trailing, spacing: 2) {
+                        Text("\(weight.formatted(.number.precision(.fractionLength(0...2)))) \(String(localized: "measurement.kg"))")
+                            .font(.title3.weight(.medium))
+                        MeasurementChangeLabel(delta: MeasurementDelta(current: weight, previous: previous?.weightKg), unit: "measurement.kg")
+                    }
                 }
             }
-            FlowMeasurements(values: values)
+            FlowMeasurements(values: values, previous: previous)
         }
         .padding(19)
         .glassEffect(.regular, in: .rect(cornerRadius: 26))
@@ -165,12 +226,13 @@ private struct MeasurementArchiveCard: View {
 
 private struct FlowMeasurements: View {
     let values: BodyMeasurements
-    private var items: [(String, Double?)] { [
-        ("measurement.chest", values.chestCm), ("measurement.waist", values.waistCm),
-        ("measurement.abdomen", values.abdomenCm), ("measurement.arm.relaxed", values.leftBicepCm),
-        ("measurement.arm.flexed", values.leftBicepFlexedCm), ("measurement.forearm", values.forearmCm),
-        ("measurement.hips", values.hipsCm), ("measurement.thigh", values.leftThighCm),
-        ("measurement.calf", values.leftCalfCm)
+    let previous: BodyMeasurements?
+    private var items: [(String, Double?, Double?)] { [
+        ("measurement.chest", values.chestCm, previous?.chestCm), ("measurement.waist", values.waistCm, previous?.waistCm),
+        ("measurement.abdomen", values.abdomenCm, previous?.abdomenCm), ("measurement.arm.relaxed", values.leftBicepCm, previous?.leftBicepCm),
+        ("measurement.arm.flexed", values.leftBicepFlexedCm, previous?.leftBicepFlexedCm), ("measurement.forearm", values.forearmCm, previous?.forearmCm),
+        ("measurement.hips", values.hipsCm, previous?.hipsCm), ("measurement.thigh", values.leftThighCm, previous?.leftThighCm),
+        ("measurement.calf", values.leftCalfCm, previous?.leftCalfCm)
     ] }
 
     var body: some View {
@@ -179,11 +241,111 @@ private struct FlowMeasurements: View {
                 GridRow {
                     Text(LocalizedStringKey(item.0)).foregroundStyle(.secondary)
                     Spacer()
-                    Text("\(item.1!.formatted(.number.precision(.fractionLength(0...1)))) \(String(localized: "measurement.cm"))")
-                        .monospacedDigit()
+                    HStack(spacing: 9) {
+                        MeasurementChangeLabel(delta: MeasurementDelta(current: item.1!, previous: item.2), unit: "measurement.cm")
+                        Text("\(item.1!.formatted(.number.precision(.fractionLength(0...1)))) \(String(localized: "measurement.cm"))")
+                            .monospacedDigit()
+                    }
                 }
                 .font(.subheadline)
             }
+        }
+    }
+}
+
+private struct MeasurementChangeLabel: View {
+    let delta: MeasurementDelta
+    let unit: String
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        if let change = delta.change, let direction = delta.direction {
+            HStack(spacing: 3) {
+                Image(systemName: icon(direction)).font(.caption2.weight(.semibold))
+                if direction != .unchanged {
+                    Text(abs(change).formatted(.number.precision(.fractionLength(0...2))))
+                        .monospacedDigit()
+                    Text(LocalizedStringKey(unit))
+                }
+            }
+            .font(.caption)
+            .foregroundStyle(.tertiary)
+            .accessibilityLabel(accessibilityValue(change: change, direction: direction))
+        }
+    }
+
+    private func icon(_ direction: MeasurementDelta.Direction) -> String {
+        switch direction { case .increased: "arrow.up.right"; case .decreased: "arrow.down.right"; case .unchanged: "minus" }
+    }
+
+    private func accessibilityValue(change: Double, direction: MeasurementDelta.Direction) -> String {
+        let key = switch direction {
+        case .increased: "timeline.change.increased"
+        case .decreased: "timeline.change.decreased"
+        case .unchanged: "timeline.change.unchanged"
+        }
+        if direction == .unchanged {
+            return String(localized: String.LocalizationValue(key), locale: locale)
+        }
+        let label = String(localized: String.LocalizationValue(key), locale: locale)
+        let value = abs(change).formatted(.number.precision(.fractionLength(0...2)).locale(locale))
+        let localizedUnit = String(localized: String.LocalizationValue(unit), locale: locale)
+        return "\(label) \(value) \(localizedUnit)"
+    }
+}
+
+private struct TimelinePhotoCard: View {
+    let base: EventBase
+    let photos: [ProgressPhoto]
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            ZStack(alignment: .bottomLeading) {
+                photo
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 440)
+                    .clipped()
+                LinearGradient(colors: [.clear, .black.opacity(0.72)], startPoint: .center, endPoint: .bottom)
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("timeline.photo.session").font(.headline)
+                        Text(base.occurredAt.formatted(.dateTime.day().month(.wide).year()))
+                            .font(.subheadline).foregroundStyle(.white.opacity(0.72))
+                    }
+                    Spacer()
+                    if photos.count > 1 {
+                        Label("\(photos.count)", systemImage: "photo.on.rectangle.angled")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 11).padding(.vertical, 7)
+                            .glassEffect(.regular, in: .capsule)
+                    }
+                }
+                .padding(18)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .clipShape(.rect(cornerRadius: 28))
+        .overlay { RoundedRectangle(cornerRadius: 28).stroke(.white.opacity(0.12), lineWidth: 0.8) }
+        .accessibilityLabel("timeline.photo.open")
+        .accessibilityIdentifier("timeline.photo.session")
+    }
+
+    @ViewBuilder private var photo: some View {
+        if let first = photos.first, let url = first.thumbnailUrl ?? first.url {
+            AsyncImage(url: url) { phase in
+                if let image = phase.image { image.resizable().scaledToFill() }
+                else if phase.error != nil { placeholder }
+                else { ZStack { placeholder; ProgressView().tint(.white) } }
+            }
+        } else { placeholder }
+    }
+
+    private var placeholder: some View {
+        ZStack {
+            LinearGradient(colors: [Color(red: 0.30, green: 0.25, blue: 0.21), Color(red: 0.10, green: 0.09, blue: 0.08)], startPoint: .top, endPoint: .bottom)
+            Image(systemName: "figure.stand").font(.system(size: 78, weight: .ultraLight)).foregroundStyle(.white.opacity(0.3))
         }
     }
 }

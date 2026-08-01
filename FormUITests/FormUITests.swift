@@ -82,6 +82,8 @@ final class FormUITests: XCTestCase {
         app.scrollViews.firstMatch.swipeUp()
         XCTAssertTrue(details.waitForExistence(timeout: 3))
         XCTAssertTrue(details.isHittable)
+        XCTAssertTrue(app.descendants(matching: .any)["timeline.archive"].exists)
+        attach(XCUIScreen.main.screenshot(), name: "07 Today embedded Timeline")
     }
 
     func testActivityShareSheet() {
@@ -168,19 +170,44 @@ final class FormUITests: XCTestCase {
 
     func testTimelineShowsGroupedBodyRecords() {
         let app = XCUIApplication()
-        app.launchArguments.append("-ui-testing-today")
+        app.launchArguments += ["-ui-testing-today", "-ui-testing-timeline-gallery"]
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
 
         app.tabBars.buttons["Timeline"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["timeline.screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["timeline.photo.session"].exists)
         attach(XCUIScreen.main.screenshot(), name: "04 Timeline")
+
+        app.buttons["timeline.photo.session"].tap()
+        let galleryPager = app.descendants(matching: .any).matching(identifier: "gallery.pager").firstMatch
+        XCTAssertTrue(galleryPager.waitForExistence(timeout: 3))
+        XCTAssertEqual(galleryPager.value as? String, "1")
+        galleryPager.swipeLeft()
+        XCTAssertEqual(galleryPager.value as? String, "2")
+        app.buttons["Done"].tap()
+
+        app.scrollViews.firstMatch.swipeUp()
+        attach(XCUIScreen.main.screenshot(), name: "05 Timeline measurement deltas")
+        app.scrollViews.firstMatch.swipeDown()
 
         app.buttons["timeline.add.measurements"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["measurement.editor"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.textFields["measurement.field.0"].exists)
         XCTAssertTrue(app.textFields["measurement.field.9"].exists)
-        attach(XCUIScreen.main.screenshot(), name: "05 Measurement editor")
+        attach(XCUIScreen.main.screenshot(), name: "06 Measurement editor")
+    }
+
+    func testTodayPhotoOnlyShowsTimelineEmptyState() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-ui-testing-today", "-ui-testing-photo-only"]
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["today.hero"].waitForExistence(timeout: 5))
+        app.scrollViews.firstMatch.swipeUp()
+        app.scrollViews.firstMatch.swipeUp()
+        XCTAssertTrue(app.staticTexts["No entries yet"].waitForExistence(timeout: 3))
     }
 
     func testNutritionVisualQAScreenshots() {

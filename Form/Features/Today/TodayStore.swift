@@ -36,6 +36,8 @@ final class TodayStore {
         latestPhotoEvent?.photos ?? []
     }
 
+    var latestPhotoEventID: String? { latestPhotoEvent?.id }
+
     /// Index of the photo pinned as cover for the latest photo event, or 0 if none is pinned yet.
     var coverPhotoIndex: Int {
         guard let event = latestPhotoEvent, !event.photos.isEmpty else { return 0 }
