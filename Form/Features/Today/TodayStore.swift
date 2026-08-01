@@ -15,6 +15,7 @@ final class TodayStore {
     private(set) var events: [TimelineEvent] = []
     private(set) var activity: WeeklyActivityState = .idle
     private(set) var isRefreshingActivity = false
+    private(set) var isSavingMeasurements = false
 
     private let repository: any TimelineRepository
     private let stepProvider: any StepCountProviding
@@ -81,6 +82,16 @@ final class TodayStore {
         isRefreshingActivity = true
         defer { isRefreshingActivity = false }
         activity = await activitySnapshot(for: now, now: now)
+    }
+
+    func addMeasurements(_ values: BodyMeasurements, on date: Date, timezone: TimeZone = .current) async throws {
+        guard values.hasValues, !isSavingMeasurements else { return }
+        isSavingMeasurements = true
+        defer { isSavingMeasurements = false }
+        let event = try await repository.createMeasurements(occurredAt: date, timezone: timezone, values: values)
+        events.append(event)
+        events.sort { $0.base.occurredAt > $1.base.occurredAt }
+        state = .loaded
     }
 
     func activitySnapshot(for selectedDate: Date, now: Date = .now) async -> WeeklyActivityState {

@@ -16,8 +16,9 @@ final class TodayStoreTests: XCTestCase {
         let latest = EventBase(id: "latest", occurredAt: .now, timezone: "UTC", note: nil)
         let photo = ProgressPhoto(id: "photo", assetId: nil, url: URL(string: "https://example.com/a.jpg"), thumbnailUrl: nil, width: nil, height: nil, alt: "Photo")
         let values = BodyMeasurements(
-            weightKg: 80, waistCm: nil, chestCm: nil, neckCm: nil,
-            leftBicepCm: nil, rightBicepCm: nil, leftThighCm: nil,
+            weightKg: 80, waistCm: nil, abdomenCm: nil, chestCm: nil, neckCm: nil,
+            hipsCm: nil, forearmCm: nil, leftBicepCm: nil, rightBicepCm: nil,
+            leftBicepFlexedCm: nil, rightBicepFlexedCm: nil, leftThighCm: nil,
             rightThighCm: nil, leftCalfCm: nil, rightCalfCm: nil
         )
         let repository = PreviewTimelineRepository(result: .success([

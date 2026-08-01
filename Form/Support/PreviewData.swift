@@ -16,8 +16,9 @@ enum PreviewData {
     static let events: [TimelineEvent] = [
         .progressPhoto(photoBase, []),
         .measurements(measurementBase, BodyMeasurements(
-            weightKg: 78.4, waistCm: 81, chestCm: 104, neckCm: nil,
-            leftBicepCm: nil, rightBicepCm: nil, leftThighCm: nil,
+            weightKg: 83.65, waistCm: 80, abdomenCm: 86, chestCm: 109, neckCm: nil,
+            hipsCm: 102, forearmCm: 31, leftBicepCm: 38, rightBicepCm: 38,
+            leftBicepFlexedCm: 42, rightBicepFlexedCm: 42, leftThighCm: 63,
             rightThighCm: nil, leftCalfCm: nil, rightCalfCm: nil
         ))
     ]
