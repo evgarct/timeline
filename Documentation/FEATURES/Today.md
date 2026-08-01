@@ -25,6 +25,8 @@ On iPhone 15 Pro, the photo and its controls form the complete initial viewport.
 
 The photo itself stays fixed while the foreground document scrolls. Activity requests HealthKit access and refreshes automatically on first appearance and whenever the app becomes active; no placeholder step value is fabricated. Tap refreshes manually. A long press opens a native menu with exactly three actions: set a locally persisted daily goal, open the full-screen detail, and share a generated branded image.
 
+Below the first viewport, Today reuses the same native Timeline archive as the Timeline tab. The hero's latest photo session is omitted from this embedded archive to avoid immediate duplication; measurements, InBody records, and earlier photo sessions keep the same cards, deltas, gallery behavior, and chronology as the full Timeline.
+
 ## Weekly activity contract
 
 - The week is Monday through Sunday in the user's calendar and locale.

@@ -82,6 +82,8 @@ final class FormUITests: XCTestCase {
         app.scrollViews.firstMatch.swipeUp()
         XCTAssertTrue(details.waitForExistence(timeout: 3))
         XCTAssertTrue(details.isHittable)
+        XCTAssertTrue(app.descendants(matching: .any)["timeline.archive"].exists)
+        attach(XCUIScreen.main.screenshot(), name: "07 Today embedded Timeline")
     }
 
     func testActivityShareSheet() {
