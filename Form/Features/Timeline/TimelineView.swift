@@ -129,21 +129,34 @@ struct TimelineArchive: View {
     }
 
     var body: some View {
-        LazyVStack(alignment: .leading, spacing: 26) {
-            ForEach(groupedDays, id: \.0) { day, dayEvents in
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(dayLabel(day)).font(.system(size: 21, design: .serif)).foregroundStyle(.secondary)
-                    ForEach(dayEvents) { event in
-                        switch event {
-                        case let .progressPhoto(base, photos):
-                            TimelinePhotoCard(base: base, photos: photos) {
-                                selectedPhoto = 0
-                                photoSession = PhotoSession(id: base.id, photos: photos)
+        Group {
+            if bodyEvents.isEmpty {
+                ContentUnavailableView(
+                    "timeline.empty",
+                    systemImage: "clock",
+                    description: Text("timeline.empty.description")
+                )
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 44)
+                .accessibilityIdentifier("timeline.archive.empty")
+            } else {
+                LazyVStack(alignment: .leading, spacing: 26) {
+                    ForEach(groupedDays, id: \.0) { day, dayEvents in
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text(dayLabel(day)).font(.system(size: 21, design: .serif)).foregroundStyle(.secondary)
+                            ForEach(dayEvents) { event in
+                                switch event {
+                                case let .progressPhoto(base, photos):
+                                    TimelinePhotoCard(base: base, photos: photos) {
+                                        selectedPhoto = 0
+                                        photoSession = PhotoSession(id: base.id, photos: photos)
+                                    }
+                                case let .measurements(base, values):
+                                    MeasurementArchiveCard(values: values, previous: previousMeasurements(before: base.occurredAt))
+                                default:
+                                    TimelineMediaRow(event: event)
+                                }
                             }
-                        case let .measurements(base, values):
-                            MeasurementArchiveCard(values: values, previous: previousMeasurements(before: base.occurredAt))
-                        default:
-                            TimelineMediaRow(event: event)
                         }
                     }
                 }
@@ -243,6 +256,7 @@ private struct FlowMeasurements: View {
 private struct MeasurementChangeLabel: View {
     let delta: MeasurementDelta
     let unit: String
+    @Environment(\.locale) private var locale
 
     var body: some View {
         if let change = delta.change, let direction = delta.direction {
@@ -270,8 +284,13 @@ private struct MeasurementChangeLabel: View {
         case .decreased: "timeline.change.decreased"
         case .unchanged: "timeline.change.unchanged"
         }
-        if direction == .unchanged { return String(localized: String.LocalizationValue(key)) }
-        return "\(String(localized: String.LocalizationValue(key))) \(abs(change).formatted(.number.precision(.fractionLength(0...2)))) \(String(localized: String.LocalizationValue(unit)))"
+        if direction == .unchanged {
+            return String(localized: String.LocalizationValue(key), locale: locale)
+        }
+        let label = String(localized: String.LocalizationValue(key), locale: locale)
+        let value = abs(change).formatted(.number.precision(.fractionLength(0...2)).locale(locale))
+        let localizedUnit = String(localized: String.LocalizationValue(unit), locale: locale)
+        return "\(label) \(value) \(localizedUnit)"
     }
 }
 

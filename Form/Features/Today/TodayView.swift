@@ -461,3 +461,14 @@ private struct MetricSummaryColumn: View {
         onSignOut: {}
     )
 }
+
+#Preview("Today photo only") {
+    TodayView(
+        store: TodayStore(
+            repository: PreviewTimelineRepository(result: .success([.progressPhoto(PreviewData.photoBase, [])])),
+            steps: PreviewStepCountProvider()
+        ),
+        nutritionStore: NutritionStore(repository: PreviewNutritionRepository()),
+        onSignOut: {}
+    )
+}

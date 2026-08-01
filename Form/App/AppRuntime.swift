@@ -31,9 +31,14 @@ final class AppRuntime {
     static func live(bundle: Bundle = .main) -> AppRuntime {
         #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-ui-testing-today") {
-            let timelineEvents = ProcessInfo.processInfo.arguments.contains("-ui-testing-timeline-gallery")
-                ? PreviewData.galleryEvents
-                : PreviewData.events
+            let timelineEvents: [TimelineEvent]
+            if ProcessInfo.processInfo.arguments.contains("-ui-testing-photo-only") {
+                timelineEvents = [.progressPhoto(PreviewData.photoBase, [])]
+            } else if ProcessInfo.processInfo.arguments.contains("-ui-testing-timeline-gallery") {
+                timelineEvents = PreviewData.galleryEvents
+            } else {
+                timelineEvents = PreviewData.events
+            }
             return AppRuntime(
                 authentication: PreviewAuthenticationClient(signedIn: true),
                 todayStore: TodayStore(

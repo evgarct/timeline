@@ -198,6 +198,18 @@ final class FormUITests: XCTestCase {
         attach(XCUIScreen.main.screenshot(), name: "06 Measurement editor")
     }
 
+    func testTodayPhotoOnlyShowsTimelineEmptyState() {
+        let app = XCUIApplication()
+        app.launchArguments += ["-ui-testing-today", "-ui-testing-photo-only"]
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        XCTAssertTrue(app.descendants(matching: .any)["today.hero"].waitForExistence(timeout: 5))
+        app.scrollViews.firstMatch.swipeUp()
+        app.scrollViews.firstMatch.swipeUp()
+        XCTAssertTrue(app.staticTexts["No entries yet"].waitForExistence(timeout: 3))
+    }
+
     func testNutritionVisualQAScreenshots() {
         let app = XCUIApplication()
         app.launchArguments.append("-ui-testing-today")
