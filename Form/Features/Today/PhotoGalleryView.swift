@@ -29,9 +29,12 @@ struct PhotoGalleryView: View {
                         }
                     }
                     .tag(index)
+                    .accessibilityIdentifier("gallery.photo.\(index)")
                 }
             }
             .tabViewStyle(.page)
+            .accessibilityIdentifier("gallery.pager")
+            .accessibilityValue(Text("\(selection + 1)"))
             .background(Color.black)
             .navigationTitle("action.allPhotos")
             .navigationBarTitleDisplayMode(.inline)

@@ -170,7 +170,7 @@ final class FormUITests: XCTestCase {
 
     func testTimelineShowsGroupedBodyRecords() {
         let app = XCUIApplication()
-        app.launchArguments.append("-ui-testing-today")
+        app.launchArguments += ["-ui-testing-today", "-ui-testing-timeline-gallery"]
         app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
 
@@ -178,6 +178,14 @@ final class FormUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["timeline.screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["timeline.photo.session"].exists)
         attach(XCUIScreen.main.screenshot(), name: "04 Timeline")
+
+        app.buttons["timeline.photo.session"].tap()
+        let galleryPager = app.descendants(matching: .any).matching(identifier: "gallery.pager").firstMatch
+        XCTAssertTrue(galleryPager.waitForExistence(timeout: 3))
+        XCTAssertEqual(galleryPager.value as? String, "1")
+        galleryPager.swipeLeft()
+        XCTAssertEqual(galleryPager.value as? String, "2")
+        app.buttons["Done"].tap()
 
         app.scrollViews.firstMatch.swipeUp()
         attach(XCUIScreen.main.screenshot(), name: "05 Timeline measurement deltas")

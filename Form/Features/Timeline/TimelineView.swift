@@ -121,6 +121,7 @@ struct TimelineArchive: View {
     let events: [TimelineEvent]
     var excludingPhotoEventID: String?
     @State private var photoSession: PhotoSession?
+    @State private var selectedPhoto = 0
 
     init(events: [TimelineEvent], excludingPhotoEventID: String? = nil) {
         self.events = events
@@ -136,6 +137,7 @@ struct TimelineArchive: View {
                         switch event {
                         case let .progressPhoto(base, photos):
                             TimelinePhotoCard(base: base, photos: photos) {
+                                selectedPhoto = 0
                                 photoSession = PhotoSession(id: base.id, photos: photos)
                             }
                         case let .measurements(base, values):
@@ -148,7 +150,7 @@ struct TimelineArchive: View {
             }
         }
         .sheet(item: $photoSession) { session in
-            PhotoGalleryView(photos: session.photos, selection: .constant(0))
+            PhotoGalleryView(photos: session.photos, selection: $selectedPhoto)
         }
         .accessibilityIdentifier("timeline.archive")
     }

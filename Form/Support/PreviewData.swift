@@ -34,4 +34,11 @@ enum PreviewData {
             rightThighCm: 63, leftCalfCm: 40, rightCalfCm: 40
         ))
     ]
+
+    static let galleryEvents: [TimelineEvent] = [
+        .progressPhoto(photoBase, [
+            ProgressPhoto(id: "preview-photo-1", assetId: nil, url: nil, thumbnailUrl: nil, width: 1200, height: 1600, alt: "Front"),
+            ProgressPhoto(id: "preview-photo-2", assetId: nil, url: nil, thumbnailUrl: nil, width: 1200, height: 1600, alt: "Side")
+        ])
+    ] + Array(events.dropFirst())
 }
