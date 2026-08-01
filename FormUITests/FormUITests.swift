@@ -175,6 +175,12 @@ final class FormUITests: XCTestCase {
         app.tabBars.buttons["Timeline"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["timeline.screen"].waitForExistence(timeout: 5))
         attach(XCUIScreen.main.screenshot(), name: "04 Timeline")
+
+        app.buttons["timeline.add.measurements"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["measurement.editor"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.textFields["measurement.field.0"].exists)
+        XCTAssertTrue(app.textFields["measurement.field.9"].exists)
+        attach(XCUIScreen.main.screenshot(), name: "05 Measurement editor")
     }
 
     func testNutritionVisualQAScreenshots() {

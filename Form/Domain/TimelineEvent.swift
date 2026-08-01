@@ -13,14 +13,34 @@ struct ProgressPhoto: Codable, Identifiable, Hashable, Sendable {
 struct BodyMeasurements: Codable, Equatable, Sendable {
     let weightKg: Double?
     let waistCm: Double?
+    let abdomenCm: Double?
     let chestCm: Double?
     let neckCm: Double?
+    let hipsCm: Double?
+    let forearmCm: Double?
     let leftBicepCm: Double?
     let rightBicepCm: Double?
+    let leftBicepFlexedCm: Double?
+    let rightBicepFlexedCm: Double?
     let leftThighCm: Double?
     let rightThighCm: Double?
     let leftCalfCm: Double?
     let rightCalfCm: Double?
+}
+
+extension BodyMeasurements {
+    static let empty = BodyMeasurements(
+        weightKg: nil, waistCm: nil, abdomenCm: nil, chestCm: nil, neckCm: nil,
+        hipsCm: nil, forearmCm: nil, leftBicepCm: nil, rightBicepCm: nil,
+        leftBicepFlexedCm: nil, rightBicepFlexedCm: nil, leftThighCm: nil,
+        rightThighCm: nil, leftCalfCm: nil, rightCalfCm: nil
+    )
+
+    var hasValues: Bool {
+        [weightKg, waistCm, abdomenCm, chestCm, neckCm, hipsCm, forearmCm,
+         leftBicepCm, rightBicepCm, leftBicepFlexedCm, rightBicepFlexedCm,
+         leftThighCm, rightThighCm, leftCalfCm, rightCalfCm].contains { $0 != nil }
+    }
 }
 
 enum TimelineEvent: Identifiable, Equatable, Sendable {
