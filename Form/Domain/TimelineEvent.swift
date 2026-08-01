@@ -43,6 +43,20 @@ extension BodyMeasurements {
     }
 }
 
+struct MeasurementDelta: Equatable, Sendable {
+    let current: Double
+    let previous: Double?
+
+    var change: Double? { previous.map { current - $0 } }
+    var direction: Direction? {
+        guard let change else { return nil }
+        if abs(change) < 0.005 { return .unchanged }
+        return change > 0 ? .increased : .decreased
+    }
+
+    enum Direction: Equatable, Sendable { case increased, decreased, unchanged }
+}
+
 enum TimelineEvent: Identifiable, Equatable, Sendable {
     case progressPhoto(EventBase, [ProgressPhoto])
     case measurements(EventBase, BodyMeasurements)

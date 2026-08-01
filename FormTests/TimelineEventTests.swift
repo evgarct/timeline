@@ -2,6 +2,13 @@ import XCTest
 @testable import Form
 
 final class TimelineEventTests: XCTestCase {
+    func testMeasurementDeltaPreservesDirectionWithoutJudgement() {
+        XCTAssertEqual(MeasurementDelta(current: 81, previous: 80).direction, .increased)
+        XCTAssertEqual(MeasurementDelta(current: 79.25, previous: 80).direction, .decreased)
+        XCTAssertEqual(MeasurementDelta(current: 80, previous: 80).direction, .unchanged)
+        XCTAssertNil(MeasurementDelta(current: 80, previous: nil).direction)
+    }
+
     func testDecodesProgressPhotoWithFractionalDate() throws {
         let data = Data(#"[{"id":"event-1","type":"progress_photo","occurredAt":"2026-07-17T12:00:00.000Z","timezone":"Europe/Prague","photos":[{"id":"photo-1","assetId":"asset-1","url":"https://example.com/photo.jpg","alt":"Front"}]}]"#.utf8)
         let events = try JSONDecoder.formAPI.decode([TimelineEvent].self, from: data)

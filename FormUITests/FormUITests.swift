@@ -174,13 +174,18 @@ final class FormUITests: XCTestCase {
 
         app.tabBars.buttons["Timeline"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["timeline.screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["timeline.photo.session"].exists)
         attach(XCUIScreen.main.screenshot(), name: "04 Timeline")
+
+        app.scrollViews.firstMatch.swipeUp()
+        attach(XCUIScreen.main.screenshot(), name: "05 Timeline measurement deltas")
+        app.scrollViews.firstMatch.swipeDown()
 
         app.buttons["timeline.add.measurements"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["measurement.editor"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.textFields["measurement.field.0"].exists)
         XCTAssertTrue(app.textFields["measurement.field.9"].exists)
-        attach(XCUIScreen.main.screenshot(), name: "05 Measurement editor")
+        attach(XCUIScreen.main.screenshot(), name: "06 Measurement editor")
     }
 
     func testNutritionVisualQAScreenshots() {
