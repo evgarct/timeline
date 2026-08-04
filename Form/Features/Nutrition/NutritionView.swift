@@ -268,36 +268,32 @@ struct NutritionView: View {
     /// Whole-day total, above the per-meal breakdown — otherwise the day's overall calories/macros
     /// are never visible without adding up every meal by eye. Plain typography directly on the
     /// background, no boxed panel — the numbers themselves carry the hierarchy (largest figures on
-    /// the screen), matching the rest of the journal below it. The goals-edit button shares the
-    /// numbers row's leading edge instead of living only in the overflow menu, so the day's targets
-    /// stay one tap away from the figures they apply to.
+    /// the screen), matching the rest of the journal below it. Uses the exact same 18pt inset as
+    /// `mealSection`'s card padding (`.padding(.horizontal, 18)` below) so its macro columns land in
+    /// the same x-position as every meal's own subtotal row — the goals button floats in the outer
+    /// margin via `.overlay`, not in the row's normal flow, so it never pushes the numbers themselves
+    /// out of that shared column grid.
     private var daySummary: some View {
         let summary = NutritionSummary(entries: store.entries)
         let hasAnyGoal = goals.calories != nil || goals.protein != nil || goals.fat != nil || goals.carbohydrates != nil
         return VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 10) {
-                Color.clear.frame(width: daySummaryLeadingWidth)
-                MacroColumnsHeader()
-            }
-            HStack(spacing: 10) {
-                Button { goalsEditorPresented = true } label: {
-                    Image(systemName: "target").frame(width: daySummaryLeadingWidth, height: daySummaryLeadingWidth)
+            MacroColumnsHeader()
+            MacroColumns(summary: summary, font: .title2.weight(.semibold))
+                .overlay(alignment: .leading) {
+                    Button { goalsEditorPresented = true } label: {
+                        Image(systemName: "target").frame(width: 28, height: 28)
+                    }
+                    .buttonStyle(.glass)
+                    .offset(x: -36)
+                    .accessibilityLabel("nutrition.goals.edit")
+                    .accessibilityIdentifier("nutrition.goals.edit")
                 }
-                .buttonStyle(.glass)
-                .accessibilityLabel("nutrition.goals.edit")
-                .accessibilityIdentifier("nutrition.goals.edit")
-                MacroColumns(summary: summary, font: .title2.weight(.semibold))
-            }
             if hasAnyGoal {
-                HStack(spacing: 10) {
-                    Color.clear.frame(width: daySummaryLeadingWidth)
-                    MacroGoalColumns(summary: summary, goals: goals)
-                }
+                MacroGoalColumns(summary: summary, goals: goals)
             }
         }
+        .padding(.horizontal, 18)
     }
-
-    private var daySummaryLeadingWidth: CGFloat { 32 }
 
     private func mealSection(_ meal: MealType) -> some View {
         let values = store.entries(for: meal)
