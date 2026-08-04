@@ -317,6 +317,7 @@ private struct ProductSearchSheet: View {
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
     @State private var selection: NutritionProduct?
+    @State private var scannerPresented = false
 
     var body: some View {
         NavigationStack {
@@ -343,17 +344,33 @@ private struct ProductSearchSheet: View {
             .searchable(text: $query, prompt: "nutrition.search")
             .navigationTitle("nutrition.add")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { scannerPresented = true } label: {
+                        Image(systemName: "barcode.viewfinder")
+                    }
+                }
+            }
             .task { await store.beginBrowsing(meal: meal) }
             .task(id: query) {
                 guard !query.isEmpty else { return }
                 try? await Task.sleep(for: .milliseconds(300))
                 guard !Task.isCancelled else { return }
                 await store.search(query)
+                if let match = store.products.first(where: { $0.barcode == query }) {
+                    selection = match
+                }
             }
             .sheet(item: $selection) { product in
                 QuantityEditor(product: product, meal: meal) { quantity in
                     try await store.add(product: product, meal: meal, quantity: quantity)
                     dismiss()
+                }
+            }
+            .fullScreenCover(isPresented: $scannerPresented) {
+                BarcodeScannerView { code in
+                    scannerPresented = false
+                    query = code
                 }
             }
         }
@@ -457,7 +474,9 @@ private struct QuantityEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State private var amount = 100.0
     @State private var pieceSelection: PieceSizeOption?
+    @State private var servingSelection: ServingSizeOption?
     @State private var baseSelection: NutrientBase?
+    @State private var count = 1.0
     @State private var saving = false
     @State private var nutrientsPresented = false
     @FocusState private var amountFocused: Bool
@@ -467,9 +486,16 @@ private struct QuantityEditor: View {
     }
 
     private var quantity: FoodQuantity {
-        if let pieceSelection { return .pieces(1, size: pieceSelection.size) }
+        if let pieceSelection { return .pieces(count, size: pieceSelection.size) }
+        if let servingSelection { return .serving(count, label: servingSelection.label, servingSizeId: nil) }
         let effectiveAmount = baseSelection?.amount ?? amount
         return product.baseUnit == "ml" ? .milliliters(effectiveAmount) : .grams(effectiveAmount)
+    }
+
+    private var computedGrams: Double {
+        if let pieceSelection { return pieceSelection.grams * count }
+        if let servingSelection { return servingSelection.amount * count }
+        return 0
     }
 
     private var preview: NutritionSummary {
@@ -497,7 +523,9 @@ private struct QuantityEditor: View {
 
                     quickSelect
 
-                    if pieceSelection == nil && baseSelection == nil {
+                    if pieceSelection != nil || servingSelection != nil {
+                        countStepper
+                    } else if baseSelection == nil {
                         amountField
                     }
 
@@ -548,7 +576,7 @@ private struct QuantityEditor: View {
     }
 
     private var currentAmount: Double {
-        if pieceSelection != nil { return 1 }
+        if pieceSelection != nil || servingSelection != nil { return count }
         if let baseSelection { return baseSelection.amount }
         return amount
     }
@@ -567,28 +595,33 @@ private struct QuantityEditor: View {
                 Text("nutrition.quickSelect").font(.caption).foregroundStyle(.secondary)
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        chip(label: "100 \(unitLabel)", isSelected: pieceSelection == nil && baseSelection == nil && amount == 100) {
+                        chip(label: "100 \(unitLabel)", isSelected: pieceSelection == nil && servingSelection == nil && baseSelection == nil && amount == 100) {
                             pieceSelection = nil
+                            servingSelection = nil
                             baseSelection = nil
                             amount = 100
                         }
                         ForEach(product.alternateBases) { base in
                             chip(label: base.label, isSelected: baseSelection == base) {
                                 pieceSelection = nil
+                                servingSelection = nil
                                 baseSelection = base
                             }
                         }
                         ForEach(dedupedServingSizes) { serving in
-                            chip(label: serving.label, isSelected: pieceSelection == nil && baseSelection == nil && amount == serving.amount) {
+                            chip(label: serving.label, isSelected: servingSelection == serving) {
                                 pieceSelection = nil
                                 baseSelection = nil
-                                amount = serving.amount
+                                servingSelection = serving
+                                count = 1
                             }
                         }
                         ForEach(product.pieceSizes) { piece in
                             chip(label: pieceLabel(piece), isSelected: pieceSelection == piece) {
                                 pieceSelection = piece
+                                servingSelection = nil
                                 baseSelection = nil
+                                count = 1
                             }
                         }
                     }
@@ -624,6 +657,29 @@ private struct QuantityEditor: View {
                 .multilineTextAlignment(.trailing)
                 .focused($amountFocused)
             Text(unitLabel).foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 8)
+    }
+
+    private var countStepper: some View {
+        HStack {
+            Text(pieceSelection?.size ?? servingSelection?.label ?? "").foregroundStyle(.secondary)
+            Spacer()
+            HStack(spacing: 16) {
+                Button { count = max(1, count - 1) } label: {
+                    Image(systemName: "minus.circle.fill")
+                }
+                Text(count.formatted(.number.precision(.fractionLength(0))))
+                    .monospacedDigit()
+                    .frame(minWidth: 24)
+                Button { count += 1 } label: {
+                    Image(systemName: "plus.circle.fill")
+                }
+            }
+            .buttonStyle(.plain)
+            .font(.title3)
+            Text("(\(computedGrams.formatted(.number.precision(.fractionLength(0)))) \(unitLabel))")
+                .foregroundStyle(.tertiary)
         }
         .padding(.vertical, 8)
     }
