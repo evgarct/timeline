@@ -335,6 +335,19 @@ struct NutritionView: View {
                 }
                 .buttonStyle(.plain)
                 Spacer(minLength: 8)
+                Button {
+                    Task { await store.repeatPreviousDay(meal: meal) }
+                } label: {
+                    if store.isRepeatingMeal.contains(meal) {
+                        ProgressView().controlSize(.small).frame(width: 30, height: 30)
+                    } else {
+                        Image(systemName: "arrow.clockwise").font(.subheadline).frame(width: 30, height: 30)
+                    }
+                }
+                .buttonStyle(.glass)
+                .disabled(store.isRepeatingMeal.contains(meal))
+                .accessibilityLabel("nutrition.repeat")
+                .accessibilityIdentifier("nutrition.repeat.\(meal.rawValue)")
                 Button { addMeal = meal } label: {
                     Image(systemName: "plus").font(.subheadline).frame(width: 30, height: 30)
                 }
@@ -893,7 +906,7 @@ private struct NutritionGoalsEditor: View {
                 Spacer()
             }
             .padding(.horizontal, 24)
-            .padding(.top, 8)
+            .padding(.top, 24)
             .padding(.bottom, 40)
             .background { nutritionBackgroundGradient() }
             .toolbar(.hidden, for: .navigationBar)

@@ -168,6 +168,25 @@ final class FormUITests: XCTestCase {
         XCTAssertEqual(app.textFields["nutrition.goals.field.protein"].value as? String, "150")
     }
 
+    func testNutritionRepeatMealDoesNotCrash() {
+        let app = XCUIApplication()
+        app.launchArguments.append("-ui-testing-today")
+        app.launchArguments += ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        app.launch()
+
+        app.tabBars.buttons["Nutrition"].tap()
+        XCTAssertTrue(app.descendants(matching: .any)["nutrition.screen"].waitForExistence(timeout: 5))
+
+        let repeatBreakfast = app.buttons["nutrition.repeat.breakfast"]
+        XCTAssertTrue(repeatBreakfast.waitForExistence(timeout: 5))
+        repeatBreakfast.tap()
+        // Preview data has no real "yesterday" to copy from, so this is a crash/hang guard: tapping
+        // must leave the journal alive and responsive, whatever it decides to show (an empty-source
+        // alert or a silent no-op are both acceptable here).
+        XCTAssertTrue(app.descendants(matching: .any)["nutrition.screen"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["Breakfast"].exists)
+    }
+
     func testTimelineShowsGroupedBodyRecords() {
         let app = XCUIApplication()
         app.launchArguments += ["-ui-testing-today", "-ui-testing-timeline-gallery"]

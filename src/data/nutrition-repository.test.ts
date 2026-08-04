@@ -305,4 +305,73 @@ describe("memory nutrition repository", () => {
     expect(entry.quantity).toEqual({ unit: "serving", amount: 2, servingSizeId: assignedId });
     expect(entry.productSnapshot.nutrients.find((value) => value.key === "energy_kcal")?.value).toBeCloseTo(80 * 2.02, 5);
   });
+
+  it("repeats a meal's entries into another day, additively and idempotently, for both catalog and ad hoc entries", async () => {
+    const product = await repository.upsertProduct(userId, { ...productInput, barcode: "8591234567555", name: "Repeat product" });
+    await repository.recordFood(userId, {
+      productId: product.id,
+      mealType: "breakfast",
+      quantity: { unit: "g", amount: 150 },
+      occurredAt: new Date("2026-08-03T08:00:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "repeat-source-product"
+    });
+    await repository.recordAdHocFood(userId, {
+      mealType: "breakfast",
+      name: "Home-cooked oats",
+      quantityLabel: "1 bowl",
+      nutrients: [{ key: "energy_kcal", label: "Energy", value: 300, unit: "kcal", provenance: "estimated" }],
+      occurredAt: new Date("2026-08-03T08:05:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "repeat-source-adhoc"
+    });
+    await repository.recordFood(userId, {
+      productId: product.id,
+      mealType: "lunch",
+      quantity: { unit: "g", amount: 100 },
+      occurredAt: new Date("2026-08-03T12:00:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "repeat-source-other-meal"
+    });
+    const preExisting = await repository.recordAdHocFood(userId, {
+      mealType: "breakfast",
+      name: "Already logged today",
+      quantityLabel: "1 serving",
+      nutrients: [{ key: "energy_kcal", label: "Energy", value: 50, unit: "kcal", provenance: "estimated" }],
+      occurredAt: new Date("2026-08-04T07:00:00.000Z"),
+      timezone: "UTC",
+      idempotencyKey: "repeat-target-preexisting"
+    });
+
+    const copied = await repository.repeatMeal(userId, {
+      mealType: "breakfast",
+      sourceDate: "2026-08-03",
+      targetDate: "2026-08-04",
+      timezone: "UTC"
+    });
+
+    expect(copied).toHaveLength(2);
+    expect(copied.some((entry) => entry.productId === product.id)).toBe(true);
+    expect(copied.some((entry) => entry.productSnapshot.name === "Home-cooked oats")).toBe(true);
+
+    const targetEntries = await repository.listFoodEntries(userId, "2026-08-04", "UTC", { mealType: "breakfast" });
+    expect(targetEntries).toHaveLength(3);
+    expect(targetEntries.some((entry) => entry.id === preExisting.id)).toBe(true);
+
+    const retried = await repository.repeatMeal(userId, {
+      mealType: "breakfast",
+      sourceDate: "2026-08-03",
+      targetDate: "2026-08-04",
+      timezone: "UTC"
+    });
+    expect(retried.map((entry) => entry.id).sort()).toEqual(copied.map((entry) => entry.id).sort());
+    expect(await repository.listFoodEntries(userId, "2026-08-04", "UTC", { mealType: "breakfast" })).toHaveLength(3);
+
+    expect(await repository.repeatMeal(userId, {
+      mealType: "snack",
+      sourceDate: "2026-08-03",
+      targetDate: "2026-08-04",
+      timezone: "UTC"
+    })).toHaveLength(0);
+  });
 });
