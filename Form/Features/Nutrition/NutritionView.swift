@@ -266,24 +266,38 @@ struct NutritionView: View {
     }
 
     /// Whole-day total, above the per-meal breakdown — otherwise the day's overall calories/macros
-    /// are never visible without adding up every meal by eye. Grouped in one glass surface (see
-    /// docs/DESIGN.md's revised nutrition pattern) so it reads as the screen's single anchor figure
-    /// rather than floating text at the top of an otherwise ungrouped list.
+    /// are never visible without adding up every meal by eye. Plain typography directly on the
+    /// background, no boxed panel — the numbers themselves carry the hierarchy (largest figures on
+    /// the screen), matching the rest of the journal below it. The goals-edit button shares the
+    /// numbers row's leading edge instead of living only in the overflow menu, so the day's targets
+    /// stay one tap away from the figures they apply to.
     private var daySummary: some View {
         let summary = NutritionSummary(entries: store.entries)
         let hasAnyGoal = goals.calories != nil || goals.protein != nil || goals.fat != nil || goals.carbohydrates != nil
-        return VStack(alignment: .leading, spacing: 12) {
-            Text("nutrition.report.table.dayTotal")
-                .font(.title3.weight(.semibold))
-            MacroColumnsHeader()
-            MacroColumns(summary: summary, font: .title2.weight(.semibold))
+        return VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 10) {
+                Color.clear.frame(width: daySummaryLeadingWidth)
+                MacroColumnsHeader()
+            }
+            HStack(spacing: 10) {
+                Button { goalsEditorPresented = true } label: {
+                    Image(systemName: "target").frame(width: daySummaryLeadingWidth, height: daySummaryLeadingWidth)
+                }
+                .buttonStyle(.glass)
+                .accessibilityLabel("nutrition.goals.edit")
+                .accessibilityIdentifier("nutrition.goals.edit")
+                MacroColumns(summary: summary, font: .title2.weight(.semibold))
+            }
             if hasAnyGoal {
-                MacroGoalColumns(summary: summary, goals: goals)
+                HStack(spacing: 10) {
+                    Color.clear.frame(width: daySummaryLeadingWidth)
+                    MacroGoalColumns(summary: summary, goals: goals)
+                }
             }
         }
-        .padding(18)
-        .glassEffect(.regular, in: .rect(cornerRadius: 26))
     }
+
+    private var daySummaryLeadingWidth: CGFloat { 32 }
 
     private func mealSection(_ meal: MealType) -> some View {
         let values = store.entries(for: meal)
