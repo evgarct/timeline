@@ -12,7 +12,7 @@ Connection and verification steps are documented in [MCP.md](../MCP.md).
 
 Breakfast, lunch, dinner, and snack entries are Timeline events. Entries accept grams, milliliters, or a product-specific piece size. Their full scaled nutrient snapshot is durable history. The native app can search the complete catalog, add food, and edit or delete journal entries on past, current, or future days.
 
-The daily surface shows calories and protein/fat/carbohydrates without targets. Full macro- and micronutrient details are disclosed on demand and mark calculated or estimated data.
+The daily surface shows calories and protein/fat/carbohydrates, with an optional percentage-of-goal row under any macro whose target is set. Full macro- and micronutrient details are disclosed on demand and mark calculated or estimated data.
 
 ## Daily PDF report
 

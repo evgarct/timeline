@@ -276,6 +276,23 @@ struct NutritionGoals: Equatable, Sendable {
     var carbohydrates: Double?
 }
 
+/// Achieved/under/over relative to a user-set goal — a ±10% band counts as "on target" so ordinary
+/// day-to-day noise doesn't flip the signal. Shared between the exported PDF report and the live
+/// nutrition screen so both places agree on what "on target" means.
+enum GoalStatus {
+    case onTarget
+    case under(Double)
+    case over(Double)
+
+    init(actual: Double, goal: Double) {
+        guard goal > 0 else { self = .onTarget; return }
+        let ratio = actual / goal
+        if ratio < 0.9 { self = .under(goal - actual) }
+        else if ratio > 1.1 { self = .over(actual - goal) }
+        else { self = .onTarget }
+    }
+}
+
 extension NutritionGoals: RawRepresentable {
     /// Encodes/decodes through this private nested type rather than making `NutritionGoals` itself
     /// `Codable` — a `Codable` type that also conforms to `RawRepresentable` picks up the stdlib's
