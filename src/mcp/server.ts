@@ -20,6 +20,7 @@ import {
   mergeFoodEntries,
   recordAdHocFood,
   recordFood,
+  repeatMeal,
   searchProducts,
   aggregateNutrients,
   updateFoodEntry,
@@ -303,6 +304,37 @@ export function createTimelineMcpServer(userId: string) {
       });
     } catch (error) {
       return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "entry_save_failed" }], isError: true };
+    }
+  });
+
+  registerAppTool(server, "repeat_meal", {
+    title: "Repeat meal",
+    description: "Copy every entry logged for one meal (breakfast/lunch/dinner/snack) on sourceDate into targetDate, preserving each entry's exact product, quantity, and nutrient snapshot. Always additive — entries already logged for that meal on targetDate are left untouched, never deleted or replaced. Works identically for catalog-backed and ad hoc entries. Safe to retry: repeating the same sourceDate to targetDate pair again does not duplicate already-copied entries.",
+    inputSchema: {
+      mealType: mealTypeSchema,
+      sourceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Local calendar day to copy entries FROM, e.g. 2026-08-03"),
+      targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Local calendar day to copy entries INTO, e.g. 2026-08-04"),
+      timezone: z.string().min(1)
+    },
+    _meta: appMeta
+  }, async ({ mealType, sourceDate, targetDate, timezone }) => {
+    try {
+      const copied = await repeatMeal(userId, { mealType, sourceDate, targetDate, timezone });
+      const text = itemizeText(
+        copied.length,
+        "entries copied",
+        copied.map((entry) => `${entry.productSnapshot.name} (id: ${entry.id})`),
+        copied.length
+      );
+      return result(
+        "Meal repeated",
+        `${copied.length} entries copied from ${sourceDate} to ${targetDate}`,
+        { entries: copied },
+        [],
+        { text: copied.length ? text : `No ${mealType} entries found on ${sourceDate} to repeat.` }
+      );
+    } catch (error) {
+      return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "repeat_failed" }], isError: true };
     }
   });
 

@@ -10,6 +10,10 @@ protocol NutritionRepository: Sendable {
     func record(product: NutritionProduct, meal: MealType, quantity: FoodQuantity, date: Date, timezone: TimeZone) async throws -> FoodEntry
     func update(entry: FoodEntry, meal: MealType, quantity: FoodQuantity, date: Date, timezone: TimeZone) async throws -> FoodEntry
     func delete(entryID: String) async throws
+    /// Copies every entry logged for `meal` on `sourceDate` into `targetDate` — additive, never
+    /// touches entries already on `targetDate`. Returns the newly created (or, on retry, already
+    /// existing) entries.
+    func repeatMeal(_ meal: MealType, sourceDate: Date, targetDate: Date, timezone: TimeZone) async throws -> [FoodEntry]
     func submitReport(pdf: Data, ogImage: Data, reportDate: Date, timezone: TimeZone) async throws -> NutritionReportUploadResult
 }
 
@@ -93,6 +97,23 @@ actor RemoteNutritionRepository: NutritionRepository {
         }
     }
 
+    func repeatMeal(_ meal: MealType, sourceDate: Date, targetDate: Date, timezone: TimeZone) async throws -> [FoodEntry] {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = timezone
+        formatter.dateFormat = "yyyy-MM-dd"
+        return try await request(
+            baseURL.appending(path: "api/nutrition/entries/repeat"),
+            method: "POST",
+            body: RepeatMealBody(
+                mealType: meal,
+                sourceDate: formatter.string(from: sourceDate),
+                targetDate: formatter.string(from: targetDate),
+                timezone: timezone.identifier
+            )
+        )
+    }
+
     func submitReport(pdf: Data, ogImage: Data, reportDate: Date, timezone: TimeZone) async throws -> NutritionReportUploadResult {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -154,6 +175,13 @@ actor RemoteNutritionRepository: NutritionRepository {
         let occurredAt: Date
         let timezone: String
     }
+
+    private struct RepeatMealBody: Encodable {
+        let mealType: MealType
+        let sourceDate: String
+        let targetDate: String
+        let timezone: String
+    }
 }
 
 struct PreviewNutritionRepository: NutritionRepository {
@@ -197,6 +225,9 @@ struct PreviewNutritionRepository: NutritionRepository {
         )
     }
     func delete(entryID: String) async throws {}
+    func repeatMeal(_ meal: MealType, sourceDate: Date, targetDate: Date, timezone: TimeZone) async throws -> [FoodEntry] {
+        entriesValue.filter { $0.mealType == meal }
+    }
     func submitReport(pdf: Data, ogImage: Data, reportDate: Date, timezone: TimeZone) async throws -> NutritionReportUploadResult {
         NutritionReportUploadResult(reportId: "preview-report", shareURL: URL(string: "https://example.com/r/preview-report")!)
     }

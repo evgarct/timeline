@@ -212,6 +212,33 @@ final class NutritionStore {
         }
     }
 
+    private(set) var isRepeatingMeal: Set<MealType> = []
+
+    /// Copies yesterday's entries for `meal` into the currently selected day — additive only, never
+    /// touches `selectedDate`/`state`/reloads the whole day, matching `add(product:meal:quantity:)`'s
+    /// existing invariant of just appending to the in-memory cache.
+    func repeatPreviousDay(meal: MealType) async {
+        guard !isRepeatingMeal.contains(meal) else { return }
+        guard let sourceDate = calendar.date(byAdding: .day, value: -1, to: selectedDate) else { return }
+        isRepeatingMeal.insert(meal)
+        defer { isRepeatingMeal.remove(meal) }
+        saveError = nil
+        do {
+            let repeated = try await repository.repeatMeal(
+                meal, sourceDate: sourceDate, targetDate: selectedDate, timezone: timezone
+            )
+            if repeated.isEmpty {
+                saveError = String(localized: "nutrition.repeat.empty")
+                return
+            }
+            let existingIDs = Set(entries.map(\.id))
+            entries.append(contentsOf: repeated.filter { !existingIDs.contains($0.id) })
+            await refreshTodaySummary()
+        } catch {
+            saveError = localizedMessage(for: error)
+        }
+    }
+
     func clearSaveError() {
         saveError = nil
     }

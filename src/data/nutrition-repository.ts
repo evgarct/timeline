@@ -453,6 +453,47 @@ export async function deleteFoodEntry(userId: string, id: string) {
   ));
 }
 
+export interface RepeatMealInput {
+  mealType: RecordFoodInput["mealType"];
+  sourceDate: string;
+  targetDate: string;
+  timezone: string;
+}
+
+// Copies every entry logged for one meal on sourceDate into targetDate, preserving each entry's
+// exact productId (or lack thereof, for ad-hoc entries) and productSnapshot verbatim — no
+// recomputation from the live product, matching the "durable history" semantics entries already
+// have elsewhere. Always additive: existing targetDate entries are left untouched.
+export async function repeatMeal(userId: string, rawInput: RepeatMealInput) {
+  const mealType = mealTypeSchema.parse(rawInput.mealType);
+  const sourceEntries = await listFoodEntries(userId, rawInput.sourceDate, rawInput.timezone, { mealType });
+
+  const copied: NutritionEntryEvent[] = [];
+  for (const source of sourceEntries) {
+    // Deterministic per (source entry, target date) — repeating the same pair again is a no-op,
+    // reusing the same idempotency dedupe recordFood/recordAdHocFood already rely on.
+    const idempotencyKey = `repeat:${source.id}:${rawInput.targetDate}`;
+    const existing = await findEntryByIdempotencyKey(userId, idempotencyKey);
+    if (existing) {
+      copied.push(existing);
+      continue;
+    }
+    const entry = nutritionEntryEventSchema.parse({
+      id: randomUUID(),
+      type: "nutrition_entry",
+      occurredAt: new Date(`${rawInput.targetDate}T12:00:00`),
+      timezone: rawInput.timezone,
+      note: source.note,
+      productId: source.productId,
+      mealType,
+      quantity: source.quantity,
+      productSnapshot: source.productSnapshot
+    });
+    copied.push(await insertNutritionEntry(userId, entry, idempotencyKey));
+  }
+  return copied;
+}
+
 export interface MergeFoodEntriesInput {
   ids: string[];
   mealType?: RecordFoodInput["mealType"];
