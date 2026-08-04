@@ -31,6 +31,7 @@ targets:
         FormAuthBaseURL: "$(FORM_AUTH_BASE_URL)"
         FormAPIBaseURL: "$(FORM_API_BASE_URL)"
         NSHealthShareUsageDescription: Form reads your steps and walking distance to show activity alongside your body timeline.
+        NSCameraUsageDescription: Form uses the camera to scan product barcodes.
         UILaunchScreen: {}
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait

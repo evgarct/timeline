@@ -341,8 +341,12 @@ extension NutritionProduct {
         case let .pieces(count, size):
             guard let option = pieceSizes.first(where: { $0.size == size }) else { return NutritionSummary() }
             amountInBaseUnit = option.grams * count
-        case .serving, .asConsumed:
-            // Server-computed only: the client doesn't have the product's servingSizes catalog here.
+        case let .serving(count, label, servingSizeId):
+            let option = servingSizeId.flatMap { id in servingSizes.first { $0.id == id } }
+                ?? label.flatMap { value in servingSizes.first { $0.label == value } }
+            guard let option else { return NutritionSummary() }
+            amountInBaseUnit = option.amount * count
+        case .asConsumed:
             return NutritionSummary()
         }
         let multiplier = amountInBaseUnit / base.amount
