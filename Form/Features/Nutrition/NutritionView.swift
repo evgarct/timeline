@@ -177,23 +177,39 @@ struct NutritionView: View {
         .accessibilityIdentifier("nutrition.screen")
     }
 
-    /// Compact date navigation and an overflow menu, gathered into the top-right corner — no page title.
+    /// Date-stepper on the left, export on the right — no overflow menu (goals live inline on the day
+    /// total below, all-nutrients moved to the bottom of the page). The three date controls share ONE
+    /// glass capsule instead of each getting its own — three separate pills crammed edge-to-edge read as
+    /// a clump rather than a single control; one shared background reads as the single control it is.
     private var header: some View {
         HStack(spacing: 8) {
-            Spacer()
-            Menu {
-                Button { nutrientsPresented = true } label: {
-                    Label("nutrition.allNutrients", systemImage: "slider.horizontal.3")
+            HStack(spacing: 0) {
+                Button { Task { await store.moveDay(-1) } } label: {
+                    Image(systemName: "chevron.left").frame(width: 32, height: 36)
                 }
-                Button { goalsEditorPresented = true } label: {
-                    Label("nutrition.goals.edit", systemImage: "target")
+                .accessibilityLabel("nutrition.previousDay")
+
+                Button { calendarPresented = true } label: {
+                    Text(dateLabel)
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.horizontal, 8)
+                        .frame(height: 36)
                 }
-            } label: {
-                Image(systemName: "ellipsis").frame(width: 36, height: 36)
+                .accessibilityLabel("nutrition.calendar")
+                .accessibilityIdentifier("nutrition.calendar")
+
+                Button { Task { await store.moveDay(1) } } label: {
+                    Image(systemName: "chevron.right").frame(width: 32, height: 36)
+                }
+                .accessibilityLabel("nutrition.nextDay")
             }
-            .buttonStyle(.glass)
-            .accessibilityLabel("nutrition.moreOptions")
-            .accessibilityIdentifier("nutrition.menu")
+            .buttonStyle(.plain)
+            .padding(.horizontal, 6)
+            .glassEffect(.regular, in: .capsule)
+
+            Spacer()
 
             Button { Task { await exportReport() } } label: {
                 Group {
@@ -209,29 +225,6 @@ struct NutritionView: View {
             .disabled(store.isExportingReport || store.entries.isEmpty)
             .accessibilityLabel("nutrition.export")
             .accessibilityIdentifier("nutrition.export")
-
-            HStack(spacing: 2) {
-                Button { Task { await store.moveDay(-1) } } label: {
-                    Image(systemName: "chevron.left").frame(width: 36, height: 36)
-                }
-                .accessibilityLabel("nutrition.previousDay")
-
-                Button { calendarPresented = true } label: {
-                    Text(dateLabel)
-                        .font(.subheadline.weight(.medium))
-                        .lineLimit(1)
-                        .fixedSize()
-                        .padding(.horizontal, 10)
-                        .frame(height: 36)
-                }
-                .accessibilityLabel("nutrition.calendar")
-
-                Button { Task { await store.moveDay(1) } } label: {
-                    Image(systemName: "chevron.right").frame(width: 36, height: 36)
-                }
-                .accessibilityLabel("nutrition.nextDay")
-            }
-            .buttonStyle(.glass)
         }
         .padding(.top, 8)
     }
@@ -257,12 +250,31 @@ struct NutritionView: View {
             ContentUnavailableView("nutrition.error", systemImage: "wifi.exclamationmark", description: Text(errorDescription))
         } else {
             VStack(alignment: .leading, spacing: 20) {
-                if !store.entries.isEmpty { daySummary }
+                daySummary
                 ForEach(MealType.allCases, id: \.self) { meal in
                     mealSection(meal)
                 }
+                allNutrientsRow
             }
         }
+    }
+
+    /// Moved here from the removed overflow menu — the bottom of the page, after every meal, is where
+    /// a "see everything" action belongs once it's no longer competing for space in the header.
+    private var allNutrientsRow: some View {
+        Button { nutrientsPresented = true } label: {
+            HStack {
+                Text("nutrition.allNutrients")
+                Spacer()
+                Image(systemName: "chevron.right").foregroundStyle(.tertiary)
+            }
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 8)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("nutrition.allNutrients")
     }
 
     /// Whole-day total, above the per-meal breakdown — otherwise the day's overall calories/macros
@@ -281,10 +293,11 @@ struct NutritionView: View {
             MacroColumns(summary: summary, font: .title2.weight(.semibold))
                 .overlay(alignment: .leading) {
                     Button { goalsEditorPresented = true } label: {
-                        Image(systemName: "target").frame(width: 28, height: 28)
+                        Image(systemName: "target")
                     }
                     .buttonStyle(.glass)
-                    .offset(x: -36)
+                    .frame(width: 28, height: 28)
+                    .offset(x: -32)
                     .accessibilityLabel("nutrition.goals.edit")
                     .accessibilityIdentifier("nutrition.goals.edit")
                 }

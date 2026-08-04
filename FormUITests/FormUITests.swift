@@ -122,8 +122,10 @@ final class FormUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["Banana"].exists)
         XCTAssertTrue(app.buttons["Next day"].isEnabled)
 
-        app.buttons["nutrition.menu"].tap()
-        app.buttons["All nutrients"].tap()
+        let allNutrients = app.buttons["nutrition.allNutrients"]
+        app.scrollViews.firstMatch.swipeUp()
+        XCTAssertTrue(allNutrients.waitForExistence(timeout: 5))
+        allNutrients.tap()
         XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrients.screen"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrient.sugars"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.descendants(matching: .any)["nutrition.nutrient.fiber"].exists)
@@ -139,8 +141,7 @@ final class FormUITests: XCTestCase {
         app.tabBars.buttons["Nutrition"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["nutrition.screen"].waitForExistence(timeout: 5))
 
-        app.buttons["nutrition.menu"].tap()
-        app.buttons["Macro goals"].tap()
+        app.buttons["nutrition.goals.edit"].tap()
         let editor = app.descendants(matching: .any)["nutrition.goals.screen"]
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
 
@@ -161,8 +162,7 @@ final class FormUITests: XCTestCase {
 
         // Reopen to confirm the values actually persisted (round-tripped through AppStorage) rather
         // than silently resetting to blank, which was the original (non-crashing) grouping-separator bug.
-        app.buttons["nutrition.menu"].tap()
-        app.buttons["Macro goals"].tap()
+        app.buttons["nutrition.goals.edit"].tap()
         XCTAssertTrue(editor.waitForExistence(timeout: 5))
         XCTAssertEqual(app.textFields["nutrition.goals.field.calories"].value as? String, "2200")
         XCTAssertEqual(app.textFields["nutrition.goals.field.protein"].value as? String, "150")
