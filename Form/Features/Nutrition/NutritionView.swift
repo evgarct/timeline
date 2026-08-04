@@ -292,12 +292,21 @@ struct NutritionView: View {
             MacroColumnsHeader()
             MacroColumns(summary: summary, font: .title2.weight(.semibold))
                 .overlay(alignment: .leading) {
+                    // Bare icon, no glass chrome: the gutter between the true screen edge and where
+                    // meal cards start their own content (18pt card margin + 18pt card padding = 36pt)
+                    // only leaves an 18pt-wide strip for anything sitting flush with the cards' own
+                    // left edge — too narrow for a full glass capsule without either overlapping the
+                    // numbers or drifting away from that edge, so this trades the glass background for
+                    // an exact match for that edge instead.
                     Button { goalsEditorPresented = true } label: {
                         Image(systemName: "target")
+                            .font(.system(size: 16, weight: .medium))
+                            .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.glass)
-                    .frame(width: 28, height: 28)
-                    .offset(x: -32)
+                    .buttonStyle(.plain)
+                    .frame(width: 18, height: 18)
+                    .contentShape(Rectangle())
+                    .offset(x: -18)
                     .accessibilityLabel("nutrition.goals.edit")
                     .accessibilityIdentifier("nutrition.goals.edit")
                 }
@@ -883,7 +892,7 @@ private struct NutritionGoalsEditor: View {
                 field("nutrition.carbohydrates.short", text: $carbsText, identifier: "nutrition.goals.field.carbs")
                 Spacer()
             }
-            .padding(.horizontal, 18)
+            .padding(.horizontal, 24)
             .padding(.top, 8)
             .padding(.bottom, 40)
             .background { nutritionBackgroundGradient() }
