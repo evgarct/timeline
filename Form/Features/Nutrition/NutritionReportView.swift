@@ -36,24 +36,9 @@ private func kcalText(_ formattedValue: String) -> Text {
     Text(formattedValue) + Text(" ") + Text("summary.calories.unit")
 }
 
-/// Achieved/under/over relative to a user-set goal — a ±10% band counts as "on target" so ordinary
-/// day-to-day noise doesn't flip the signal. Only computed when a goal is actually set (see
-/// `goalSignal(actual:goal:...)` below); there is no fallback/inferred goal.
-private enum ReportGoalStatus {
-    case onTarget
-    case under(Double)
-    case over(Double)
-
-    init(actual: Double, goal: Double) {
-        guard goal > 0 else { self = .onTarget; return }
-        let ratio = actual / goal
-        if ratio < 0.9 { self = .under(goal - actual) }
-        else if ratio > 1.1 { self = .over(actual - goal) }
-        else { self = .onTarget }
-    }
-
-    /// Monochrome — the report has no color language for status, so the three states are told apart by
-    /// shape alone (down/check/up), not by hue.
+/// Monochrome — the report has no color language for status, so the three states are told apart by
+/// shape alone (down/check/up), not by hue.
+private extension GoalStatus {
     var symbolName: String {
         switch self {
         case .onTarget: "checkmark"
@@ -69,7 +54,7 @@ private enum ReportGoalStatus {
 @ViewBuilder
 private func goalSignal(actual: Double, goal: Double?, palette: ActivityPalette, locale: Locale) -> some View {
     if let goal, goal > 0 {
-        let status = ReportGoalStatus(actual: actual, goal: goal)
+        let status = GoalStatus(actual: actual, goal: goal)
         HStack(spacing: 5) {
             Image(systemName: status.symbolName)
                 .font(.system(size: 10, weight: .semibold))
@@ -82,7 +67,7 @@ private func goalSignal(actual: Double, goal: Double?, palette: ActivityPalette,
 }
 
 @ViewBuilder
-private func goalDeltaText(_ status: ReportGoalStatus, locale: Locale) -> some View {
+private func goalDeltaText(_ status: GoalStatus, locale: Locale) -> some View {
     switch status {
     case .onTarget:
         Text("nutrition.report.goal.onTarget")

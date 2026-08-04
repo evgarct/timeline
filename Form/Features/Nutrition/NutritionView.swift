@@ -51,6 +51,35 @@ struct MacroColumns: View {
     }
 }
 
+/// Percentage-of-goal row, one figure per macro column, aligned under `MacroColumns`. Rendered only
+/// for goal fields the user actually set — nil goals leave that column blank, never a placeholder or 0%.
+private struct MacroGoalColumns: View {
+    let summary: NutritionSummary
+    let goals: NutritionGoals
+
+    var body: some View {
+        HStack(spacing: 0) {
+            percent(summary.fat, goals.fat)
+            percent(summary.carbohydrates, goals.carbohydrates)
+            percent(summary.protein, goals.protein)
+            percent(summary.calories, goals.calories)
+        }
+        .font(.caption)
+        .foregroundStyle(.tertiary)
+    }
+
+    @ViewBuilder
+    private func percent(_ actual: Double, _ goal: Double?) -> some View {
+        if let goal, goal > 0 {
+            Text((actual / goal).formatted(.percent.precision(.fractionLength(0))))
+                .monospacedDigit()
+                .frame(maxWidth: .infinity, alignment: .trailing)
+        } else {
+            Text("").frame(maxWidth: .infinity, alignment: .trailing)
+        }
+    }
+}
+
 /// Reusable single-line item row for both logged entries and browsable products: a name, an optional
 /// trailing caption (quantity or reference amount), and the macro breakdown beneath it. No secondary
 /// title line — brand/store metadata isn't shown here, keeping lists compact and scannable.
@@ -241,11 +270,16 @@ struct NutritionView: View {
     /// docs/DESIGN.md's revised nutrition pattern) so it reads as the screen's single anchor figure
     /// rather than floating text at the top of an otherwise ungrouped list.
     private var daySummary: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        let summary = NutritionSummary(entries: store.entries)
+        let hasAnyGoal = goals.calories != nil || goals.protein != nil || goals.fat != nil || goals.carbohydrates != nil
+        return VStack(alignment: .leading, spacing: 12) {
             Text("nutrition.report.table.dayTotal")
                 .font(.title3.weight(.semibold))
             MacroColumnsHeader()
-            MacroColumns(summary: NutritionSummary(entries: store.entries), font: .title2.weight(.semibold))
+            MacroColumns(summary: summary, font: .title2.weight(.semibold))
+            if hasAnyGoal {
+                MacroGoalColumns(summary: summary, goals: goals)
+            }
         }
         .padding(18)
         .glassEffect(.regular, in: .rect(cornerRadius: 26))
