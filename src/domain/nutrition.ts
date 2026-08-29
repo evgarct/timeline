@@ -230,7 +230,9 @@ export function describeQuantity(quantity: FoodQuantity): string {
   }
 }
 
-export function summarizeMacros(nutrients: NutrientSnapshot[]): string {
+export function summarizeMacros(
+  nutrients: ReadonlyArray<{ key?: string; value?: number } & Record<string, unknown>>
+): string {
   const find = (key: string) => nutrients.find((nutrient) => nutrient.key === key)?.value;
   const kcal = find(canonicalMacroKeys.energy);
   const protein = find(canonicalMacroKeys.protein);
