@@ -5,7 +5,7 @@
 - Develop native UI with deterministic SwiftUI `#Preview` states and iOS UI tests. Storybook remains mandatory only for changed web UI.
 - Before installing a production iOS build, inspect the signed app's Info.plist and reject truncated xcconfig URLs such as `https:`; write literal URLs in xcconfig as `https:/$()/host` because `//` begins a comment.
 - The iOS project is generated from `project.yml`; do not commit the generated `.xcodeproj`.
-- Web source files (`.ts`/`.tsx`/`.md`/`.json`) use CRLF line endings (only the paths in `.gitattributes` are `eol=lf`). Bulk edits via `sed`/`perl`/`node` must match `\r?\n`, not `\n` — a `\n`-only pattern silently matches nothing — and must write CRLF back so the file does not end up with mixed endings.
+- This machine has `core.autocrlf=true`: committed blobs are LF, but the working tree is checked out with CRLF for most files (except the `eol=lf` paths in `.gitattributes`). So bulk edits via `sed`/`perl`/`node` must match `\r?\n`, not `\n` — a `\n`-only pattern silently matches nothing. Which ending you write back does not matter (`git add` normalizes to LF); prefer LF to avoid the "LF will be replaced by CRLF" warning.
 
 - Keep Today and Timeline in one scroll document; do not create a separate Timeline route or navigation item.
 - New product capabilities must be represented as Timeline event types unless the user explicitly changes this product rule.
