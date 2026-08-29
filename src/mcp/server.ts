@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { registerAppResource, registerAppTool, RESOURCE_MIME_TYPE } from "@modelcontextprotocol/ext-apps/server";
 import { z } from "zod";
 import {
   createEvent,
@@ -27,6 +26,7 @@ import {
   upsertProduct
 } from "@/data/nutrition-repository";
 import {
+  canonicalMacroKeys,
   describeQuantity,
   foodQuantitySchema,
   localizedTextSchema,
@@ -38,7 +38,6 @@ import {
 } from "@/domain/nutrition";
 import { isTaskCompleted, latestEvent } from "@/domain/timeline";
 import { resolveMcpUser } from "@/data/repository";
-import { TIMELINE_WIDGET_URI, timelineWidgetHtml } from "./widget";
 
 function hashToken(token: string) {
   return createHash("sha256").update(`${process.env.MCP_TOKEN_PEPPER ?? "development"}:${token}`).digest("hex");
@@ -78,31 +77,37 @@ function itemizeText(count: number, noun: string, labels: string[], maxShown = 1
 
 export function createTimelineMcpServer(userId: string) {
   const server = new McpServer({ name: "fitness-timeline", version: "0.1.0" });
-  const appMeta = { ui: { resourceUri: TIMELINE_WIDGET_URI } };
 
-  registerAppResource(server, "Fitness Timeline result", TIMELINE_WIDGET_URI, {}, async () => ({
-    contents: [{ uri: TIMELINE_WIDGET_URI, mimeType: RESOURCE_MIME_TYPE, text: timelineWidgetHtml }]
-  }));
-
-  registerAppTool(server, "get_today", {
+  server.registerTool("get_today", {
     title: "Get Today",
-    description: "Return today's tasks and current body state.",
-    _meta: appMeta
-  }, async () => {
+    description: "Return today's tasks and current body state. Pass timezone (an IANA name like \"Europe/Prague\") to also get the running macro totals (energy, protein, fat, carbs) logged so far for the user's local today.",
+    inputSchema: { timezone: z.string().min(1).optional() }
+  }, async ({ timezone }) => {
     const [events, schedules] = await Promise.all([listEvents(userId), listTaskSchedules(userId)]);
     const due = schedules.filter((schedule) => schedule.enabled).map((schedule) => ({
       type: schedule.eventType,
       completed: isTaskCompleted(schedule.eventType, events)
     }));
     const current = ["progress_photo", "measurements", "inbody"].map((type) => latestEvent(events, type as never));
-    return result("Today", `${due.filter((task) => task.completed).length}/${due.length} tasks completed`, { due, current });
+    const tasksText = `${due.filter((task) => task.completed).length}/${due.length} tasks completed`;
+    let nutrition: { date: string; totals: ReturnType<typeof aggregateNutrients> } | undefined;
+    if (timezone) {
+      const date = new Intl.DateTimeFormat("en-CA", {
+        timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit"
+      }).format(new Date());
+      const entries = await listFoodEntries(userId, date, timezone);
+      nutrition = { date, totals: aggregateNutrients(entries) };
+    }
+    const text = nutrition
+      ? `${tasksText} · today ${summarizeMacros(nutrition.totals)}`
+      : tasksText;
+    return result("Today", text, { due, current, ...(nutrition ? { nutrition } : {}) }, [], { text });
   });
 
-  registerAppTool(server, "list_events", {
+  server.registerTool("list_events", {
     title: "List timeline events",
     description: "List the user's timeline events in reverse chronological order.",
-    inputSchema: { limit: z.number().int().min(1).max(100).default(20) },
-    _meta: appMeta
+    inputSchema: { limit: z.number().int().min(1).max(100).default(20) }
   }, async ({ limit }) => {
     const events = (await listEvents(userId)).slice(0, limit);
     return result("Timeline", `${events.length} events`, events, events.map((event) => ({
@@ -111,22 +116,20 @@ export function createTimelineMcpServer(userId: string) {
     })));
   });
 
-  registerAppTool(server, "get_event", {
+  server.registerTool("get_event", {
     title: "Get event",
     description: "Read one timeline event.",
-    inputSchema: { id: z.string().uuid() },
-    _meta: appMeta
+    inputSchema: { id: z.string().uuid() }
   }, async ({ id }) => {
     const event = await getEvent(userId, id);
     if (!event) return { content: [{ type: "text" as const, text: "Event not found" }], isError: true };
     return result("Timeline event", event.type.replace("_", " "), event);
   });
 
-  registerAppTool(server, "create_event", {
+  server.registerTool("create_event", {
     title: "Create event",
     description: "Create a progress photo, workout, measurements, or InBody event. For InBody, send the original file reference in source.url and all extracted metrics; do not ask the server to OCR it.",
-    inputSchema: { event: z.record(z.string(), z.unknown()) },
-    _meta: appMeta
+    inputSchema: { event: z.record(z.string(), z.unknown()) }
   }, async ({ event }) => {
     const parsed = timelineEventSchema.safeParse(event);
     if (!parsed.success) return { content: [{ type: "text" as const, text: parsed.error.message }], isError: true };
@@ -134,68 +137,62 @@ export function createTimelineMcpServer(userId: string) {
     return result("Event created", created.type.replace("_", " "), created);
   });
 
-  registerAppTool(server, "update_event", {
+  server.registerTool("update_event", {
     title: "Update event",
     description: "Replace an existing event after reading it.",
-    inputSchema: { event: z.record(z.string(), z.unknown()) },
-    _meta: appMeta
+    inputSchema: { event: z.record(z.string(), z.unknown()) }
   }, async ({ event }) => {
     const parsed = timelineEventSchema.safeParse(event);
     if (!parsed.success) return { content: [{ type: "text" as const, text: parsed.error.message }], isError: true };
     return result("Event updated", parsed.data.type.replace("_", " "), await updateEvent(userId, parsed.data));
   });
 
-  registerAppTool(server, "delete_event", {
+  server.registerTool("delete_event", {
     title: "Delete event",
     description: "Permanently delete one timeline event.",
     inputSchema: { id: z.string().uuid() },
-    annotations: { destructiveHint: true },
-    _meta: appMeta
+    annotations: { destructiveHint: true }
   }, async ({ id }) => {
     await deleteEvent(userId, id);
     return result("Event deleted", id, { id });
   });
 
-  registerAppTool(server, "get_task_schedules", {
+  server.registerTool("get_task_schedules", {
     title: "Get task schedules",
-    description: "Read recurring Today task schedules.",
-    _meta: appMeta
+    description: "Read recurring Today task schedules."
   }, async () => {
     const schedules = await listTaskSchedules(userId);
     return result("Task schedules", `${schedules.length} schedules`, schedules);
   });
 
-  registerAppTool(server, "update_task_schedule", {
+  server.registerTool("update_task_schedule", {
     title: "Update task schedule",
     description: "Update weekdays, weekly interval, or enabled state for one task.",
-    inputSchema: { schedule: z.record(z.string(), z.unknown()) },
-    _meta: appMeta
+    inputSchema: { schedule: z.record(z.string(), z.unknown()) }
   }, async ({ schedule }) => {
     const parsed = taskScheduleSchema.safeParse(schedule);
     if (!parsed.success) return { content: [{ type: "text" as const, text: parsed.error.message }], isError: true };
     return result("Schedule updated", parsed.data.eventType.replace("_", " "), await saveTaskSchedule(userId, parsed.data));
   });
 
-  registerAppTool(server, "search_products", {
+  server.registerTool("search_products", {
     title: "Search personal products",
     description: "Search the user's complete personal product database by name, brand, barcode, or searchAliases (extra terms saved on the product via upsert_product, e.g. a Russian/Czech/English name for a product whose own name is in a different language). Matches on substrings, so \"кофе\" only finds a product if it (or one of its aliases) actually contains that substring — it does not translate or fuzzy-match across languages on its own. Results are paginated and are not limited to recent products.",
     inputSchema: {
       query: z.string().default(""),
       page: z.number().int().min(1).default(1),
       pageSize: z.number().int().min(1).max(100).default(30)
-    },
-    _meta: appMeta
+    }
   }, async ({ query, page, pageSize }) => {
     const found = await searchProducts(userId, query, page, pageSize);
     const text = itemizeText(found.items.length, "products", found.items.map((product) => `${product.name} (id: ${product.id})`));
     return result("Products", `Personal product search: ${query || "all"}`, found, [], { text });
   });
 
-  registerAppTool(server, "get_product", {
+  server.registerTool("get_product", {
     title: "Get product with all nutrients",
     description: "Read a personal product including every stored nutrient base, original label, unit, qualifier, daily value, and stated/calculated/estimated provenance.",
-    inputSchema: { id: z.string().uuid() },
-    _meta: appMeta
+    inputSchema: { id: z.string().uuid() }
   }, async ({ id }) => {
     const product = await getProduct(userId, id);
     return product
@@ -203,11 +200,10 @@ export function createTimelineMcpServer(userId: string) {
       : { content: [{ type: "text" as const, text: "product_not_found" }], isError: true };
   });
 
-  registerAppTool(server, "upsert_product", {
+  server.registerTool("upsert_product", {
     title: "Create or update a personal product",
     description: "Save every readable row from a nutrition label, not only calories and macros. Preserve original labels, units, '<'/trace qualifiers, multiple bases such as per 100 g and per serving, and unknown nutrients. Never invent missing packaged-food values. Mark label values stated, derived values calculated, and reference fruit/vegetable values estimated. Exact barcodes are reused; ambiguous name matches return an error. When the package states a whole-container size (e.g. a 330 ml can, a 250 g cup, a 1 L bottle) AND you are not already recording it as its own nutrientBases entry (a \"per portion\" base with directly stated values), add it to servingSizes as { label: \"1 банка (330 мл)\", amount: 330, provenance: \"stated\" } so the app can offer it as a one-tap quantity; amount is always expressed in the product's own baseUnit (g or ml), never invented when the label doesn't state a container size. Do not add both a \"per portion\" nutrientBases entry and a servingSizes entry for the same container size — that duplicates the same quick-select option; prefer the nutrientBases entry when the label states per-serving values directly, and servingSizes only when you'd otherwise have to scale from the reference base. pieceSizes is a SEPARATE array from servingSizes, only for gram-based products (baseUnit \"g\"): each entry is { size: \"small\"|\"regular\"|\"medium\"|\"large\", grams, provenance } — a fixed 4-value relative sizing (not a container size or free text). Prefer servingSizes for almost everything (a banana, a capsule, a slice, a can) since its label is free text matched by record_food's unit: \"serving\"; only use pieceSizes when the product genuinely comes in those exact small/regular/medium/large variants. Both pieceSizes and servingSizes are per-product — there is no shared or built-in catalog, so record_food's unit: \"piece\"/\"serving\" only resolves against sizes/labels already saved on that specific product via upsert_product. Each servingSizes entry gets a stable id (auto-assigned if you omit it, and preserved across re-saves as long as the label stays the same) — read it back via get_product and pass it as record_food's quantity.servingSizeId for exact matching instead of relying on the label string, which breaks on whitespace/punctuation differences; quantity.label becomes optional once you have servingSizeId, but at least one of the two is required. CRITICAL: every nutrient you recognize MUST also carry its canonical `key` in addition to the original label, or the app's calorie/macro totals will silently show zero for this product. Always set key: \"energy_kcal\" for the kcal energy row (not the kJ row), \"protein\" for protein, \"fat\" for total fat, \"carbohydrates\" for total carbohydrate — these four are required whenever present on the label. Also set canonical keys when recognizable: \"saturated_fat\", \"sugars\", \"fiber\", \"salt\", \"sodium\", \"cholesterol\", and \"vitamin_*\"/mineral names (e.g. \"potassium\", \"calcium\", \"iron\"). Leave key unset only for rows you cannot confidently map (e.g. a kJ energy row when energy_kcal is already set, or a genuinely unrecognized nutrient) — never guess a key for those. If the product's own name is in one language, set searchAliases to the equivalent name/common terms in the other languages the user might search in (e.g. name \"Café au Lait\" with searchAliases [\"кофе\", \"coffee\", \"káva\"]) so search_products can find it later regardless of which language the user searches in. Always also set type (the product category, e.g. { en: \"Coffee\", ru: \"Кофе\", cs: \"Káva\" }, or { en: \"Protein powder\", ru: \"Протеин\", cs: \"Protein\" }) and genericName (the product's name with any brand stripped, e.g. { en: \"Café au Lait\", ru: \"Кофе с молоком\", cs: \"Káva s mlékem\" }) in all three languages — the app shows these so a product is recognizable even when its own name alone doesn't make the category obvious. Fill in whichever of the three languages you can produce a reasonable translation for; it's fine to leave a language empty rather than guess badly.",
-    inputSchema: { product: productInputSchema },
-    _meta: appMeta
+    inputSchema: { product: productInputSchema }
   }, async ({ product }) => {
     const parsed = productInputSchema.safeParse(product);
     if (!parsed.success) return { content: [{ type: "text" as const, text: parsed.error.message }], isError: true };
@@ -223,7 +219,7 @@ export function createTimelineMcpServer(userId: string) {
     }
   });
 
-  registerAppTool(server, "record_food", {
+  server.registerTool("record_food", {
     title: "Record food",
     description: "Record food without confirmation when the user's intent is unambiguous. Use the user's current local date by default; explicit past and future dates are allowed. Provide an existing productId or a full new product with every visible nutrient. If meal is not stated and cannot be inferred, use snack. Photos are analyzed by ChatGPT and are never sent to or stored by this server. Reuse the same idempotencyKey when retrying. quantity.unit accepts \"g\" or \"ml\" (amount in that unit), \"piece\" (amount x a product's pieceSizes entry, matched by its small/regular/medium/large size), or \"serving\" (amount x a product's servingSizes entry — call get_product first to read the available entries, then prefer matching by servingSizeId; label is accepted as a fallback but must match the stored label exactly, including whitespace/punctuation, so servingSizeId is more reliable. quantity.label is optional when servingSizeId is given — do not invent or repeat a label just to satisfy validation, omit it). pieceSizes and servingSizes only resolve against entries already saved on that exact product via upsert_product — they are per-product, not a shared or built-in catalog, so even a common item like a banana must have its own servingSizes/pieceSizes set before unit: \"piece\"/\"serving\" works for it; if the lookup fails, the error lists what is actually available on that product. Never hand-convert a known serving size into g/ml yourself; pass unit: \"serving\" with the servingSizeId (or label) instead. If the meal has no reusable product (a one-off home-cooked or eyeballed dish you will never look up again), use record_ad_hoc_food instead — it never creates a Product row.",
     inputSchema: {
@@ -235,8 +231,7 @@ export function createTimelineMcpServer(userId: string) {
       timezone: z.string().min(1),
       note: z.string().max(2000).optional(),
       idempotencyKey: z.string().min(1).max(200)
-    },
-    _meta: appMeta
+    }
   }, async ({ productId, product, mealType, quantity, occurredAt, timezone, note, idempotencyKey }) => {
     const parsedQuantity = foodQuantitySchema.safeParse(quantity);
     const parsedProduct = product ? productInputSchema.safeParse(product) : undefined;
@@ -270,7 +265,7 @@ export function createTimelineMcpServer(userId: string) {
     }
   });
 
-  registerAppTool(server, "record_ad_hoc_food", {
+  server.registerTool("record_ad_hoc_food", {
     title: "Record ad hoc food",
     description: "Record a one-off meal with inline nutrients, without creating or touching a Product. Use this instead of record_food when the meal is home-cooked, eyeballed, or otherwise not worth saving as a reusable product (e.g. \"3 pancakes, about 150 g, estimated\"). Provide the nutrients for the quantity actually eaten — they are stored as-is, never scaled. Also set type (the food category in en/ru/cs, e.g. { en: \"Protein drink\", ru: \"Протеиновый напиток\", cs: \"Proteinový nápoj\" }) and genericName (the name with any brand stripped, in en/ru/cs) whenever you can produce a reasonable translation — leave a language empty rather than guess badly. Reuse the same idempotencyKey when retrying.",
     inputSchema: {
@@ -285,8 +280,7 @@ export function createTimelineMcpServer(userId: string) {
       timezone: z.string().min(1),
       note: z.string().max(2000).optional(),
       idempotencyKey: z.string().min(1).max(200)
-    },
-    _meta: appMeta
+    }
   }, async ({ mealType, name, brand, quantityLabel, nutrients, type, genericName, occurredAt, timezone, note, idempotencyKey }) => {
     const parsedOccurredAt = new Date(occurredAt);
     if (Number.isNaN(parsedOccurredAt.getTime())) {
@@ -307,7 +301,7 @@ export function createTimelineMcpServer(userId: string) {
     }
   });
 
-  registerAppTool(server, "repeat_meal", {
+  server.registerTool("repeat_meal", {
     title: "Repeat meal",
     description: "Copy every entry logged for one meal (breakfast/lunch/dinner/snack) on sourceDate into targetDate, preserving each entry's exact product, quantity, and nutrient snapshot. Always additive — entries already logged for that meal on targetDate are left untouched, never deleted or replaced. Works identically for catalog-backed and ad hoc entries. Safe to retry: repeating the same sourceDate to targetDate pair again does not duplicate already-copied entries.",
     inputSchema: {
@@ -315,8 +309,7 @@ export function createTimelineMcpServer(userId: string) {
       sourceDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Local calendar day to copy entries FROM, e.g. 2026-08-03"),
       targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).describe("Local calendar day to copy entries INTO, e.g. 2026-08-04"),
       timezone: z.string().min(1)
-    },
-    _meta: appMeta
+    }
   }, async ({ mealType, sourceDate, targetDate, timezone }) => {
     try {
       const copied = await repeatMeal(userId, { mealType, sourceDate, targetDate, timezone });
@@ -338,7 +331,7 @@ export function createTimelineMcpServer(userId: string) {
     }
   });
 
-  registerAppTool(server, "merge_food_entries", {
+  server.registerTool("merge_food_entries", {
     title: "Merge food entries",
     description: "Combine two or more food journal entries into one ad hoc entry, deleting the originals atomically. Nutrients are summed across all entries. Note: nutrient rows that only carry a qualifier (e.g. \"trace\", \"< 0.1 mg\") without a numeric value are dropped during the merge — only numeric nutrient values are summed. Reuse the same idempotencyKey when retrying.",
     inputSchema: {
@@ -350,8 +343,7 @@ export function createTimelineMcpServer(userId: string) {
       name: z.string().trim().min(1).max(300).optional().describe("Defaults to the merged entries' distinct names joined with \" + \""),
       idempotencyKey: z.string().min(1).max(200)
     },
-    annotations: { destructiveHint: true },
-    _meta: appMeta
+    annotations: { destructiveHint: true }
   }, async ({ ids, mealType, occurredAt, timezone, note, name, idempotencyKey }) => {
     const parsedOccurredAt = occurredAt !== undefined ? new Date(occurredAt) : undefined;
     if (parsedOccurredAt && Number.isNaN(parsedOccurredAt.getTime())) {
@@ -371,7 +363,7 @@ export function createTimelineMcpServer(userId: string) {
     }
   });
 
-  registerAppTool(server, "list_food_entries", {
+  server.registerTool("list_food_entries", {
     title: "List food journal",
     description: "List food entries for a local calendar day, most recently logged first. Optionally filter to one mealType, and page through a day with many entries via limit/offset — the returned text always lists every entry in the page (never silently truncated), and totalCount in the data reports how many entries match before paging.",
     inputSchema: {
@@ -380,8 +372,7 @@ export function createTimelineMcpServer(userId: string) {
       mealType: mealTypeSchema.optional(),
       limit: z.number().int().min(1).max(200).default(50),
       offset: z.number().int().min(0).default(0)
-    },
-    _meta: appMeta
+    }
   }, async ({ date, timezone, mealType, limit, offset }) => {
     const all = await listFoodEntries(userId, date, timezone, { mealType });
     const entries = all.slice(offset, offset + limit);
@@ -401,14 +392,13 @@ export function createTimelineMcpServer(userId: string) {
     );
   });
 
-  registerAppTool(server, "update_food_entry", {
+  server.registerTool("update_food_entry", {
     title: "Update food entry",
     description: "Change the quantity, meal, date, timezone, or note of one food entry. For a product-backed entry, nutrients are recalculated and snapshotted; changes.quantity accepts the same unit forms as record_food, including unit: \"serving\" with a label matching one of the product's servingSizes. For an ad hoc entry (created via record_ad_hoc_food or merge_food_entries), changes.nutrients/name/brand/type/genericName may be set directly instead, and changes.quantity (if given) must keep unit: \"as_consumed\"; passing nutrients/name/brand/type/genericName for a product-backed entry is rejected.",
     inputSchema: {
       id: z.string().uuid(),
       changes: z.record(z.string(), z.unknown())
-    },
-    _meta: appMeta
+    }
   }, async ({ id, changes }) => {
     const parsed = z.object({
       mealType: mealTypeSchema.optional(),
@@ -446,18 +436,17 @@ export function createTimelineMcpServer(userId: string) {
     }
   });
 
-  registerAppTool(server, "delete_food_entry", {
+  server.registerTool("delete_food_entry", {
     title: "Delete food entry",
     description: "Permanently delete one food journal entry.",
     inputSchema: { id: z.string().uuid() },
-    annotations: { destructiveHint: true },
-    _meta: appMeta
+    annotations: { destructiveHint: true }
   }, async ({ id }) => {
     await deleteFoodEntry(userId, id);
     return result("Food entry deleted", id, { id });
   });
 
-  registerAppTool(server, "get_nutrient_details", {
+  server.registerTool("get_nutrient_details", {
     title: "Get full nutrient details",
     description: "Return all macro- and micronutrients for exactly one product, one food entry, or an aggregated local day. Salt and sodium, sugar and carbohydrates, and individual fat types remain separate.",
     inputSchema: {
@@ -465,8 +454,7 @@ export function createTimelineMcpServer(userId: string) {
       entryId: z.string().uuid().optional(),
       date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       timezone: z.string().optional()
-    },
-    _meta: appMeta
+    }
   }, async ({ productId, entryId, date, timezone }) => {
     if (productId) {
       const product = await getProduct(userId, productId);
@@ -482,7 +470,14 @@ export function createTimelineMcpServer(userId: string) {
     }
     if (date && timezone) {
       const entries = await listFoodEntries(userId, date, timezone);
-      return result("Daily nutrients", date, aggregateNutrients(entries));
+      const totals = aggregateNutrients(entries);
+      const macroKeys = new Set<string>(Object.values(canonicalMacroKeys));
+      const others = totals
+        .filter((nutrient) => !(nutrient.key && macroKeys.has(nutrient.key)))
+        .map((nutrient) => `${nutrient.label} ${Math.round(nutrient.value * 10) / 10}${nutrient.unit}`);
+      const text = `${date}: ${summarizeMacros(totals)} (${entries.length} ${entries.length === 1 ? "entry" : "entries"})`
+        + (others.length ? ` — ${others.join(", ")}` : "");
+      return result("Daily nutrients", date, totals, [], { text });
     }
     return { content: [{ type: "text" as const, text: "Provide productId, entryId, or date with timezone." }], isError: true };
   });
