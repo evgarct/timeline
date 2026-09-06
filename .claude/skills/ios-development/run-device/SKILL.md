@@ -166,7 +166,7 @@ Report:
   launch + `device info processes` confirms (step 5).
 - **Developer Mode / Trust** → cannot be enabled from the CLI; if install fails
   with a pairing/trust error, have the user complete it on-device once.
-- **Profile expiry** → free-team builds stop launching after 7 days; rebuild.
+- **Profile expiry** → free-team profiles last 7 days. Once expired, a rebuild alone often does NOT fix it: the build succeeds but `devicectl install` fails with `CoreDeviceError 3002` / `0xe8008011` ("provisioning profile has expired") because xcodebuild re-signs with the stale cached `.mobileprovision` and `-allowProvisioningUpdates` won't renew it headlessly. Delete the expired profile(s) from `~/Library/Developer/Xcode/UserData/Provisioning Profiles/` and rebuild — Apple then mints fresh ones. A skewed Mac system clock makes this worse (xcodebuild thinks the expired profile is still valid). Right after a fresh mint, the first `process launch` can fail once with `CoreDeviceError 10002` / `FBSOpenApplicationErrorDomain error 3` ("profile not trusted / invalid code signature") — retry the plain launch after a few seconds before sending anyone to Settings → Device Management.
 - **Wi-Fi devices** → `devicectl` works over the network once paired; the device
   must be awake and on the same network.
 - **Stale install** → if behavior looks unchanged, uninstall then reinstall:
