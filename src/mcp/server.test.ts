@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 
@@ -18,9 +18,15 @@ async function connectClient() {
 }
 
 beforeAll(async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(new Date("2026-08-29T12:00:00.000Z"));
   vi.stubEnv("E2E_DEMO_MODE", "true");
   vi.resetModules();
   ({ createTimelineMcpServer } = await import("./server"));
+});
+
+afterAll(() => {
+  vi.useRealTimers();
 });
 
 describe("timeline MCP server", () => {
