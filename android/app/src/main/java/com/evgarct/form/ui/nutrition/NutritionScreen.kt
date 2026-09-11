@@ -1,8 +1,7 @@
 package com.evgarct.form.ui.nutrition
 
-import android.content.Intent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,71 +13,148 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowForward
-import androidx.compose.material.icons.filled.CalendarToday
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.IosShare
-import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.TrackChanges
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.filled.Adjust
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Egg
+import androidx.compose.material.icons.filled.Fastfood
+import androidx.compose.material.icons.filled.Nightlife
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import com.evgarct.form.data.models.NutrientValue
+import java.util.TimeZone
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evgarct.form.FormApp
-import com.evgarct.form.core.theme.Ink
-import com.evgarct.form.core.theme.LightInk
-import com.evgarct.form.core.theme.SurfaceCard
-import com.evgarct.form.core.theme.SurfaceCardBorder
-import com.evgarct.form.core.theme.TextMuted
-import com.evgarct.form.core.theme.TextSecondary
-import com.evgarct.form.core.theme.Trace
+import com.evgarct.form.R
 import com.evgarct.form.data.models.FoodEntry
-import com.evgarct.form.data.models.GoalStatus
+import com.evgarct.form.data.models.FoodQuantity
 import com.evgarct.form.data.models.MealType
-import com.evgarct.form.data.models.NutrientValue
-import com.evgarct.form.data.models.NutritionProduct
 import com.evgarct.form.data.models.NutritionSummary
-import com.evgarct.form.ui.components.GlassCard
-import com.evgarct.form.ui.components.LoadingSpinner
-import com.evgarct.form.ui.components.SerifNumber
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
-@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MacroColumnsHeader() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = stringResource(R.string.nutrition_fat_short).uppercase(),
+            fontSize = 11.sp,
+            color = Color.White.copy(alpha = 0.4f),
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End
+        )
+        Text(
+            text = stringResource(R.string.nutrition_carbohydrates_short).uppercase(),
+            fontSize = 11.sp,
+            color = Color.White.copy(alpha = 0.4f),
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End
+        )
+        Text(
+            text = stringResource(R.string.nutrition_protein_short).uppercase(),
+            fontSize = 11.sp,
+            color = Color.White.copy(alpha = 0.4f),
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End
+        )
+        Text(
+            text = stringResource(R.string.summary_calories_unit).uppercase(),
+            fontSize = 11.sp,
+            color = Color.White.copy(alpha = 0.4f),
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End
+        )
+    }
+}
+
+@Composable
+fun MacroColumns(
+    summary: NutritionSummary,
+    fontSize: androidx.compose.ui.unit.TextUnit = 14.sp,
+    fontWeight: FontWeight = FontWeight.Normal
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = String.format(Locale.US, "%.0f", summary.fat),
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            fontFamily = FontFamily.Monospace,
+            color = Color.White.copy(alpha = 0.65f),
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End
+        )
+        Text(
+            text = String.format(Locale.US, "%.0f", summary.carbohydrates),
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            fontFamily = FontFamily.Monospace,
+            color = Color.White.copy(alpha = 0.65f),
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End
+        )
+        Text(
+            text = String.format(Locale.US, "%.0f", summary.protein),
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            fontFamily = FontFamily.Monospace,
+            color = Color.White.copy(alpha = 0.65f),
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End
+        )
+        Text(
+            text = String.format(Locale.US, "%.0f", summary.calories),
+            fontSize = fontSize,
+            fontWeight = FontWeight.SemiBold,
+            fontFamily = FontFamily.Monospace,
+            color = Color.White,
+            modifier = Modifier.weight(1f),
+            textAlign = TextAlign.End
+        )
+    }
+}
+
 @Composable
 fun NutritionScreen(
     onOpenNutrientsSheet: (List<NutrientValue>) -> Unit,
@@ -86,7 +162,6 @@ fun NutritionScreen(
     onOpenAddProduct: (MealType, Date) -> Unit,
     onOpenEntryEditor: (FoodEntry) -> Unit
 ) {
-    val context = LocalContext.current
     val nutritionRepo = FormApp.instance.nutritionRepository
     val prefs = FormApp.instance.appPreferences
     val scope = rememberCoroutineScope()
@@ -94,12 +169,6 @@ fun NutritionScreen(
     var selectedDate by remember { mutableStateOf(Date()) }
     var entries by remember { mutableStateOf<List<FoodEntry>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    var showDatePicker by remember { mutableStateOf(false) }
-
-    // Meal collapse states
-    val collapsedMeals = remember { mutableStateMapOf<MealType, Boolean>() }
-    // Repeating states
-    val repeatingMeals = remember { mutableStateMapOf<MealType, Boolean>() }
 
     fun loadEntries() {
         isLoading = true
@@ -121,447 +190,331 @@ fun NutritionScreen(
 
     val daySummary = remember(entries) { NutritionSummary.fromEntries(entries) }
     val goals = prefs.nutritionGoals
-    val dateFormatter = remember { SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()) }
 
-    fun repeatPreviousMeal(mealType: MealType) {
-        repeatingMeals[mealType] = true
+    fun moveDay(offset: Int) {
         val cal = Calendar.getInstance().apply {
             time = selectedDate
-            add(Calendar.DAY_OF_YEAR, -1)
+            add(Calendar.DAY_OF_YEAR, offset)
         }
-        val previousDay = cal.time
+        selectedDate = cal.time
+    }
 
-        scope.launch {
-            nutritionRepo.repeatMeal(mealType, previousDay, selectedDate, TimeZone.getDefault())
-                .onSuccess { newEntries ->
-                    entries = (entries + newEntries).distinctBy { it.id }
-                    repeatingMeals[mealType] = false
-                }
-                .onFailure {
-                    repeatingMeals[mealType] = false
-                }
+    fun isToday(d: Date): Boolean {
+        val cal1 = Calendar.getInstance().apply { time = d }
+        val cal2 = Calendar.getInstance()
+        return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
+                cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
+    }
+
+    val dateLabel = remember(selectedDate) {
+        if (isToday(selectedDate)) {
+            "Today"
+        } else {
+            SimpleDateFormat("d MMM", Locale.getDefault()).format(selectedDate)
         }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Ink)
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color.Black,
+                        Color(0xFF181410),
+                        Color.Black
+                    )
+                )
+            )
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 44.dp)
+                .verticalScroll(rememberScrollState())
+                .statusBarsPadding()
+                .padding(horizontal = 18.dp)
+                .padding(top = 16.dp, bottom = 110.dp),
+            verticalArrangement = Arrangement.spacedBy(28.dp)
         ) {
-            // Header Bar
+            // Header: Date Capsule + Actions
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(onClick = {
-                    val cal = Calendar.getInstance().apply {
-                        time = selectedDate
-                        add(Calendar.DAY_OF_YEAR, -1)
-                    }
-                    selectedDate = cal.time
-                }) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Previous Day", tint = LightInk)
-                }
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable { showDatePicker = true }
+                // Glass Capsule Date Stepper
+                Box(
+                    modifier = Modifier
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .padding(horizontal = 6.dp, vertical = 4.dp)
                 ) {
-                    Text(
-                        text = dateFormatter.format(selectedDate),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = LightInk
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Icon(
-                        imageVector = Icons.Default.CalendarToday,
-                        contentDescription = "Pick date",
-                        tint = Trace,
-                        modifier = Modifier.size(16.dp)
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clickable { moveDay(-1) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Previous Day",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+
+                        Text(
+                            text = dateLabel,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 12.dp)
+                        )
+
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clickable { moveDay(1) },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                                contentDescription = "Next Day",
+                                tint = Color.White,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
                 }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(onClick = {
-                        val cal = Calendar.getInstance().apply {
-                            time = selectedDate
-                            add(Calendar.DAY_OF_YEAR, 1)
-                        }
-                        selectedDate = cal.time
-                    }) {
-                        Icon(Icons.Default.ArrowForward, contentDescription = "Next Day", tint = LightInk)
-                    }
+                // Goals Button
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .clickable { onOpenGoalsEditor() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Adjust,
+                        contentDescription = "Goals",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
 
-                    IconButton(
-                        onClick = {
-                            // Quick text summary share
-                            val shareText = buildString {
-                                val lang = prefs.reportLanguage
-                                val greeting = when (lang) {
-                                    "ru" -> "Привет! Отчёт за ${dateFormatter.format(selectedDate)}"
-                                    "cs" -> "Ahoj! Přehled za ${dateFormatter.format(selectedDate)}"
-                                    else -> "Hello! Report for ${dateFormatter.format(selectedDate)}"
-                                }
-                                appendLine(greeting)
-                                appendLine("Calories: ${daySummary.calories.toInt()} kcal")
-                                appendLine("Protein: ${daySummary.protein.toInt()} g | Fat: ${daySummary.fat.toInt()} g | Carbs: ${daySummary.carbohydrates.toInt()} g")
-                            }
-                            val intent = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, shareText)
-                            }
-                            context.startActivity(Intent.createChooser(intent, "Share Nutrition Report"))
-                        },
-                        enabled = entries.isNotEmpty()
+            // Whole-day Total (Plain typography, NO BOX)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                MacroColumnsHeader()
+                MacroColumns(
+                    summary = daySummary,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+
+                // Goal percentages if set
+                if (goals.calories != null && goals.calories > 0) {
+                    val calPercent = (daySummary.calories * 100 / goals.calories).toInt()
+                    val pPercent = if (goals.protein != null && goals.protein > 0) (daySummary.protein * 100 / goals.protein).toInt() else null
+                    val fPercent = if (goals.fat != null && goals.fat > 0) (daySummary.fat * 100 / goals.fat).toInt() else null
+                    val cPercent = if (goals.carbohydrates != null && goals.carbohydrates > 0) (daySummary.carbohydrates * 100 / goals.carbohydrates).toInt() else null
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.IosShare,
-                            contentDescription = "Share",
-                            tint = if (entries.isNotEmpty()) Trace else TextMuted
+                        Text(
+                            text = fPercent?.let { "$it%" } ?: "",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.End
+                        )
+                        Text(
+                            text = cPercent?.let { "$it%" } ?: "",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.End
+                        )
+                        Text(
+                            text = pPercent?.let { "$it%" } ?: "",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.End
+                        )
+                        Text(
+                            text = "$calPercent%",
+                            fontSize = 12.sp,
+                            color = Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.End
                         )
                     }
                 }
             }
 
-            // Scrollable Content
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 8.dp)
-            ) {
-                // Day Macro Summary Card
-                GlassCard(
+            // Meal Sections (Breakfast, Lunch, Dinner, Snack)
+            MealType.values().forEach { meal ->
+                val mealEntries = entries.filter { it.mealType == meal }
+                val mealSummary = NutritionSummary.fromEntries(mealEntries)
+
+                Column(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Column(modifier = Modifier.padding(20.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
+                    // Meal Header Row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(
-                                text = "DAY TOTALS",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Trace
+                                text = meal.name.lowercase().replaceFirstChar { it.uppercase() },
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
                             )
-                            IconButton(
-                                onClick = onOpenGoalsEditor,
-                                modifier = Modifier.size(24.dp)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // Add button (+)
+                            Box(
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.12f))
+                                    .clickable { onOpenAddProduct(meal, selectedDate) },
+                                contentAlignment = Alignment.Center
                             ) {
                                 Icon(
-                                    imageVector = Icons.Default.TrackChanges,
-                                    contentDescription = "Goals",
-                                    tint = Trace,
+                                    imageVector = Icons.Default.Add,
+                                    contentDescription = "Add Food",
+                                    tint = Color.White,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
-
-                        Spacer(modifier = Modifier.height(12.dp))
-
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.Bottom
-                        ) {
-                            DayMacroItem("Fat", "${daySummary.fat.toInt()} g", goals.fat)
-                            DayMacroItem("Carbs", "${daySummary.carbohydrates.toInt()} g", goals.carbohydrates)
-                            DayMacroItem("Protein", "${daySummary.protein.toInt()} g", goals.protein)
-                            DayMacroItem("Calories", "${daySummary.calories.toInt()} kcal", goals.calories, isEmphasis = true)
-                        }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(24.dp))
-
-                if (isLoading) {
-                    Box(modifier = Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
-                        LoadingSpinner()
-                    }
-                } else {
-                    // Meal Sections
-                    listOf(
-                        MealType.BREAKFAST to "Breakfast",
-                        MealType.LUNCH to "Lunch",
-                        MealType.DINNER to "Dinner",
-                        MealType.SNACK to "Snacks"
-                    ).forEach { (type, label) ->
-                        val mealEntries = entries.filter { it.mealType == type }
-                        val isCollapsed = collapsedMeals[type] == true
-                        val isRepeating = repeatingMeals[type] == true
-
-                        MealSectionCard(
-                            mealType = type,
-                            title = label,
-                            entries = mealEntries,
-                            isCollapsed = isCollapsed,
-                            isRepeating = isRepeating,
-                            onToggleCollapse = { collapsedMeals[type] = !isCollapsed },
-                            onRepeat = { repeatPreviousMeal(type) },
-                            onAdd = { onOpenAddProduct(type, selectedDate) },
-                            onEntryClick = { onOpenEntryEditor(it) }
+                    // Subtotal Macro row
+                    if (mealEntries.isNotEmpty()) {
+                        MacroColumns(
+                            summary = mealSummary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
                         )
-
-                        Spacer(modifier = Modifier.height(16.dp))
                     }
 
-                    // All Nutrients button
-                    GlassCard(
+                    // Hairline separator
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable {
-                                onOpenNutrientsSheet(entries.flatMap { it.productSnapshot.nutrients })
-                            },
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(18.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "All nutrients",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = LightInk
-                            )
-                            Icon(
-                                imageVector = Icons.Default.ArrowForward,
-                                contentDescription = null,
-                                tint = Trace,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(80.dp))
-                }
-            }
-        }
-
-        if (showDatePicker) {
-            val datePickerState = rememberDatePickerState(initialSelectedDateMillis = selectedDate.time)
-            DatePickerDialog(
-                onDismissRequest = { showDatePicker = false },
-                confirmButton = {
-                    TextButton(onClick = {
-                        datePickerState.selectedDateMillis?.let { selectedDate = Date(it) }
-                        showDatePicker = false
-                    }) {
-                        Text("OK", color = Trace)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showDatePicker = false }) {
-                        Text("Cancel", color = TextSecondary)
-                    }
-                }
-            ) {
-                DatePicker(state = datePickerState)
-            }
-        }
-    }
-}
-
-@Composable
-fun DayMacroItem(
-    label: String,
-    value: String,
-    goal: Double?,
-    isEmphasis: Boolean = false
-) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, style = MaterialTheme.typography.bodySmall, color = TextMuted)
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = value,
-            fontFamily = if (isEmphasis) FontFamily.Serif else FontFamily.Default,
-            fontSize = if (isEmphasis) 22.sp else 16.sp,
-            color = if (isEmphasis) Trace else LightInk,
-            fontWeight = if (isEmphasis) FontWeight.Normal else FontWeight.Medium
-        )
-        if (goal != null && goal > 0) {
-            val num = value.filter { it.isDigit() || it == '.' }.toDoubleOrNull() ?: 0.0
-            val percent = ((num / goal) * 100).toInt()
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "$percent%",
-                fontSize = 11.sp,
-                color = TextSecondary
-            )
-        }
-    }
-}
-
-@Composable
-fun MealSectionCard(
-    mealType: MealType,
-    title: String,
-    entries: List<FoodEntry>,
-    isCollapsed: Boolean,
-    isRepeating: Boolean,
-    onToggleCollapse: () -> Unit,
-    onRepeat: () -> Unit,
-    onAdd: () -> Unit,
-    onEntryClick: (FoodEntry) -> Unit
-) {
-    GlassCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            // Section Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.clickable(onClick = onToggleCollapse)
-                ) {
-                    Icon(
-                        imageVector = if (isCollapsed) Icons.Default.ExpandMore else Icons.Default.ExpandLess,
-                        contentDescription = null,
-                        tint = TextSecondary,
-                        modifier = Modifier.size(20.dp)
+                            .height(0.8.dp)
+                            .background(Color.White.copy(alpha = 0.12f))
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = LightInk
-                    )
-                }
 
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    IconButton(
-                        onClick = onRepeat,
-                        enabled = !isRepeating,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        if (isRepeating) {
-                            LoadingSpinner(size = 16.dp)
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Repeat,
-                                contentDescription = "Repeat meal",
-                                tint = Trace,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    IconButton(
-                        onClick = onAdd,
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(Trace)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Add",
-                            tint = LightInk,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-            }
-
-            AnimatedVisibility(visible = !isCollapsed) {
-                Column {
-                    if (entries.isEmpty()) {
-                        Spacer(modifier = Modifier.height(12.dp))
+                    // Food Item Rows
+                    if (mealEntries.isEmpty()) {
                         Text(
                             text = "No items logged",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextMuted,
-                            modifier = Modifier.padding(vertical = 4.dp)
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.35f),
+                            modifier = Modifier.padding(vertical = 6.dp)
                         )
                     } else {
-                        Spacer(modifier = Modifier.height(12.dp))
-                        entries.forEachIndexed { index, entry ->
-                            LoggedEntryRow(entry = entry, onClick = { onEntryClick(entry) })
-                            if (index < entries.size - 1) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .height(1.dp)
-                                        .background(SurfaceCardBorder.copy(alpha = 0.5f))
-                                        .padding(vertical = 4.dp)
-                                )
+                        mealEntries.forEach { entry ->
+                            val itemSummary = NutritionSummary.fromNutrients(entry.productSnapshot.nutrients)
+                            val quantityText = when (val q = entry.quantity) {
+                                is FoodQuantity.Grams -> "${q.amount.toInt()} g"
+                                is FoodQuantity.Milliliters -> "${q.amount.toInt()} ml"
+                                is FoodQuantity.Pieces -> "${q.amount.toInt()} ${q.size}"
+                                is FoodQuantity.Serving -> "${q.amount.toInt()} serv"
+                                is FoodQuantity.AsConsumed -> ""
                             }
-                        }
 
-                        // Meal subtotal
-                        val mealSummary = NutritionSummary.fromEntries(entries)
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(SurfaceCardBorder.copy(alpha = 0.3f))
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text(text = "Subtotal", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                            Text(
-                                text = "${mealSummary.calories.toInt()} kcal (${mealSummary.protein.toInt()}p/${mealSummary.fat.toInt()}f/${mealSummary.carbohydrates.toInt()}c)",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = LightInk,
-                                fontWeight = FontWeight.Medium
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onOpenEntryEditor(entry) }
+                                    .padding(vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = entry.productSnapshot.name,
+                                        fontSize = 16.sp,
+                                        color = Color.White,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1
+                                    )
+                                    if (quantityText.isNotEmpty()) {
+                                        Text(
+                                            text = quantityText,
+                                            fontSize = 13.sp,
+                                            color = Color.White.copy(alpha = 0.55f),
+                                            modifier = Modifier.padding(horizontal = 6.dp)
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.Default.ChevronRight,
+                                        contentDescription = null,
+                                        tint = Color.White.copy(alpha = 0.3f),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+
+                                if (itemSummary.calories > 0) {
+                                    MacroColumns(
+                                        summary = itemSummary,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                            }
+
+                            // Subtle divider between items
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(0.5.dp)
+                                    .background(Color.White.copy(alpha = 0.08f))
                             )
                         }
                     }
                 }
             }
-        }
-    }
-}
 
-@Composable
-fun LoggedEntryRow(entry: FoodEntry, onClick: () -> Unit) {
-    val summary = NutritionSummary.fromNutrients(entry.productSnapshot.nutrients)
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = entry.productSnapshot.name, style = MaterialTheme.typography.bodyMedium, color = LightInk)
-            val qtyStr = "${entry.quantity.amount.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() }} ${entry.quantity.unitLabel}"
-            Text(text = qtyStr, style = MaterialTheme.typography.bodySmall, color = TextMuted)
-        }
-
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = "${summary.calories.toInt()} kcal",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Trace,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "${summary.protein.toInt()}p / ${summary.fat.toInt()}f / ${summary.carbohydrates.toInt()}c",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
-            )
+            // All Nutrients Disclosure Row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onOpenNutrientsSheet(entries.flatMap { it.productSnapshot.nutrients }) }
+                    .padding(vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = stringResource(R.string.nutrition_allnutrients),
+                    fontSize = 16.sp,
+                    color = Color.White.copy(alpha = 0.7f)
+                )
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.3f),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
         }
     }
 }

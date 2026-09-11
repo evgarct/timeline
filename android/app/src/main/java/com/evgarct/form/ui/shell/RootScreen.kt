@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Home
@@ -78,10 +79,11 @@ fun RootScreen(
     var activeNutrientsList by remember { mutableStateOf<List<NutrientValue>?>(null) }
 
     Scaffold(
+        containerColor = Color.Black,
         bottomBar = {
             NavigationBar(
-                containerColor = SurfaceCard,
-                tonalElevation = 8.dp
+                containerColor = Color.Black,
+                tonalElevation = 0.dp
             ) {
                 NavigationBarItem(
                     selected = selectedTab == AppTab.TODAY,
@@ -89,11 +91,11 @@ fun RootScreen(
                     icon = { Icon(Icons.Default.Home, contentDescription = "Today") },
                     label = { Text("Today") },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Trace,
-                        selectedTextColor = Trace,
-                        unselectedIconColor = TextMuted,
-                        unselectedTextColor = TextMuted,
-                        indicatorColor = Ink
+                        selectedIconColor = Color.White,
+                        selectedTextColor = Color.White,
+                        unselectedIconColor = Color.White.copy(alpha = 0.45f),
+                        unselectedTextColor = Color.White.copy(alpha = 0.45f),
+                        indicatorColor = Color.Transparent
                     )
                 )
                 NavigationBarItem(
@@ -102,11 +104,11 @@ fun RootScreen(
                     icon = { Icon(Icons.Default.Restaurant, contentDescription = "Nutrition") },
                     label = { Text("Nutrition") },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Trace,
-                        selectedTextColor = Trace,
-                        unselectedIconColor = TextMuted,
-                        unselectedTextColor = TextMuted,
-                        indicatorColor = Ink
+                        selectedIconColor = Color.White,
+                        selectedTextColor = Color.White,
+                        unselectedIconColor = Color.White.copy(alpha = 0.45f),
+                        unselectedTextColor = Color.White.copy(alpha = 0.45f),
+                        indicatorColor = Color.Transparent
                     )
                 )
                 NavigationBarItem(
@@ -115,11 +117,11 @@ fun RootScreen(
                     icon = { Icon(Icons.Default.BarChart, contentDescription = "Timeline") },
                     label = { Text("Timeline") },
                     colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Trace,
-                        selectedTextColor = Trace,
-                        unselectedIconColor = TextMuted,
-                        unselectedTextColor = TextMuted,
-                        indicatorColor = Ink
+                        selectedIconColor = Color.White,
+                        selectedTextColor = Color.White,
+                        unselectedIconColor = Color.White.copy(alpha = 0.45f),
+                        unselectedTextColor = Color.White.copy(alpha = 0.45f),
+                        indicatorColor = Color.Transparent
                     )
                 )
             }

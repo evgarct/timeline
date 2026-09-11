@@ -1,6 +1,7 @@
 package com.evgarct.form.ui.nutrition
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,26 +11,27 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.evgarct.form.core.theme.Ink
-import com.evgarct.form.core.theme.LightInk
-import com.evgarct.form.core.theme.TextMuted
-import com.evgarct.form.core.theme.TextSecondary
-import com.evgarct.form.core.theme.Trace
+import androidx.compose.ui.unit.sp
 import com.evgarct.form.data.models.NutrientProvenance
 import com.evgarct.form.data.models.NutrientValue
-import com.evgarct.form.ui.components.GlassCard
 import java.util.Locale
 
 @Composable
@@ -38,36 +40,50 @@ fun NutrientDetailsSheet(
     nutrients: List<NutrientValue>,
     onDismiss: () -> Unit
 ) {
-    // Group nutrients in fixed order: Macros -> Fats -> Carbohydrates -> Salt -> Vitamins -> Minerals -> Other
     val aggregated = aggregateNutrients(nutrients)
     val grouped = groupNutrients(aggregated)
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Ink)
+            .background(Color(0xFF13110E))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 40.dp)
+                .statusBarsPadding()
+                .padding(top = 10.dp)
         ) {
             // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .padding(horizontal = 22.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = LightInk
+                    fontSize = 32.sp,
+                    fontFamily = FontFamily.Serif,
+                    letterSpacing = (-0.8).sp,
+                    color = Color.White
                 )
 
-                IconButton(onClick = onDismiss) {
-                    Icon(imageVector = Icons.Default.Close, contentDescription = "Close", tint = LightInk)
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .clickable { onDismiss() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Close",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
 
@@ -75,24 +91,35 @@ fun NutrientDetailsSheet(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                    .padding(horizontal = 22.dp, vertical = 8.dp)
             ) {
                 grouped.forEach { (groupTitle, list) ->
                     if (list.isNotEmpty()) {
                         Text(
                             text = groupTitle.uppercase(),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Trace,
-                            modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 1.2.sp,
+                            color = Color.White.copy(alpha = 0.4f),
+                            modifier = Modifier.padding(top = 24.dp, bottom = 10.dp)
                         )
 
-                        GlassCard(modifier = Modifier.fillMaxWidth()) {
-                            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                                list.forEachIndexed { index, nutrient ->
-                                    NutrientRow(nutrient = nutrient)
-                                    if (index < list.size - 1) {
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                    }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(Color.White.copy(alpha = 0.05f))
+                        ) {
+                            list.forEachIndexed { index, nutrient ->
+                                NutrientRow(nutrient = nutrient)
+                                if (index < list.size - 1) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp)
+                                            .height(1.dp)
+                                            .background(Color.White.copy(alpha = 0.06f))
+                                    )
                                 }
                             }
                         }
@@ -109,15 +136,24 @@ fun NutrientRow(nutrient: NutrientValue) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = nutrient.label, style = MaterialTheme.typography.bodyMedium, color = LightInk)
+            Text(
+                text = nutrient.label,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.White
+            )
             if (nutrient.provenance != NutrientProvenance.STATED) {
                 val provText = if (nutrient.provenance == NutrientProvenance.ESTIMATED) "Estimated" else "Calculated"
-                Text(text = provText, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                Text(
+                    text = provText,
+                    fontSize = 12.sp,
+                    color = Color.White.copy(alpha = 0.4f)
+                )
             }
         }
 
@@ -126,7 +162,12 @@ fun NutrientRow(nutrient: NutrientValue) {
             "$prefix${String.format(Locale.US, "%.1f", v)} ${nutrient.unit}".trim()
         } ?: nutrient.originalText ?: "—"
 
-        Text(text = formattedValue, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+        Text(
+            text = formattedValue,
+            fontSize = 15.sp,
+            fontFamily = FontFamily.Monospace,
+            color = Color.White.copy(alpha = 0.75f)
+        )
     }
 }
 

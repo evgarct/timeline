@@ -7,331 +7,344 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Photo
+import androidx.compose.material.icons.filled.Straighten
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.evgarct.form.core.theme.GreenAccent
-import com.evgarct.form.core.theme.LightInk
-import com.evgarct.form.core.theme.RedAccent
-import com.evgarct.form.core.theme.SurfaceCard
-import com.evgarct.form.core.theme.SurfaceCardBorder
-import com.evgarct.form.core.theme.TextMuted
-import com.evgarct.form.core.theme.TextSecondary
-import com.evgarct.form.core.theme.Trace
-import com.evgarct.form.data.models.DeltaDirection
-import com.evgarct.form.data.models.InBodyMetric
-import com.evgarct.form.data.models.MeasurementDelta
-import com.evgarct.form.data.models.PhotoItem
+import com.evgarct.form.R
 import com.evgarct.form.data.models.TimelineEvent
-import com.evgarct.form.ui.components.GlassCard
-import com.evgarct.form.ui.components.SerifNumber
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
 
 @Composable
-fun TimelinePhotoCard(
+fun TimelinePhotoItem(
     event: TimelineEvent.ProgressPhoto,
     onClick: () -> Unit
 ) {
     val photo = event.photos.firstOrNull()
-    GlassCard(
+    val dateText = try {
+        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+        val date = parser.parse(event.occurredAt.take(19))
+        SimpleDateFormat("d MMMM yyyy", Locale.getDefault()).format(date ?: java.util.Date())
+    } catch (e: Exception) {
+        event.occurredAt.take(10)
+    }
+
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(20.dp)
+            .height(420.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color(0xFF201A15))
+            .clickable(onClick = onClick)
     ) {
-        Column {
-            if (photo != null) {
+        if (photo != null) {
+            AsyncImage(
+                model = photo.url ?: photo.thumbnailUrl,
+                contentDescription = photo.alt,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color(0xFF4D3F35), Color(0xFF1A1613))
+                        )
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Photo,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = Color.White.copy(alpha = 0.3f)
+                )
+            }
+        }
+
+        // Bottom gradient for readability
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp)
+                .align(Alignment.BottomStart)
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.75f))
+                    )
+                )
+        )
+
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomStart)
+                .padding(20.dp),
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column {
+                Text(
+                    text = stringResource(R.string.timeline_photo_session),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(3.dp))
+                Text(
+                    text = dateText,
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.72f)
+                )
+            }
+
+            if (event.photos.size > 1) {
                 Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(4f / 3f)
-                        .clip(RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp))
+                        .clip(CircleShape)
+                        .background(Color.Black.copy(alpha = 0.5f))
+                        .padding(horizontal = 10.dp, vertical = 5.dp)
                 ) {
-                    AsyncImage(
-                        model = photo.url ?: photo.thumbnailUrl,
-                        contentDescription = photo.alt,
-                        modifier = Modifier.fillMaxWidth(),
-                        contentScale = ContentScale.Crop
+                    Text(
+                        text = "+${event.photos.size - 1}",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White
                     )
-                    if (event.photos.size > 1) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .padding(12.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color.Black.copy(alpha = 0.6f))
-                                .padding(horizontal = 8.dp, vertical = 4.dp)
-                        ) {
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun TimelineMeasurementsItem(
+    event: TimelineEvent.Measurements,
+    previous: TimelineEvent.Measurements?
+) {
+    val values = event.values
+    val prevValues = previous?.values
+    val weight = values.weightKg
+
+    val dateText = try {
+        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
+        val date = parser.parse(event.occurredAt.take(19))
+        SimpleDateFormat("d MMMM yyyy", Locale.getDefault()).format(date ?: java.util.Date())
+    } catch (e: Exception) {
+        event.occurredAt.take(10)
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.Straighten,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.timeline_event_measurements),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
+
+            if (weight != null) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        text = String.format(Locale.US, "%.1f", weight),
+                        fontSize = 22.sp,
+                        fontFamily = FontFamily.Serif,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = stringResource(R.string.measurement_kg),
+                        fontSize = 13.sp,
+                        color = Color.White.copy(alpha = 0.6f),
+                        modifier = Modifier.padding(bottom = 2.dp)
+                    )
+
+                    if (prevValues?.weightKg != null) {
+                        val diff = weight - prevValues.weightKg!!
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = String.format(Locale.US, "%+.1f", diff),
+                            fontSize = 14.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.padding(bottom = 2.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Thin hairline separator
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Color.White.copy(alpha = 0.08f))
+        )
+
+        // Measurements flow
+        val parts = listOfNotNull(
+            values.chestCm?.let { "Chest" to it to prevValues?.chestCm },
+            values.waistCm?.let { "Waist" to it to prevValues?.waistCm },
+            values.abdomenCm?.let { "Abdomen" to it to prevValues?.abdomenCm },
+            values.hipsCm?.let { "Hips" to it to prevValues?.hipsCm },
+            values.leftBicepCm?.let { "Bicep" to it to prevValues?.leftBicepCm },
+            values.leftThighCm?.let { "Thigh" to it to prevValues?.leftThighCm },
+            values.leftCalfCm?.let { "Calf" to it to prevValues?.leftCalfCm }
+        )
+
+        if (parts.isNotEmpty()) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                parts.forEach { (item, prevVal) ->
+                    val (name, currentVal) = item
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = name,
+                            fontSize = 15.sp,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (prevVal != null) {
+                                val delta = currentVal - prevVal
+                                if (kotlin.math.abs(delta) >= 0.1) {
+                                    Text(
+                                        text = String.format(Locale.US, "%+.1f", delta),
+                                        fontSize = 13.sp,
+                                        color = Color.White.copy(alpha = 0.45f),
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                }
+                            }
                             Text(
-                                text = "${event.photos.size} photos",
-                                color = LightInk,
-                                fontSize = 12.sp
+                                text = String.format(Locale.US, "%.1f cm", currentVal),
+                                fontSize = 15.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = Color.White
                             )
                         }
                     }
                 }
             }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = "Photo session",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = LightInk
-                )
-                Text(
-                    text = formatEventTime(event.parsedDate),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextMuted
-                )
-            }
         }
     }
 }
 
 @Composable
-fun TimelineMeasurementsCard(
-    event: TimelineEvent.Measurements,
-    previousEvent: TimelineEvent.Measurements? = null
-) {
-    val current = event.values
-    val prev = previousEvent?.values
-
-    GlassCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
-            // Weight Headline
-            if (current.weightKg != null) {
-                val weightDelta = MeasurementDelta(current.weightKg, prev?.weightKg)
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column {
-                        Text(
-                            text = "WEIGHT",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Trace
-                        )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        SerifNumber(
-                            value = String.format(Locale.US, "%.1f", current.weightKg),
-                            unit = "kg",
-                            fontSize = 36
-                        )
-                    }
-
-                    if (weightDelta.change != null && weightDelta.direction != DeltaDirection.UNCHANGED) {
-                        DeltaBadge(delta = weightDelta, unit = "kg")
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // Grid of circumferences
-            val items = listOfNotNull(
-                current.chestCm?.let { "Chest" to MeasurementDelta(it, prev?.chestCm) },
-                current.waistCm?.let { "Waist" to MeasurementDelta(it, prev?.waistCm) },
-                current.abdomenCm?.let { "Abdomen" to MeasurementDelta(it, prev?.abdomenCm) },
-                current.armRelaxed?.let { "Arm" to MeasurementDelta(it, prev?.armRelaxed) },
-                current.armFlexed?.let { "Arm flexed" to MeasurementDelta(it, prev?.armFlexed) },
-                current.forearmCm?.let { "Forearm" to MeasurementDelta(it, prev?.forearmCm) },
-                current.hipsCm?.let { "Hips" to MeasurementDelta(it, prev?.hipsCm) },
-                current.thigh?.let { "Thigh" to MeasurementDelta(it, prev?.thigh) },
-                current.calf?.let { "Calf" to MeasurementDelta(it, prev?.calf) },
-                current.neckCm?.let { "Neck" to MeasurementDelta(it, prev?.neckCm) }
-            )
-
-            if (items.isNotEmpty()) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items.chunked(2).forEach { rowItems ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            rowItems.forEach { (label, delta) ->
-                                Box(modifier = Modifier.weight(1f)) {
-                                    MeasurementGridItem(label = label, delta = delta)
-                                }
-                            }
-                            if (rowItems.size == 1) {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun MeasurementGridItem(label: String, delta: MeasurementDelta) {
-    Row(
+fun TimelineInBodyItem(event: TimelineEvent.InBody) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
-            .background(SurfaceCardBorder.copy(alpha = 0.4f))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Column {
-            Text(text = label, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-            Text(
-                text = "${String.format(Locale.US, "%.1f", delta.current)} cm",
-                style = MaterialTheme.typography.bodyMedium,
-                color = LightInk,
-                fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-            )
-        }
-        if (delta.change != null && delta.direction != DeltaDirection.UNCHANGED) {
-            val isUp = delta.direction == DeltaDirection.INCREASED
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = if (isUp) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
-                    contentDescription = null,
-                    tint = if (isUp) RedAccent else GreenAccent,
-                    modifier = Modifier.size(12.dp)
-                )
-                Text(
-                    text = String.format(Locale.US, "%.1f", kotlin.math.abs(delta.change ?: 0.0)),
-                    fontSize = 11.sp,
-                    color = if (isUp) RedAccent else GreenAccent
-                )
-            }
-        }
-    }
-}
-
-@Composable
-fun DeltaBadge(delta: MeasurementDelta, unit: String) {
-    val change = delta.change ?: return
-    val isUp = delta.direction == DeltaDirection.INCREASED
-    Row(
-        modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background((if (isUp) RedAccent else GreenAccent).copy(alpha = 0.15f))
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Icon(
-            imageVector = if (isUp) Icons.Default.ArrowUpward else Icons.Default.ArrowDownward,
-            contentDescription = null,
-            tint = if (isUp) RedAccent else GreenAccent,
-            modifier = Modifier.size(14.dp)
-        )
-        Spacer(modifier = Modifier.width(2.dp))
-        Text(
-            text = "${if (isUp) "+" else "-"}${String.format(Locale.US, "%.1f", kotlin.math.abs(change))} $unit",
-            color = if (isUp) RedAccent else GreenAccent,
-            fontSize = 12.sp,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
-        )
-    }
-}
-
-@Composable
-fun TimelineInBodyCard(event: TimelineEvent.InBody) {
-    GlassCard(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp)
-    ) {
-        Column(modifier = Modifier.padding(20.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.FitnessCenter,
                     contentDescription = null,
-                    tint = Trace,
-                    modifier = Modifier.size(20.dp)
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "INBODY BODY COMPOSITION",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = Trace
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                Text(
-                    text = formatEventTime(event.parsedDate),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextMuted
+                    text = "InBody Scan",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
                 )
             }
 
-            if (event.metrics.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(16.dp))
-                val mainKeys = setOf("skeletal_muscle_mass", "percent_body_fat", "total_body_water", "body_fat_mass", "bmi")
-                val displayed = event.metrics.filter { it.key in mainKeys }
-                    .ifEmpty { event.metrics.take(4) }
+            val weight = event.metrics.find { it.key.contains("weight", ignoreCase = true) }?.value
+            if (weight != null) {
+                Text(
+                    text = "$weight kg",
+                    fontSize = 20.sp,
+                    fontFamily = FontFamily.Serif,
+                    color = Color.White
+                )
+            }
+        }
 
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    displayed.chunked(2).forEach { pair ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            pair.forEach { metric ->
-                                InBodyMetricItem(metric, modifier = Modifier.weight(1f))
-                            }
-                            if (pair.size == 1) Spacer(modifier = Modifier.weight(1f))
-                        }
-                    }
+        // Thin hairline separator
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Color.White.copy(alpha = 0.08f))
+        )
+
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            event.metrics.take(6).forEach { metric ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = metric.label,
+                        fontSize = 15.sp,
+                        color = Color.White.copy(alpha = 0.6f)
+                    )
+                    Text(
+                        text = "${metric.value} ${metric.unit}",
+                        fontSize = 15.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = Color.White
+                    )
                 }
             }
         }
     }
-}
-
-@Composable
-fun InBodyMetricItem(metric: InBodyMetric, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
-            .background(SurfaceCardBorder.copy(alpha = 0.4f))
-            .padding(12.dp)
-    ) {
-        Text(text = metric.label, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = "${metric.value} ${metric.unit ?: ""}".trim(),
-            style = MaterialTheme.typography.bodyLarge,
-            color = LightInk,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-        )
-    }
-}
-
-fun formatEventTime(date: Date): String {
-    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(date)
 }

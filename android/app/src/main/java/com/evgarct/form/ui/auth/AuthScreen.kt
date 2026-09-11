@@ -1,10 +1,9 @@
 package com.evgarct.form.ui.auth
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,17 +11,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -31,8 +29,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -44,14 +45,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evgarct.form.FormApp
 import com.evgarct.form.R
-import com.evgarct.form.core.theme.Ink
-import com.evgarct.form.core.theme.LightInk
-import com.evgarct.form.core.theme.RedAccent
-import com.evgarct.form.core.theme.SurfaceCard
-import com.evgarct.form.core.theme.SurfaceCardBorder
-import com.evgarct.form.core.theme.TextMuted
-import com.evgarct.form.core.theme.TextSecondary
-import com.evgarct.form.core.theme.Trace
 import kotlinx.coroutines.launch
 
 @Composable
@@ -62,251 +55,244 @@ fun AuthScreen(
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
 
-    var stage by remember { mutableStateOf(1) } // 1 = Email, 2 = OTP
+    var stage by remember { mutableStateOf(1) } // 1 = Email, 2 = Code
     var email by remember { mutableStateOf("") }
-    var otp by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    fun sendCode() {
-        if (!email.contains("@")) {
-            errorMessage = "Please enter a valid email address."
-            return
-        }
-        isLoading = true
+    fun submit() {
         errorMessage = null
         focusManager.clearFocus()
-        scope.launch {
-            authRepo.requestOtp(email)
-                .onSuccess {
-                    isLoading = false
-                    stage = 2
-                }
-                .onFailure {
-                    isLoading = false
-                    errorMessage = it.message ?: "Could not send verification code"
-                }
-        }
-    }
 
-    fun verifyCode() {
-        if (otp.length < 4) {
-            errorMessage = "Please enter a valid verification code."
-            return
-        }
-        isLoading = true
-        errorMessage = null
-        focusManager.clearFocus()
-        scope.launch {
-            authRepo.verifyOtp(email, otp)
-                .onSuccess {
-                    isLoading = false
-                    onSignedIn()
-                }
-                .onFailure {
-                    isLoading = false
-                    errorMessage = "Verification rejected. Check the code and try again."
-                }
+        if (stage == 1) {
+            val cleanEmail = email.trim()
+            if (!cleanEmail.contains("@") || !cleanEmail.contains(".")) {
+                errorMessage = "Please enter a valid email address."
+                return
+            }
+            isLoading = true
+            scope.launch {
+                authRepo.requestOtp(cleanEmail)
+                    .onSuccess {
+                        isLoading = false
+                        stage = 2
+                    }
+                    .onFailure {
+                        isLoading = false
+                        errorMessage = it.message ?: "Authentication service unavailable"
+                    }
+            }
+        } else {
+            val cleanCode = code.trim()
+            if (cleanCode.length < 4) {
+                errorMessage = "Please enter the verification code."
+                return
+            }
+            isLoading = true
+            scope.launch {
+                authRepo.verifyOtp(email.trim(), cleanCode)
+                    .onSuccess {
+                        isLoading = false
+                        onSignedIn()
+                    }
+                    .onFailure {
+                        isLoading = false
+                        errorMessage = it.message ?: "Invalid or expired code"
+                    }
+            }
         }
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Ink)
-            .imePadding()
-            .padding(24.dp),
-        contentAlignment = Alignment.Center
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(
+                        Color.Black,
+                        Color(0xFF29211A)
+                    )
+                )
+            )
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+                .fillMaxSize()
+                .padding(28.dp)
+                .imePadding(),
+            horizontalAlignment = Alignment.Start
         ) {
-            Icon(
-                painter = painterResource(id = R.drawable.ic_trace_primary),
-                contentDescription = "Brand Mark",
-                tint = androidx.compose.ui.graphics.Color.Unspecified,
-                modifier = Modifier.size(72.dp)
-            )
-
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.weight(1f))
 
             Text(
-                text = "Form",
-                fontFamily = FontFamily.Serif,
-                fontSize = 36.sp,
+                text = stringResource(R.string.auth_brand),
+                fontSize = 64.sp,
                 fontWeight = FontWeight.Normal,
-                color = LightInk
+                fontFamily = FontFamily.Serif,
+                color = Color.White
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = if (stage == 1) "Enter your email to sign in" else "Enter the code sent to $email",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
-                textAlign = TextAlign.Center
+                text = if (stage == 1) stringResource(R.string.auth_intro) else stringResource(R.string.auth_code_intro),
+                fontSize = 20.sp,
+                color = Color.White.copy(alpha = 0.6f)
             )
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(28.dp))
 
             if (stage == 1) {
-                OutlinedTextField(
+                BasicTextField(
                     value = email,
                     onValueChange = {
                         email = it
                         errorMessage = null
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("email@example.com", color = TextMuted) },
+                    textStyle = TextStyle(
+                        color = Color.White,
+                        fontSize = 17.sp
+                    ),
+                    cursorBrush = SolidColor(Color.White),
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Email,
-                        imeAction = ImeAction.Done,
-                        autoCorrectEnabled = false
+                        imeAction = ImeAction.Go
                     ),
-                    keyboardActions = KeyboardActions(onDone = { if (email.isNotBlank()) sendCode() }),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = SurfaceCard,
-                        unfocusedContainerColor = SurfaceCard,
-                        focusedBorderColor = Trace,
-                        unfocusedBorderColor = SurfaceCardBorder,
-                        focusedTextColor = LightInk,
-                        unfocusedTextColor = LightInk
-                    )
-                )
-
-                if (errorMessage != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = errorMessage ?: "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = RedAccent,
-                        textAlign = TextAlign.Start,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Button(
-                    onClick = { sendCode() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    enabled = email.isNotBlank() && !isLoading,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Trace,
-                        disabledContainerColor = SurfaceCardBorder,
-                        contentColor = LightInk,
-                        disabledContentColor = TextMuted
-                    )
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = LightInk,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(
-                            text = "Send code",
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
-                }
-            } else {
-                OutlinedTextField(
-                    value = otp,
-                    onValueChange = {
-                        otp = it.filter { char -> char.isDigit() }.take(6)
-                        errorMessage = null
+                    keyboardActions = KeyboardActions(onGo = { submit() }),
+                    decorationBox = { innerTextField ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(Color.White.copy(alpha = 0.12f))
+                                .padding(horizontal = 18.dp, vertical = 18.dp),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (email.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.auth_email),
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.4f),
+                                        fontSize = 17.sp
+                                    )
+                                )
+                            }
+                            innerTextField()
+                        }
                     },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("123456", color = TextMuted) },
-                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            } else {
+                BasicTextField(
+                    value = code,
+                    onValueChange = {
+                        if (it.length <= 8) {
+                            code = it
+                            errorMessage = null
+                        }
+                    },
                     textStyle = TextStyle(
+                        color = Color.White,
+                        fontSize = 26.sp,
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 22.sp,
-                        letterSpacing = 4.sp,
-                        textAlign = TextAlign.Center,
-                        color = LightInk
+                        textAlign = TextAlign.Center
                     ),
+                    cursorBrush = SolidColor(Color.White),
+                    singleLine = true,
                     keyboardOptions = KeyboardOptions(
                         keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Done
+                        imeAction = ImeAction.Go
                     ),
-                    keyboardActions = KeyboardActions(onDone = { if (otp.length >= 4) verifyCode() }),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = SurfaceCard,
-                        unfocusedContainerColor = SurfaceCard,
-                        focusedBorderColor = Trace,
-                        unfocusedBorderColor = SurfaceCardBorder,
-                        focusedTextColor = LightInk,
-                        unfocusedTextColor = LightInk
-                    )
-                )
-
-                if (errorMessage != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = errorMessage ?: "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = RedAccent,
-                        textAlign = TextAlign.Start,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                Button(
-                    onClick = { verifyCode() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                    enabled = otp.length >= 4 && !isLoading,
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Trace,
-                        disabledContainerColor = SurfaceCardBorder,
-                        contentColor = LightInk,
-                        disabledContentColor = TextMuted
-                    )
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = LightInk,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(
-                            text = "Verify",
-                            style = MaterialTheme.typography.labelLarge
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Change email",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Trace,
-                    modifier = Modifier.clickable {
-                        stage = 1
-                        otp = ""
-                        errorMessage = null
-                    }
+                    keyboardActions = KeyboardActions(onGo = { submit() }),
+                    decorationBox = { innerTextField ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(Color.White.copy(alpha = 0.12f))
+                                .padding(horizontal = 18.dp, vertical = 16.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (code.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.auth_code),
+                                    style = TextStyle(
+                                        color = Color.White.copy(alpha = 0.4f),
+                                        fontSize = 22.sp,
+                                        textAlign = TextAlign.Center
+                                    )
+                                )
+                            }
+                            innerTextField()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
+
+            if (errorMessage != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = errorMessage!!,
+                    color = Color(0xFFFF453A),
+                    fontSize = 13.sp
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Button(
+                onClick = { submit() },
+                enabled = !isLoading && (if (stage == 1) email.isNotBlank() else code.isNotBlank()),
+                shape = RoundedCornerShape(18.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.White.copy(alpha = 0.22f),
+                    contentColor = Color.White,
+                    disabledContainerColor = Color.White.copy(alpha = 0.08f),
+                    disabledContentColor = Color.White.copy(alpha = 0.3f)
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(54.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                    }
+                    Text(
+                        text = if (stage == 1) stringResource(R.string.auth_send) else stringResource(R.string.auth_verify),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            }
+
+            if (stage == 2) {
+                Spacer(modifier = Modifier.height(12.dp))
+                TextButton(
+                    onClick = {
+                        stage = 1
+                        code = ""
+                        errorMessage = null
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = stringResource(R.string.auth_changeemail),
+                        color = Color.White.copy(alpha = 0.7f),
+                        fontSize = 15.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
         }
     }
 }

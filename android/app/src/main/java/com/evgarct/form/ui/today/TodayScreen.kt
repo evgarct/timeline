@@ -1,39 +1,31 @@
 package com.evgarct.form.ui.today
 
-import android.content.Intent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,34 +38,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.evgarct.form.FormApp
-import com.evgarct.form.core.theme.Ink
-import com.evgarct.form.core.theme.LightInk
-import com.evgarct.form.core.theme.SurfaceCard
-import com.evgarct.form.core.theme.SurfaceCardBorder
-import com.evgarct.form.core.theme.TextMuted
-import com.evgarct.form.core.theme.TextSecondary
-import com.evgarct.form.core.theme.Trace
+import com.evgarct.form.R
 import com.evgarct.form.data.models.NutritionSummary
 import com.evgarct.form.data.models.PhotoItem
 import com.evgarct.form.data.models.TimelineEvent
 import com.evgarct.form.data.repository.ActivityDataState
-import com.evgarct.form.ui.components.GlassCard
-import com.evgarct.form.ui.components.LinearProgressBar
-import com.evgarct.form.ui.components.LoadingSpinner
-import com.evgarct.form.ui.components.SectionEyebrow
-import com.evgarct.form.ui.components.SerifNumber
-import com.evgarct.form.ui.timeline.TimelineInBodyCard
-import com.evgarct.form.ui.timeline.TimelineMeasurementsCard
-import com.evgarct.form.ui.timeline.TimelinePhotoCard
+import com.evgarct.form.ui.timeline.TimelineInBodyItem
+import com.evgarct.form.ui.timeline.TimelineMeasurementsItem
+import com.evgarct.form.ui.timeline.TimelinePhotoItem
 import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -88,41 +70,34 @@ fun TodayScreen(
     onOpenPhotoGallery: (String, List<PhotoItem>, Int) -> Unit,
     onOpenActivityDetail: (LocalDate) -> Unit
 ) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     val timelineRepo = FormApp.instance.timelineRepository
     val nutritionRepo = FormApp.instance.nutritionRepository
     val healthRepo = FormApp.instance.healthConnectRepository
     val prefs = FormApp.instance.appPreferences
+    val scope = rememberCoroutineScope()
 
     var events by remember { mutableStateOf<List<TimelineEvent>>(emptyList()) }
     var todaySummary by remember { mutableStateOf(NutritionSummary()) }
     var activityState by remember { mutableStateOf<ActivityDataState>(ActivityDataState.Loading) }
-    var isLoading by remember { mutableStateOf(true) }
-    var isRefreshingActivity by remember { mutableStateOf(false) }
-
-    var showActivityMenu by remember { mutableStateOf(false) }
-    var showSetGoalDialog by remember { mutableStateOf(false) }
-    var stepGoalInput by remember { mutableStateOf(prefs.stepGoal.toString()) }
-    var showCompareToast by remember { mutableStateOf(false) }
+    var isRefreshing by remember { mutableStateOf(false) }
 
     fun refreshAll() {
         scope.launch {
-            isLoading = true
+            isRefreshing = true
             val eventsDeferred = async { timelineRepo.getEvents() }
-            val nutritionDeferred = async { nutritionRepo.getEntries(Date(), TimeZone.getDefault()) }
-            val activityDeferred = async { healthRepo.getActivityData(LocalDate.now(), prefs.stepGoal) }
+            val nutritionDeferred = async {
+                nutritionRepo.getEntries(Date(), TimeZone.getDefault())
+            }
+            val activityDeferred = async {
+                healthRepo.getActivityData(LocalDate.now(), prefs.stepGoal)
+            }
 
-            val eventsResult = eventsDeferred.await()
-            val nutritionResult = nutritionDeferred.await()
-            val activityResult = activityDeferred.await()
-
-            eventsResult.onSuccess { events = it }
-            nutritionResult.onSuccess { entries ->
+            eventsDeferred.await().onSuccess { events = it }
+            nutritionDeferred.await().onSuccess { entries ->
                 todaySummary = NutritionSummary.fromEntries(entries)
             }
-            activityState = activityResult
-            isLoading = false
+            activityState = activityDeferred.await()
+            isRefreshing = false
         }
     }
 
@@ -130,54 +105,46 @@ fun TodayScreen(
         refreshAll()
     }
 
-    val latestPhotoEvent = events.filterIsInstance<TimelineEvent.ProgressPhoto>().firstOrNull()
-    val pinnedId = latestPhotoEvent?.let { prefs.getCoverPhotoId(it.id) }
-    val heroPhotos = latestPhotoEvent?.photos ?: emptyList()
+    // Latest photo session
+    val photoEvents = events.filterIsInstance<TimelineEvent.ProgressPhoto>()
+    val latestPhotoEvent = photoEvents.firstOrNull()
+    val latestPhotos = latestPhotoEvent?.photos ?: emptyList()
 
-    val initialHeroIndex = if (pinnedId != null) {
-        heroPhotos.indexOfFirst { it.id == pinnedId }.coerceAtLeast(0)
-    } else 0
-
-    val pagerState = rememberPagerState(initialPage = initialHeroIndex, pageCount = { heroPhotos.size })
-
-    val dateFormatter = remember { SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()) }
-    val todayDateStr = dateFormatter.format(latestPhotoEvent?.parsedDate ?: Date())
-
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val scrollState = rememberScrollState()
+
+    val dateFormatted = remember {
+        SimpleDateFormat("d MMMM", Locale.getDefault()).format(Date())
+    }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Ink)
+            .background(Color.Black)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(scrollState)
         ) {
-            // Hero Section
+            // VIEWPORT 1: Hero Photo Surface
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(0.85f)
+                    .height(screenHeight)
             ) {
-                // Background Photo Carousel
-                if (heroPhotos.isNotEmpty()) {
+                // Background Photo Layer
+                if (latestPhotos.isNotEmpty()) {
+                    val pagerState = rememberPagerState(pageCount = { latestPhotos.size })
                     HorizontalPager(
                         state = pagerState,
                         modifier = Modifier.fillMaxSize()
                     ) { page ->
-                        val photo = heroPhotos[page]
+                        val photo = latestPhotos[page]
                         AsyncImage(
                             model = photo.url ?: photo.thumbnailUrl,
                             contentDescription = photo.alt,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clickable {
-                                    latestPhotoEvent?.let {
-                                        onOpenPhotoGallery(it.id, heroPhotos, page)
-                                    }
-                                },
+                            modifier = Modifier.fillMaxSize(),
                             contentScale = ContentScale.Crop
                         )
                     }
@@ -187,245 +154,216 @@ fun TodayScreen(
                             .fillMaxSize()
                             .background(
                                 Brush.verticalGradient(
-                                    listOf(Color(0xFF2B2620), Color(0xFF15130F))
+                                    colors = listOf(
+                                        Color(0xFF382E24),
+                                        Color(0xFF13110E),
+                                        Color.Black
+                                    )
                                 )
                             )
                     )
                 }
 
-                // Top & Bottom Gradients
+                // Vignette / top-bottom read gradients
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(
                             Brush.verticalGradient(
-                                0.0f to Ink.copy(alpha = 0.7f),
-                                0.25f to Color.Transparent,
-                                0.65f to Color.Transparent,
-                                1.0f to Ink
+                                colorStops = arrayOf(
+                                    0.0f to Color.Black.copy(alpha = 0.55f),
+                                    0.22f to Color.Transparent,
+                                    0.60f to Color.Transparent,
+                                    0.82f to Color.Black.copy(alpha = 0.85f),
+                                    1.0f to Color.Black
+                                )
                             )
                         )
                 )
 
-                // Header Overlay
+                // Foreground Content
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(top = 44.dp, start = 20.dp, end = 20.dp, bottom = 16.dp),
+                        .statusBarsPadding()
+                        .padding(horizontal = 18.dp)
+                        .padding(top = 20.dp, bottom = 24.dp),
                     verticalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Eyebrow & Settings Button
+                    // Header
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.Top
                     ) {
                         Column {
-                            SectionEyebrow(text = "TODAY")
+                            Text(
+                                text = stringResource(R.string.today_label),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium,
+                                letterSpacing = 0.7.sp,
+                                color = Color.White.copy(alpha = 0.75f)
+                            )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = todayDateStr,
+                                text = dateFormatted,
+                                fontSize = 52.sp,
                                 fontFamily = FontFamily.Serif,
-                                fontSize = 28.sp,
-                                color = LightInk
+                                letterSpacing = (-1.2).sp,
+                                color = Color.White
                             )
                         }
 
-                        IconButton(onClick = onOpenSettings) {
+                        // Glass Ellipsis Button
+                        Box(
+                            modifier = Modifier
+                                .size(42.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.15f))
+                                .clickable { onOpenSettings() },
+                            contentAlignment = Alignment.Center
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.MoreHoriz,
-                                contentDescription = "Settings",
-                                tint = LightInk
+                                contentDescription = stringResource(R.string.action_menu),
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
                             )
                         }
                     }
 
-                    // Bottom of Hero: Photo actions & Summary Capsule
-                    Column {
-                        if (heroPhotos.isNotEmpty()) {
+                    // Bottom Chrome over Photo
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        // Photo actions (Compare / All photos)
+                        if (latestPhotos.isNotEmpty()) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(bottom = 12.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
                             ) {
-                                if (heroPhotos.size > 1) {
-                                    Text(
-                                        text = "${pagerState.currentPage + 1} / ${heroPhotos.size}",
-                                        fontSize = 12.sp,
-                                        color = LightInk.copy(alpha = 0.8f),
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(6.dp))
-                                            .background(Color.Black.copy(alpha = 0.4f))
-                                            .padding(horizontal = 8.dp, vertical = 4.dp)
-                                    )
-                                } else {
-                                    Spacer(modifier = Modifier.width(1.dp))
-                                }
-
-                                Row {
-                                    Text(
-                                        text = "All Photos",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = LightInk,
-                                        modifier = Modifier
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(Color.Black.copy(alpha = 0.4f))
-                                            .clickable {
-                                                latestPhotoEvent?.let {
-                                                    onOpenPhotoGallery(it.id, heroPhotos, pagerState.currentPage)
-                                                }
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(38.dp)
+                                        .clip(RoundedCornerShape(19.dp))
+                                        .background(Color.White.copy(alpha = 0.15f))
+                                        .clickable {
+                                            latestPhotoEvent?.let {
+                                                onOpenPhotoGallery(it.id, latestPhotos, 0)
                                             }
-                                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = stringResource(R.string.action_allphotos),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color.White
                                     )
                                 }
                             }
                         }
 
-                        // Summary Capsule
-                        GlassCard(
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(18.dp)
+                        // Summary Glass Capsule
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(30.dp))
+                                .background(Color.White.copy(alpha = 0.12f))
+                                .border(0.8.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(30.dp))
+                                .padding(horizontal = 20.dp, vertical = 18.dp)
                         ) {
                             Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.Top
                             ) {
                                 // Nutrition Column
-                                Column(modifier = Modifier.weight(1f)) {
+                                Column(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
                                     Text(
-                                        text = "NUTRITION",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = Trace
+                                        text = stringResource(R.string.summary_nutrition).uppercase(),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        letterSpacing = 0.5.sp,
+                                        color = Color.White.copy(alpha = 0.6f)
                                     )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    SerifNumber(
-                                        value = todaySummary.calories.toInt().toString(),
-                                        unit = "kcal",
-                                        fontSize = 26
-                                    )
-                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Row(verticalAlignment = Alignment.Bottom) {
+                                        Text(
+                                            text = "${todaySummary.calories.toInt()}",
+                                            fontSize = 34.sp,
+                                            fontFamily = FontFamily.Serif,
+                                            color = Color.White
+                                        )
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = stringResource(R.string.summary_calories_unit),
+                                            fontSize = 12.sp,
+                                            color = Color.White.copy(alpha = 0.6f),
+                                            modifier = Modifier.padding(bottom = 4.dp)
+                                        )
+                                    }
                                     Text(
-                                        text = "${todaySummary.protein.toInt()}p / ${todaySummary.fat.toInt()}f / ${todaySummary.carbohydrates.toInt()}c",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = TextSecondary
+                                        text = "${todaySummary.protein.toInt()}p · ${todaySummary.fat.toInt()}f · ${todaySummary.carbohydrates.toInt()}c",
+                                        fontSize = 12.sp,
+                                        color = Color.White.copy(alpha = 0.6f)
                                     )
                                 }
 
+                                // Vertical Hairline Divider
                                 Box(
                                     modifier = Modifier
                                         .width(1.dp)
-                                        .height(56.dp)
-                                        .background(SurfaceCardBorder)
+                                        .height(54.dp)
+                                        .background(Color.White.copy(alpha = 0.18f))
                                 )
 
                                 // Activity Column
-                                Box(
+                                val steps = when (val s = activityState) {
+                                    is ActivityDataState.Value -> s.steps.toInt()
+                                    else -> 0
+                                }
+                                val stepGoal = prefs.stepGoal
+
+                                Column(
                                     modifier = Modifier
                                         .weight(1f)
                                         .padding(start = 16.dp)
-                                        .pointerInput(Unit) {
-                                            detectTapGestures(
-                                                onTap = {
-                                                    scope.launch {
-                                                        isRefreshingActivity = true
-                                                        activityState = healthRepo.getActivityData(LocalDate.now(), prefs.stepGoal)
-                                                        isRefreshingActivity = false
-                                                    }
-                                                },
-                                                onLongPress = {
-                                                    showActivityMenu = true
-                                                }
-                                            )
-                                        }
+                                        .clickable { onOpenActivityDetail(LocalDate.now()) },
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Column {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = "ACTIVITY",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = Trace
-                                            )
-                                            if (isRefreshingActivity) {
-                                                LoadingSpinner(size = 14.dp)
-                                            } else {
-                                                Icon(
-                                                    imageVector = Icons.Default.Refresh,
-                                                    contentDescription = "Refresh",
-                                                    tint = TextMuted,
-                                                    modifier = Modifier.size(14.dp)
-                                                )
-                                            }
-                                        }
-
-                                        Spacer(modifier = Modifier.height(4.dp))
-
-                                        when (val state = activityState) {
-                                            is ActivityDataState.Value -> {
-                                                SerifNumber(
-                                                    value = String.format(Locale.getDefault(), "%,d", state.steps),
-                                                    fontSize = 26
-                                                )
-                                                Spacer(modifier = Modifier.height(4.dp))
-                                                val progress = if (state.goal > 0) state.steps.toFloat() / state.goal else 0f
-                                                LinearProgressBar(progress = progress, height = 3.dp)
-                                                Spacer(modifier = Modifier.height(2.dp))
-                                                val percent = (progress * 100).toInt()
-                                                Text(
-                                                    text = "$percent% of ${state.goal / 1000}k goal",
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    color = TextMuted
-                                                )
-                                            }
-                                            is ActivityDataState.Denied -> {
-                                                Text("Tap to connect", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-                                            }
-                                            else -> {
-                                                Text("Steps unavailable", style = MaterialTheme.typography.bodySmall, color = TextMuted)
-                                            }
-                                        }
-                                    }
-
-                                    DropdownMenu(
-                                        expanded = showActivityMenu,
-                                        onDismissRequest = { showActivityMenu = false }
-                                    ) {
-                                        DropdownMenuItem(
-                                            text = { Text("Set goal") },
-                                            onClick = {
-                                                showActivityMenu = false
-                                                showSetGoalDialog = true
-                                            }
+                                    Text(
+                                        text = stringResource(R.string.summary_activity).uppercase(),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        letterSpacing = 0.5.sp,
+                                        color = Color.White.copy(alpha = 0.6f)
+                                    )
+                                    Row(verticalAlignment = Alignment.Bottom) {
+                                        Text(
+                                            text = String.format(Locale.US, "%,d", steps),
+                                            fontSize = 34.sp,
+                                            fontFamily = FontFamily.Serif,
+                                            color = Color.White
                                         )
-                                        DropdownMenuItem(
-                                            text = { Text("Detail") },
-                                            onClick = {
-                                                showActivityMenu = false
-                                                onOpenActivityDetail(LocalDate.now())
-                                            }
-                                        )
-                                        DropdownMenuItem(
-                                            text = { Text("Share") },
-                                            onClick = {
-                                                showActivityMenu = false
-                                                val state = activityState as? ActivityDataState.Value
-                                                if (state != null) {
-                                                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                                                        type = "text/plain"
-                                                        putExtra(Intent.EXTRA_TEXT, "Form Steps Today: ${state.steps} / ${state.goal} steps")
-                                                    }
-                                                    context.startActivity(Intent.createChooser(shareIntent, "Share Activity"))
-                                                }
-                                            }
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text(
+                                            text = stringResource(R.string.summary_steps_unit_short),
+                                            fontSize = 12.sp,
+                                            color = Color.White.copy(alpha = 0.6f),
+                                            modifier = Modifier.padding(bottom = 4.dp)
                                         )
                                     }
+                                    val percent = if (stepGoal > 0) (steps * 100 / stepGoal) else 0
+                                    Text(
+                                        text = "${String.format(Locale.US, "%,d", stepGoal)} target · $percent%",
+                                        fontSize = 12.sp,
+                                        color = Color.White.copy(alpha = 0.6f)
+                                    )
                                 }
                             }
                         }
@@ -433,38 +371,54 @@ fun TodayScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Embedded Timeline Archive
-            Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-                SectionEyebrow(text = "ARCHIVE")
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Timeline",
-                    fontFamily = FontFamily.Serif,
-                    fontSize = 24.sp,
-                    color = LightInk
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // Exclude hero photo event
-                val archiveEvents = events.filter { it.id != latestPhotoEvent?.id }
-                    .filter { it !is TimelineEvent.NutritionEntry }
-
-                if (archiveEvents.isEmpty()) {
+            // VIEWPORT 2: Timeline Archive (Same Scroll Document)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color(0xFF13110E))
+                    .padding(horizontal = 18.dp)
+                    .padding(top = 36.dp, bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(20.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        text = "No other entries recorded yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextMuted,
-                        modifier = Modifier.padding(vertical = 16.dp)
+                        text = stringResource(R.string.timeline_eyebrow),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.6.sp,
+                        color = Color.White.copy(alpha = 0.6f)
                     )
+                    Text(
+                        text = stringResource(R.string.timeline_title),
+                        fontSize = 44.sp,
+                        fontFamily = FontFamily.Serif,
+                        letterSpacing = (-1.2).sp,
+                        color = Color.White
+                    )
+                }
+
+                // Group events by day
+                val nonNutritionEvents = events.filter { it !is TimelineEvent.NutritionEntry }
+                val measurementEvents = nonNutritionEvents.filterIsInstance<TimelineEvent.Measurements>()
+
+                if (nonNutritionEvents.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 40.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = stringResource(R.string.timeline_empty),
+                            color = Color.White.copy(alpha = 0.5f),
+                            fontSize = 16.sp
+                        )
+                    }
                 } else {
-                    val measurementEvents = archiveEvents.filterIsInstance<TimelineEvent.Measurements>()
-                    archiveEvents.forEachIndexed { index, event ->
+                    nonNutritionEvents.forEachIndexed { index, event ->
                         when (event) {
                             is TimelineEvent.ProgressPhoto -> {
-                                TimelinePhotoCard(
+                                TimelinePhotoItem(
                                     event = event,
                                     onClick = {
                                         onOpenPhotoGallery(event.id, event.photos, 0)
@@ -473,52 +427,16 @@ fun TodayScreen(
                             }
                             is TimelineEvent.Measurements -> {
                                 val prev = measurementEvents.getOrNull(measurementEvents.indexOf(event) + 1)
-                                TimelineMeasurementsCard(event = event, previousEvent = prev)
+                                TimelineMeasurementsItem(event = event, previous = prev)
                             }
                             is TimelineEvent.InBody -> {
-                                TimelineInBodyCard(event = event)
+                                TimelineInBodyItem(event = event)
                             }
-                            else -> {}
+                            else -> Unit
                         }
-                        Spacer(modifier = Modifier.height(16.dp))
                     }
                 }
-
-                Spacer(modifier = Modifier.height(80.dp))
             }
-        }
-
-        // Set Goal Dialog
-        if (showSetGoalDialog) {
-            AlertDialog(
-                onDismissRequest = { showSetGoalDialog = false },
-                title = { Text("Set Step Goal") },
-                text = {
-                    OutlinedTextField(
-                        value = stepGoalInput,
-                        onValueChange = { stepGoalInput = it.filter { c -> c.isDigit() } },
-                        label = { Text("Steps") },
-                        singleLine = true
-                    )
-                },
-                confirmButton = {
-                    TextButton(onClick = {
-                        val newGoal = stepGoalInput.toIntOrNull()?.coerceIn(100, 100000) ?: 10000
-                        prefs.stepGoal = newGoal
-                        showSetGoalDialog = false
-                        scope.launch {
-                            activityState = healthRepo.getActivityData(LocalDate.now(), newGoal)
-                        }
-                    }) {
-                        Text("Save", color = Trace)
-                    }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showSetGoalDialog = false }) {
-                        Text("Cancel", color = TextSecondary)
-                    }
-                }
-            )
         }
     }
 }

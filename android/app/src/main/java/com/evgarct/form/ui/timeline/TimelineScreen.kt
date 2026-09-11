@@ -1,6 +1,7 @@
 package com.evgarct.form.ui.timeline
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,13 +12,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,21 +31,18 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evgarct.form.FormApp
-import com.evgarct.form.core.theme.Ink
-import com.evgarct.form.core.theme.LightInk
-import com.evgarct.form.core.theme.TextMuted
-import com.evgarct.form.core.theme.Trace
-import com.evgarct.form.data.models.DeltaDirection
-import com.evgarct.form.data.models.MeasurementDelta
+import com.evgarct.form.R
 import com.evgarct.form.data.models.PhotoItem
 import com.evgarct.form.data.models.TimelineEvent
-import com.evgarct.form.ui.components.LoadingSpinner
-import com.evgarct.form.ui.components.SectionEyebrow
-import com.evgarct.form.ui.components.SerifNumber
 import kotlinx.coroutines.launch
 import java.util.Locale
 
@@ -75,112 +75,157 @@ fun TimelineScreen(
     }
 
     val measurementEvents = events.filterIsInstance<TimelineEvent.Measurements>()
-    val latestMeasurements = measurementEvents.firstOrNull()
-    val previousMeasurements = measurementEvents.getOrNull(1)
+    val latestMeasurements = measurementEvents.firstOrNull()?.values
+    val previousMeasurements = measurementEvents.getOrNull(1)?.values
 
-    val latestWeight = latestMeasurements?.values?.weightKg
-    val weightDelta = if (latestWeight != null) {
-        MeasurementDelta(latestWeight, previousMeasurements?.values?.weightKg)
+    val latestWeight = latestMeasurements?.weightKg
+    val weightDelta = if (latestWeight != null && previousMeasurements?.weightKg != null) {
+        latestWeight - previousMeasurements.weightKg!!
     } else null
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Ink)
+            .background(Color(0xFF13110E))
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(top = 50.dp, start = 20.dp, end = 20.dp, bottom = 80.dp)
+                .statusBarsPadding()
+                .padding(horizontal = 18.dp)
+                .padding(top = 16.dp, bottom = 110.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    SectionEyebrow(text = "ARCHIVE")
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "Timeline",
-                        fontFamily = FontFamily.Serif,
-                        fontSize = 32.sp,
-                        color = LightInk
-                    )
-                }
-
-                IconButton(
-                    onClick = onOpenMeasurementEditor,
-                    modifier = Modifier.size(44.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add measurements",
-                        tint = Trace,
-                        modifier = Modifier.size(28.dp)
-                    )
-                }
-            }
-
-            // Latest Weight Headline
-            if (latestWeight != null) {
-                Spacer(modifier = Modifier.height(16.dp))
+            // Editorial Header
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Bottom,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Column {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         Text(
-                            text = "LATEST RECORDED STATE",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextMuted
+                            text = stringResource(R.string.timeline_eyebrow),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 1.6.sp,
+                            color = Color.White.copy(alpha = 0.6f)
                         )
-                        Spacer(modifier = Modifier.height(4.dp))
-                        SerifNumber(
-                            value = String.format(Locale.US, "%.1f", latestWeight),
-                            unit = "kg",
-                            fontSize = 40
+                        Text(
+                            text = stringResource(R.string.timeline_title),
+                            fontSize = 45.sp,
+                            fontFamily = FontFamily.Serif,
+                            letterSpacing = (-1.4).sp,
+                            color = Color.White
                         )
                     }
 
-                    if (weightDelta?.change != null && weightDelta.direction != DeltaDirection.UNCHANGED) {
-                        DeltaBadge(delta = weightDelta, unit = "kg")
+                    // Glass + Button
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.15f))
+                            .clickable { onOpenMeasurementEditor() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = stringResource(R.string.timeline_add_measurements),
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+
+                // Latest Weight Banner
+                if (latestWeight != null) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Bottom
+                        ) {
+                            Row(verticalAlignment = Alignment.Bottom) {
+                                Text(
+                                    text = String.format(Locale.US, "%.1f", latestWeight),
+                                    fontSize = 58.sp,
+                                    fontWeight = FontWeight.Light,
+                                    fontFamily = FontFamily.Serif,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = stringResource(R.string.measurement_kg),
+                                    fontSize = 20.sp,
+                                    color = Color.White.copy(alpha = 0.6f),
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                )
+                            }
+
+                            if (weightDelta != null) {
+                                Row(
+                                    verticalAlignment = Alignment.Bottom,
+                                    modifier = Modifier.padding(bottom = 8.dp)
+                                ) {
+                                    Text(
+                                        text = String.format(Locale.US, "%+.2f", weightDelta),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = Color.White.copy(alpha = 0.7f)
+                                    )
+                                    Spacer(modifier = Modifier.width(3.dp))
+                                    Text(
+                                        text = stringResource(R.string.measurement_kg),
+                                        fontSize = 12.sp,
+                                        color = Color.White.copy(alpha = 0.4f)
+                                    )
+                                }
+                            }
+                        }
+
+                        Text(
+                            text = stringResource(R.string.timeline_latest_caption),
+                            fontSize = 14.sp,
+                            color = Color.White.copy(alpha = 0.6f)
+                        )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            if (isLoading) {
+            // Events List
+            if (isLoading && events.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(200.dp),
+                        .padding(vertical = 40.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    LoadingSpinner()
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp
+                    )
                 }
             } else if (events.isEmpty()) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 48.dp),
+                        .padding(vertical = 40.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "No timeline events recorded yet.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextMuted
+                        text = stringResource(R.string.timeline_empty),
+                        color = Color.White.copy(alpha = 0.5f),
+                        fontSize = 16.sp
                     )
                 }
             } else {
-                events.forEachIndexed { index, event ->
+                events.forEach { event ->
                     when (event) {
                         is TimelineEvent.ProgressPhoto -> {
-                            TimelinePhotoCard(
+                            TimelinePhotoItem(
                                 event = event,
                                 onClick = {
                                     onOpenPhotoGallery(event.id, event.photos, 0)
@@ -189,14 +234,13 @@ fun TimelineScreen(
                         }
                         is TimelineEvent.Measurements -> {
                             val prev = measurementEvents.getOrNull(measurementEvents.indexOf(event) + 1)
-                            TimelineMeasurementsCard(event = event, previousEvent = prev)
+                            TimelineMeasurementsItem(event = event, previous = prev)
                         }
                         is TimelineEvent.InBody -> {
-                            TimelineInBodyCard(event = event)
+                            TimelineInBodyItem(event = event)
                         }
-                        else -> {}
+                        else -> Unit
                     }
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
         }

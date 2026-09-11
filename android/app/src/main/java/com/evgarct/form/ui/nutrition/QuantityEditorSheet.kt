@@ -1,7 +1,6 @@
 package com.evgarct.form.ui.nutrition
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,22 +13,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,24 +39,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evgarct.form.FormApp
-import com.evgarct.form.core.theme.Ink
-import com.evgarct.form.core.theme.LightInk
-import com.evgarct.form.core.theme.SurfaceCard
-import com.evgarct.form.core.theme.SurfaceCardBorder
-import com.evgarct.form.core.theme.TextMuted
-import com.evgarct.form.core.theme.TextSecondary
-import com.evgarct.form.core.theme.Trace
 import com.evgarct.form.data.models.FoodQuantity
 import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutrientValue
 import com.evgarct.form.data.models.NutritionProduct
-import com.evgarct.form.ui.components.GlassCard
-import com.evgarct.form.ui.components.SerifNumber
 import kotlinx.coroutines.launch
 import java.util.Date
 import java.util.TimeZone
@@ -117,229 +112,294 @@ fun QuantityEditorSheet(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Ink)
+            .background(Color(0xFF13110E))
             .imePadding()
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 40.dp)
+                .statusBarsPadding()
+                .padding(top = 10.dp)
         ) {
             // Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .padding(horizontal = 22.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "Cancel",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = TextSecondary,
-                    modifier = Modifier.clickable { onDismiss() }
-                )
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .clickable { onDismiss() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Cancel",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
 
                 Text(
                     text = "Add to ${mealType.name.lowercase().replaceFirstChar { it.uppercase() }}",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = LightInk
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.White
                 )
 
-                Text(
-                    text = if (isSaving) "Adding..." else "Add",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = if (amount > 0 && !isSaving) Trace else TextMuted,
-                    modifier = Modifier.clickable(enabled = amount > 0 && !isSaving) { save() }
-                )
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(if (amount > 0 && !isSaving) Color.White else Color.White.copy(alpha = 0.12f))
+                        .clickable(enabled = amount > 0 && !isSaving) { save() }
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isSaving) {
+                        CircularProgressIndicator(
+                            color = Color.Black,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "Add",
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (amount > 0) Color.Black else Color.White.copy(alpha = 0.35f)
+                        )
+                    }
+                }
             }
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                    .padding(horizontal = 22.dp, vertical = 14.dp),
+                verticalArrangement = Arrangement.spacedBy(28.dp)
             ) {
-                Text(text = product.name, style = MaterialTheme.typography.headlineMedium, color = LightInk)
-                product.brand?.let {
-                    Text(text = it, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Live Macro Preview Card
-                GlassCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceAround,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        MacroColumn("Calories", "${liveSummary.calories.toInt()} kcal", Trace)
-                        MacroColumn("Protein", "${liveSummary.protein.toInt()} g", LightInk)
-                        MacroColumn("Fat", "${liveSummary.fat.toInt()} g", LightInk)
-                        MacroColumn("Carbs", "${liveSummary.carbohydrates.toInt()} g", LightInk)
+                // Product Title & Brand
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = product.name,
+                        fontSize = 32.sp,
+                        fontFamily = FontFamily.Serif,
+                        letterSpacing = (-0.8).sp,
+                        color = Color.White
+                    )
+                    product.brand?.let {
+                        Text(
+                            text = it,
+                            fontSize = 16.sp,
+                            color = Color.White.copy(alpha = 0.5f)
+                        )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                // Live 4-Column Macros (Directly on background)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    MacroColumnsHeader()
+                    MacroColumns(
+                        summary = liveSummary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Light
+                    )
+                }
 
-                // Quick Select Chips
-                Text(text = "PORTION & UNITS", style = MaterialTheme.typography.labelSmall, color = Trace)
-                Spacer(modifier = Modifier.height(8.dp))
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    val isBaseSelected = unitMode is UnitMode.Base
-                    PortionChip(
-                        label = "100 ${product.baseUnit}",
-                        isSelected = isBaseSelected,
-                        onClick = {
-                            unitMode = UnitMode.Base
-                            amount = 100.0
-                            amountText = "100"
-                        }
+                // Portions & Units
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "PORTION & UNITS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.2.sp,
+                        color = Color.White.copy(alpha = 0.4f)
                     )
 
-                    product.pieceSizes.firstOrNull()?.let { piece ->
-                        val isPieceSelected = (unitMode as? UnitMode.Piece)?.size == piece.size
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        val isBaseSelected = unitMode is UnitMode.Base
                         PortionChip(
-                            label = piece.size,
-                            isSelected = isPieceSelected,
+                            label = "100 ${product.baseUnit}",
+                            isSelected = isBaseSelected,
                             onClick = {
-                                unitMode = UnitMode.Piece(piece.size)
-                                amount = 1.0
-                                amountText = "1"
+                                unitMode = UnitMode.Base
+                                amount = 100.0
+                                amountText = "100"
                             }
                         )
-                    }
 
-                    product.servingSizes.firstOrNull()?.let { serving ->
-                        val isServingSelected = (unitMode as? UnitMode.Serving)?.label == serving.label
-                        PortionChip(
-                            label = serving.label,
-                            isSelected = isServingSelected,
-                            onClick = {
-                                unitMode = UnitMode.Serving(serving.label, serving.id)
-                                amount = 1.0
-                                amountText = "1"
-                            }
-                        )
+                        product.pieceSizes.firstOrNull()?.let { piece ->
+                            val isPieceSelected = (unitMode as? UnitMode.Piece)?.size == piece.size
+                            PortionChip(
+                                label = piece.size,
+                                isSelected = isPieceSelected,
+                                onClick = {
+                                    unitMode = UnitMode.Piece(piece.size)
+                                    amount = 1.0
+                                    amountText = "1"
+                                }
+                            )
+                        }
+
+                        product.servingSizes.firstOrNull()?.let { serving ->
+                            val isServingSelected = (unitMode as? UnitMode.Serving)?.label == serving.label
+                            PortionChip(
+                                label = serving.label,
+                                isSelected = isServingSelected,
+                                onClick = {
+                                    unitMode = UnitMode.Serving(serving.label, serving.id)
+                                    amount = 1.0
+                                    amountText = "1"
+                                }
+                            )
+                        }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(24.dp))
 
                 // Amount Stepper / Input
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "Amount",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = LightInk
+                        text = "AMOUNT",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = 1.2.sp,
+                        color = Color.White.copy(alpha = 0.4f)
                     )
 
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = {
-                                val current = amountText.toDoubleOrNull() ?: 1.0
-                                val step = if (unitMode is UnitMode.Base) 10.0 else 1.0
-                                val newV = (current - step).coerceAtLeast(0.0)
-                                amount = newV
-                                amountText = if (newV % 1.0 == 0.0) newV.toInt().toString() else newV.toString()
-                            }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        // Glass minus button
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.12f))
+                                .clickable {
+                                    val current = amountText.toDoubleOrNull() ?: 1.0
+                                    val step = if (unitMode is UnitMode.Base) 10.0 else 1.0
+                                    val newV = (current - step).coerceAtLeast(0.0)
+                                    amount = newV
+                                    amountText = if (newV % 1.0 == 0.0) newV.toInt().toString() else newV.toString()
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = Trace)
+                            Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
 
-                        OutlinedTextField(
-                            value = amountText,
-                            onValueChange = { text ->
-                                amountText = text
-                                amount = text.toDoubleOrNull() ?: 0.0
-                            },
-                            modifier = Modifier.width(100.dp),
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedContainerColor = SurfaceCard,
-                                unfocusedContainerColor = SurfaceCard,
-                                focusedBorderColor = Trace,
-                                unfocusedBorderColor = SurfaceCardBorder,
-                                focusedTextColor = LightInk,
-                                unfocusedTextColor = LightInk
-                            )
-                        )
-
-                        IconButton(
-                            onClick = {
-                                val current = amountText.toDoubleOrNull() ?: 0.0
-                                val step = if (unitMode is UnitMode.Base) 10.0 else 1.0
-                                val newV = current + step
-                                amount = newV
-                                amountText = if (newV % 1.0 == 0.0) newV.toInt().toString() else newV.toString()
-                            }
+                        // Glass pill amount field
+                        Box(
+                            modifier = Modifier
+                                .width(140.dp)
+                                .height(50.dp)
+                                .clip(RoundedCornerShape(25.dp))
+                                .background(Color.White.copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Increase", tint = Trace)
+                            BasicTextField(
+                                value = amountText,
+                                onValueChange = { text ->
+                                    amountText = text
+                                    amount = text.toDoubleOrNull() ?: 0.0
+                                },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                textStyle = TextStyle(
+                                    fontSize = 24.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.White,
+                                    textAlign = TextAlign.Center
+                                ),
+                                cursorBrush = SolidColor(Color.White),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
+                            )
+                        }
+
+                        // Glass plus button
+                        Box(
+                            modifier = Modifier
+                                .size(44.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.12f))
+                                .clickable {
+                                    val current = amountText.toDoubleOrNull() ?: 0.0
+                                    val step = if (unitMode is UnitMode.Base) 10.0 else 1.0
+                                    val newV = current + step
+                                    amount = newV
+                                    amountText = if (newV % 1.0 == 0.0) newV.toInt().toString() else newV.toString()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = "Increase", tint = Color.White, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
 
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // All nutrients link
-                Text(
-                    text = "All nutrients",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Trace,
+                // All Nutrients Chevron Row
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceCard)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color.White.copy(alpha = 0.06f))
                         .clickable {
                             val scaled = product.referenceBase?.nutrients ?: emptyList()
                             onOpenNutrients(scaled)
                         }
-                        .padding(16.dp)
-                )
+                        .padding(horizontal = 18.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "All Nutrients",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.White
+                    )
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = Color.White.copy(alpha = 0.4f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(30.dp))
             }
         }
     }
 }
 
 @Composable
-fun MacroColumn(label: String, value: String, color: androidx.compose.ui.graphics.Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = label, style = MaterialTheme.typography.bodySmall, color = TextMuted)
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(text = value, style = MaterialTheme.typography.titleMedium, color = color, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-fun PortionChip(label: String, isSelected: Boolean, onClick: () -> Unit) {
+fun PortionChip(
+    label: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (isSelected) Trace else SurfaceCard)
+            .clip(CircleShape)
+            .background(if (isSelected) Color.White else Color.White.copy(alpha = 0.12f))
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
-            fontSize = 13.sp,
-            color = if (isSelected) LightInk else TextSecondary,
-            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium,
+            color = if (isSelected) Color.Black else Color.White
         )
     }
 }
