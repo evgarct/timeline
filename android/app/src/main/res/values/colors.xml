@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="paper">#F2EEE6</color>
+    <color name="ink">#15130F</color>
+    <color name="light_ink">#FBF9F4</color>
+    <color name="trace">#806450</color>
+    <color name="trace_dim">#33806450</color>
+    <color name="surface_dark">#1C1A16</color>
+    <color name="surface_card">#24211C</color>
+    <color name="surface_card_border">#38342D</color>
+    <color name="text_secondary">#9E978E</color>
+    <color name="text_muted">#68635B</color>
+    <color name="success">#4E9E68</color>
+    <color name="error">#D9534F</color>
+    <color name="warning">#E5A93C</color>
+</resources>
