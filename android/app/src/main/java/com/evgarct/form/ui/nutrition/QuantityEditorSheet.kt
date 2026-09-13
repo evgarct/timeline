@@ -2,6 +2,8 @@ package com.evgarct.form.ui.nutrition
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,8 +17,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
@@ -33,11 +33,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -52,6 +50,7 @@ import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutrientValue
 import com.evgarct.form.data.models.NutritionProduct
 import com.evgarct.form.ui.nutrition.components.FormModalSheet
+import com.evgarct.form.ui.nutrition.components.SelectAllOnFocusTextField
 import java.util.Date
 
 sealed class UnitMode {
@@ -193,7 +192,9 @@ fun QuantityEditorSheet(
                     )
 
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         val isBaseSelected = unitMode is UnitMode.Base
@@ -207,7 +208,7 @@ fun QuantityEditorSheet(
                             }
                         )
 
-                        product.pieceSizes.firstOrNull()?.let { piece ->
+                        product.pieceSizes.forEach { piece ->
                             val isPieceSelected = (unitMode as? UnitMode.Piece)?.size == piece.size
                             PortionChip(
                                 label = piece.size,
@@ -220,7 +221,7 @@ fun QuantityEditorSheet(
                             )
                         }
 
-                        product.servingSizes.firstOrNull()?.let { serving ->
+                        product.servingSizes.forEach { serving ->
                             val isServingSelected = (unitMode as? UnitMode.Serving)?.label == serving.label
                             PortionChip(
                                 label = serving.label,
@@ -277,14 +278,14 @@ fun QuantityEditorSheet(
                                 .background(TextPrimary.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            BasicTextField(
+                            SelectAllOnFocusTextField(
                                 value = amountText,
                                 onValueChange = { text ->
-                                    amountText = text
-                                    amount = text.toDoubleOrNull() ?: 0.0
+                                    if (text.isEmpty() || text.matches(Regex("""^\d*\.?\d*$"""))) {
+                                        amountText = text
+                                        amount = text.toDoubleOrNull() ?: 0.0
+                                    }
                                 },
-                                singleLine = true,
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                                 textStyle = TextStyle(
                                     fontSize = 24.sp,
                                     fontFamily = FontFamily.Monospace,
@@ -292,7 +293,7 @@ fun QuantityEditorSheet(
                                     color = TextPrimary,
                                     textAlign = TextAlign.Center
                                 ),
-                                cursorBrush = SolidColor(TextPrimary),
+                                cursorColor = TextPrimary,
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
                             )
                         }

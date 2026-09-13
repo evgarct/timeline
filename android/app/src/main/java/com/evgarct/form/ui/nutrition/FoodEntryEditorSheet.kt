@@ -16,13 +16,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -42,7 +43,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -61,6 +61,7 @@ import com.evgarct.form.data.models.NutrientValue
 import com.evgarct.form.data.models.icon
 import com.evgarct.form.data.models.parseIsoDate
 import com.evgarct.form.ui.nutrition.components.FormModalSheet
+import com.evgarct.form.ui.nutrition.components.SelectAllOnFocusTextField
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -85,6 +86,12 @@ fun FoodEntryEditorSheet(
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
     val dateFormatter = remember { SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()) }
+    val quantityStep = remember(entry.quantity) {
+        when (entry.quantity) {
+            is FoodQuantity.Grams, is FoodQuantity.Milliliters -> 10.0
+            else -> 1.0
+        }
+    }
 
     // Optimistic: the sheet closes immediately, the cache reflects the change right away.
     fun update() {
@@ -176,29 +183,59 @@ fun FoodEntryEditorSheet(
             ) {
                 Text(text = "Quantity", style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
 
-                Box(
-                    modifier = Modifier
-                        .width(110.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(colorScheme.surfaceContainerHigh)
-                        .padding(horizontal = 10.dp, vertical = 8.dp)
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                        BasicTextField(
-                            value = amountText,
-                            onValueChange = { text ->
-                                if (text.isEmpty() || text.matches(Regex("""^\d*\.?\d*$"""))) {
-                                    amountText = text
-                                }
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(colorScheme.surfaceContainerHigh)
+                            .clickable {
+                                val current = amountText.toDoubleOrNull() ?: quantityStep
+                                val newV = (current - quantityStep).coerceAtLeast(0.0)
+                                amountText = if (newV % 1.0 == 0.0) newV.toInt().toString() else newV.toString()
                             },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                            textStyle = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = TextPrimary, textAlign = TextAlign.End),
-                            cursorBrush = SolidColor(TextPrimary),
-                            modifier = Modifier.weight(1f, fill = false)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(text = entry.quantity.unitLabel, fontSize = 12.sp, color = TextMuted)
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = TextPrimary, modifier = Modifier.size(16.dp))
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .width(80.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(colorScheme.surfaceContainerHigh)
+                            .padding(horizontal = 8.dp, vertical = 8.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                            SelectAllOnFocusTextField(
+                                value = amountText,
+                                onValueChange = { text ->
+                                    if (text.isEmpty() || text.matches(Regex("""^\d*\.?\d*$"""))) {
+                                        amountText = text
+                                    }
+                                },
+                                textStyle = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = TextPrimary, textAlign = TextAlign.End),
+                                cursorColor = TextPrimary,
+                                modifier = Modifier.weight(1f, fill = false)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = entry.quantity.unitLabel, fontSize = 12.sp, color = TextMuted)
+                        }
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(colorScheme.surfaceContainerHigh)
+                            .clickable {
+                                val current = amountText.toDoubleOrNull() ?: 0.0
+                                val newV = current + quantityStep
+                                amountText = if (newV % 1.0 == 0.0) newV.toInt().toString() else newV.toString()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = "Increase", tint = TextPrimary, modifier = Modifier.size(16.dp))
                     }
                 }
             }

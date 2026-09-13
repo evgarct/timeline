@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BakeryDining
@@ -35,8 +34,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +46,7 @@ import com.evgarct.form.core.preferences.StoredNutritionGoals
 import com.evgarct.form.core.theme.TextMuted
 import com.evgarct.form.core.theme.TextPrimary
 import com.evgarct.form.ui.nutrition.components.FormModalSheet
+import com.evgarct.form.ui.nutrition.components.SelectAllOnFocusTextField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -152,10 +150,9 @@ fun GoalInputField(
                 .padding(horizontal = 10.dp, vertical = 8.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
-                BasicTextField(
+                SelectAllOnFocusTextField(
                     value = value,
                     onValueChange = { if (it.isEmpty() || it.all { c -> c.isDigit() }) onValueChange(it) },
-                    singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     textStyle = TextStyle(
                         fontSize = 15.sp,
@@ -163,7 +160,7 @@ fun GoalInputField(
                         color = TextPrimary,
                         textAlign = TextAlign.End
                     ),
-                    cursorBrush = SolidColor(TextPrimary),
+                    cursorColor = TextPrimary,
                     modifier = Modifier.weight(1f, fill = false)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
