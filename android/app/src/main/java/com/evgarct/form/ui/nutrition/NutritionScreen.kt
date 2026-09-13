@@ -44,10 +44,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -56,9 +52,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,7 +86,6 @@ import com.evgarct.form.data.models.NutrientValue
 import com.evgarct.form.data.models.NutritionSummary
 import com.evgarct.form.data.models.icon
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -499,9 +494,7 @@ fun NutritionScreen(
     onOpenEntryEditor: (FoodEntry) -> Unit
 ) {
     val prefs = FormApp.instance.appPreferences
-    val scope = rememberCoroutineScope()
     val viewModel: NutritionViewModel = viewModel()
-    val snackbarHostState = remember { SnackbarHostState() }
     val timezone = remember { TimeZone.getDefault() }
     val colorScheme = MaterialTheme.colorScheme
 
@@ -509,8 +502,6 @@ fun NutritionScreen(
     val cacheMap by viewModel.cacheState.collectAsState()
     val dayState = remember(cacheMap, selectedDate) { viewModel.dayState(selectedDate, timezone) }
     val entries = dayState.entries
-    val entryRemovedMessage = stringResource(R.string.nutrition_entry_removed)
-    val undoLabel = stringResource(R.string.nutrition_undo)
 
     LaunchedEffect(selectedDate) {
         viewModel.refresh(selectedDate, timezone)
@@ -543,17 +534,7 @@ fun NutritionScreen(
     }
 
     fun triggerDelete(entry: FoodEntry) {
-        viewModel.beginPendingDelete(entry, selectedDate, timezone)
-        scope.launch {
-            val result = snackbarHostState.showSnackbar(
-                message = entryRemovedMessage,
-                actionLabel = undoLabel,
-                duration = SnackbarDuration.Short
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                viewModel.undoDelete()
-            }
-        }
+        viewModel.deleteEntryOptimistic(entry, selectedDate, timezone)
     }
 
     Box(
@@ -563,8 +544,7 @@ fun NutritionScreen(
     ) {
         Scaffold(
             containerColor = Color.Transparent,
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            snackbarHost = { SnackbarHost(snackbarHostState) }
+            contentWindowInsets = WindowInsets(0, 0, 0, 0)
         ) { padding ->
             LazyColumn(
                 modifier = Modifier
@@ -691,15 +671,17 @@ fun NutritionScreen(
                                                 .clip(RoundedCornerShape(16.dp))
                                         ) {
                                             mealEntries.forEachIndexed { index, entry ->
-                                                FoodEntryRow(
-                                                    entry = entry,
-                                                    cardColor = colorScheme.surfaceContainer,
-                                                    onOpen = { onOpenEntryEditor(entry) },
-                                                    onRepeat = { viewModel.repeatEntry(entry) },
-                                                    onDelete = { triggerDelete(entry) }
-                                                )
-                                                if (index != mealEntries.lastIndex) {
-                                                    HairlineDivider(color = colorScheme.outlineVariant, alpha = 0.4f)
+                                                key(entry.id) {
+                                                    FoodEntryRow(
+                                                        entry = entry,
+                                                        cardColor = colorScheme.surfaceContainer,
+                                                        onOpen = { onOpenEntryEditor(entry) },
+                                                        onRepeat = { viewModel.repeatEntry(entry) },
+                                                        onDelete = { triggerDelete(entry) }
+                                                    )
+                                                    if (index != mealEntries.lastIndex) {
+                                                        HairlineDivider(color = colorScheme.outlineVariant, alpha = 0.4f)
+                                                    }
                                                 }
                                             }
                                         }

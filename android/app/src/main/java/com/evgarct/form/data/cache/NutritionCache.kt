@@ -105,17 +105,6 @@ class NutritionCache(
         }
     }
 
-    fun applyOptimisticRestore(date: Date, timezone: TimeZone, entry: FoodEntry, index: Int) {
-        val k = key(date, timezone)
-        _state.update { map ->
-            val current = map[k] ?: DayState()
-            val newEntries = current.entries.toMutableList().apply {
-                add(index.coerceIn(0, size), entry)
-            }
-            map + (k to current.copy(entries = newEntries))
-        }
-    }
-
     fun invalidate(date: Date, timezone: TimeZone = TimeZone.getDefault()) {
         val k = key(date, timezone)
         _state.update { it - k }
