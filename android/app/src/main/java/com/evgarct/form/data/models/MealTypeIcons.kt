@@ -1,16 +1,16 @@
 package com.evgarct.form.data.models
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Egg
-import androidx.compose.material.icons.filled.Fastfood
-import androidx.compose.material.icons.filled.Nightlife
-import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.filled.BreakfastDining
+import androidx.compose.material.icons.filled.Cookie
+import androidx.compose.material.icons.filled.DinnerDining
+import androidx.compose.material.icons.filled.LunchDining
 import androidx.compose.ui.graphics.vector.ImageVector
 
 val MealType.icon: ImageVector
     get() = when (this) {
-        MealType.BREAKFAST -> Icons.Default.Egg
-        MealType.LUNCH -> Icons.Default.Restaurant
-        MealType.DINNER -> Icons.Default.Nightlife
-        MealType.SNACK -> Icons.Default.Fastfood
+        MealType.BREAKFAST -> Icons.Default.BreakfastDining
+        MealType.LUNCH -> Icons.Default.LunchDining
+        MealType.DINNER -> Icons.Default.DinnerDining
+        MealType.SNACK -> Icons.Default.Cookie
     }

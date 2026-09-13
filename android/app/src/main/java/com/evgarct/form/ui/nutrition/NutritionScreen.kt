@@ -35,6 +35,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
@@ -56,7 +57,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -70,12 +70,8 @@ import com.evgarct.form.FormApp
 import com.evgarct.form.R
 import com.evgarct.form.core.preferences.StoredNutritionGoals
 import com.evgarct.form.core.theme.GreenAccent
-import com.evgarct.form.core.theme.Ink
 import com.evgarct.form.core.theme.OrangeAccent
 import com.evgarct.form.core.theme.RedAccent
-import com.evgarct.form.core.theme.SurfaceCard
-import com.evgarct.form.core.theme.SurfaceCardBorder
-import com.evgarct.form.core.theme.SurfaceCardHighlight
 import com.evgarct.form.core.theme.TextMuted
 import com.evgarct.form.core.theme.TextPrimary
 import com.evgarct.form.core.theme.TextSecondary
@@ -94,7 +90,7 @@ import java.util.Locale
 import java.util.TimeZone
 
 @Composable
-fun MacroColumnsHeader() {
+fun MacroColumnsHeader(color: Color = TextMuted) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween
@@ -102,28 +98,28 @@ fun MacroColumnsHeader() {
         Text(
             text = stringResource(R.string.nutrition_protein_short).uppercase(),
             fontSize = 11.sp,
-            color = TextMuted,
+            color = color,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.End
         )
         Text(
             text = stringResource(R.string.nutrition_fat_short).uppercase(),
             fontSize = 11.sp,
-            color = TextMuted,
+            color = color,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.End
         )
         Text(
             text = stringResource(R.string.nutrition_carbohydrates_short).uppercase(),
             fontSize = 11.sp,
-            color = TextMuted,
+            color = color,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.End
         )
         Text(
             text = stringResource(R.string.summary_calories_unit).uppercase(),
             fontSize = 11.sp,
-            color = TextMuted,
+            color = color,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.End
         )
@@ -134,7 +130,9 @@ fun MacroColumnsHeader() {
 fun MacroColumns(
     summary: NutritionSummary,
     fontSize: TextUnit = 14.sp,
-    fontWeight: FontWeight = FontWeight.Normal
+    fontWeight: FontWeight = FontWeight.Normal,
+    secondaryColor: Color = TextSecondary,
+    primaryColor: Color = TextPrimary
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -146,7 +144,7 @@ fun MacroColumns(
             fontSize = fontSize,
             fontWeight = fontWeight,
             fontFamily = FontFamily.Monospace,
-            color = TextSecondary,
+            color = secondaryColor,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.End
         )
@@ -155,7 +153,7 @@ fun MacroColumns(
             fontSize = fontSize,
             fontWeight = fontWeight,
             fontFamily = FontFamily.Monospace,
-            color = TextSecondary,
+            color = secondaryColor,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.End
         )
@@ -164,7 +162,7 @@ fun MacroColumns(
             fontSize = fontSize,
             fontWeight = fontWeight,
             fontFamily = FontFamily.Monospace,
-            color = TextSecondary,
+            color = secondaryColor,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.End
         )
@@ -173,46 +171,53 @@ fun MacroColumns(
             fontSize = fontSize,
             fontWeight = FontWeight.SemiBold,
             fontFamily = FontFamily.Monospace,
-            color = TextPrimary,
+            color = primaryColor,
             modifier = Modifier.weight(1f),
             textAlign = TextAlign.End
         )
     }
 }
 
-private fun goalStatusColor(status: GoalStatus): Color = when (status) {
+private fun goalStatusColor(status: GoalStatus, neutralColor: Color): Color = when (status) {
     is GoalStatus.OnTarget -> GreenAccent
-    is GoalStatus.Under -> TextMuted
+    is GoalStatus.Under -> neutralColor
     is GoalStatus.Over -> OrangeAccent
 }
 
 @Composable
-private fun GoalPercentCell(actual: Double, goal: Double?, modifier: Modifier) {
+private fun GoalPercentCell(actual: Double, goal: Double?, neutralColor: Color, chipColor: Color, modifier: Modifier) {
     if (goal == null || goal <= 0) {
         Box(modifier = modifier)
         return
     }
     val percent = (actual * 100 / goal).toInt()
-    val color = goalStatusColor(GoalStatus.compute(actual, goal))
-    Text(
-        text = "$percent%",
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Medium,
-        color = color,
-        modifier = modifier,
-        textAlign = TextAlign.End
-    )
+    val color = goalStatusColor(GoalStatus.compute(actual, goal), neutralColor)
+    Box(modifier = modifier, contentAlignment = Alignment.CenterEnd) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(8.dp))
+                .background(chipColor)
+                .padding(horizontal = 8.dp, vertical = 2.dp)
+        ) {
+            Text(
+                text = "$percent%",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = color
+            )
+        }
+    }
 }
 
 @Composable
-private fun GoalPercentRow(daySummary: NutritionSummary, goals: StoredNutritionGoals) {
+private fun GoalPercentRow(daySummary: NutritionSummary, goals: StoredNutritionGoals, neutralColor: Color, chipColor: Color) {
     val hasAnyGoal = listOf(goals.calories, goals.protein, goals.fat, goals.carbohydrates).any { it != null && it > 0 }
     if (!hasAnyGoal) return
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        GoalPercentCell(daySummary.protein, goals.protein, Modifier.weight(1f))
-        GoalPercentCell(daySummary.fat, goals.fat, Modifier.weight(1f))
-        GoalPercentCell(daySummary.carbohydrates, goals.carbohydrates, Modifier.weight(1f))
-        GoalPercentCell(daySummary.calories, goals.calories, Modifier.weight(1f))
+        GoalPercentCell(daySummary.protein, goals.protein, neutralColor, chipColor, Modifier.weight(1f))
+        GoalPercentCell(daySummary.fat, goals.fat, neutralColor, chipColor, Modifier.weight(1f))
+        GoalPercentCell(daySummary.carbohydrates, goals.carbohydrates, neutralColor, chipColor, Modifier.weight(1f))
+        GoalPercentCell(daySummary.calories, goals.calories, neutralColor, chipColor, Modifier.weight(1f))
     }
 }
 
@@ -224,12 +229,12 @@ private fun mealLabelRes(meal: MealType): Int = when (meal) {
 }
 
 @Composable
-private fun HairlineDivider(alpha: Float = 0.5f) {
+private fun HairlineDivider(color: Color, alpha: Float = 0.6f) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(0.8.dp)
-            .background(SurfaceCardBorder.copy(alpha = alpha))
+            .background(color.copy(alpha = alpha))
     )
 }
 
@@ -237,6 +242,7 @@ private fun HairlineDivider(alpha: Float = 0.5f) {
 @Composable
 private fun FoodEntryRow(
     entry: FoodEntry,
+    cardColor: Color,
     onOpen: () -> Unit,
     onRepeat: () -> Unit,
     onDelete: () -> Unit
@@ -271,7 +277,7 @@ private fun FoodEntryRow(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .clip(RoundedCornerShape(12.dp))
+                    .clip(RoundedCornerShape(16.dp))
                     .background(RedAccent.copy(alpha = 0.85f))
                     .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.CenterEnd
@@ -284,7 +290,7 @@ private fun FoodEntryRow(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Ink)
+                    .background(cardColor)
                     .combinedClickable(onClick = onOpen, onLongClick = { showMenu = true })
                     .padding(vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -358,16 +364,24 @@ private fun MealSectionHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Icon(
-                imageVector = meal.icon,
-                contentDescription = null,
-                tint = TextSecondary,
-                modifier = Modifier.size(20.dp)
-            )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = meal.icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
             Text(
                 text = stringResource(mealLabelRes(meal)),
-                fontSize = 19.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = TextPrimary
             )
@@ -378,14 +392,14 @@ private fun MealSectionHeader(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(SurfaceCard)
+                    .background(MaterialTheme.colorScheme.tertiaryContainer)
                     .clickable(onClick = onAdd),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = stringResource(R.string.nutrition_add),
-                    tint = TextPrimary,
+                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -414,6 +428,7 @@ fun NutritionScreen(
     val viewModel: NutritionViewModel = viewModel()
     val snackbarHostState = remember { SnackbarHostState() }
     val timezone = remember { TimeZone.getDefault() }
+    val colorScheme = MaterialTheme.colorScheme
 
     var selectedDate by remember { mutableStateOf(Date()) }
     val cacheMap by viewModel.cacheState.collectAsState()
@@ -469,11 +484,7 @@ fun NutritionScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.linearGradient(
-                    listOf(Ink, SurfaceCard, Ink)
-                )
-            )
+            .background(colorScheme.surface)
     ) {
         Scaffold(
             containerColor = Color.Transparent,
@@ -486,7 +497,7 @@ fun NutritionScreen(
                     .padding(padding)
                     .statusBarsPadding(),
                 contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 16.dp, bottom = 110.dp),
-                verticalArrangement = Arrangement.spacedBy(28.dp)
+                verticalArrangement = Arrangement.spacedBy(24.dp)
             ) {
                 item(key = "header") {
                     Row(
@@ -497,7 +508,7 @@ fun NutritionScreen(
                         Box(
                             modifier = Modifier
                                 .clip(CircleShape)
-                                .background(SurfaceCard)
+                                .background(colorScheme.surfaceContainerHigh)
                                 .padding(horizontal = 6.dp, vertical = 4.dp)
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -545,14 +556,14 @@ fun NutritionScreen(
                             modifier = Modifier
                                 .size(38.dp)
                                 .clip(CircleShape)
-                                .background(SurfaceCard)
+                                .background(colorScheme.secondaryContainer)
                                 .clickable { onOpenGoalsEditor() },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.Adjust,
                                 contentDescription = stringResource(R.string.nutrition_goals_edit),
-                                tint = TextPrimary,
+                                tint = colorScheme.onSecondaryContainer,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -563,14 +574,25 @@ fun NutritionScreen(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(SurfaceCardHighlight)
-                            .padding(horizontal = 16.dp, vertical = 14.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .clip(RoundedCornerShape(28.dp))
+                            .background(colorScheme.primaryContainer)
+                            .padding(horizontal = 20.dp, vertical = 18.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
-                        MacroColumnsHeader()
-                        MacroColumns(summary = daySummary, fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
-                        GoalPercentRow(daySummary = daySummary, goals = goals)
+                        MacroColumnsHeader(color = colorScheme.onPrimaryContainer.copy(alpha = 0.6f))
+                        MacroColumns(
+                            summary = daySummary,
+                            fontSize = 26.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            secondaryColor = colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+                            primaryColor = colorScheme.onPrimaryContainer
+                        )
+                        GoalPercentRow(
+                            daySummary = daySummary,
+                            goals = goals,
+                            neutralColor = colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
+                            chipColor = colorScheme.onPrimaryContainer.copy(alpha = 0.14f)
+                        )
                     }
                 }
 
@@ -580,7 +602,14 @@ fun NutritionScreen(
                         val mealSummary = remember(mealEntries) { NutritionSummary.fromEntries(mealEntries) }
                         val expanded = meal.name !in viewModel.collapsedMeals
 
-                        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(colorScheme.surfaceContainer)
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
                             MealSectionHeader(
                                 meal = meal,
                                 expanded = expanded,
@@ -592,8 +621,8 @@ fun NutritionScreen(
                                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                     if (mealEntries.isNotEmpty()) {
                                         MacroColumns(summary = mealSummary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                                        HairlineDivider(color = colorScheme.outlineVariant)
                                     }
-                                    HairlineDivider()
                                     if (mealEntries.isEmpty()) {
                                         Text(
                                             text = stringResource(R.string.nutrition_meal_empty),
@@ -602,15 +631,22 @@ fun NutritionScreen(
                                             modifier = Modifier.padding(vertical = 6.dp)
                                         )
                                     } else {
-                                        mealEntries.forEachIndexed { index, entry ->
-                                            FoodEntryRow(
-                                                entry = entry,
-                                                onOpen = { onOpenEntryEditor(entry) },
-                                                onRepeat = { viewModel.repeatEntry(entry) },
-                                                onDelete = { triggerDelete(entry) }
-                                            )
-                                            if (index != mealEntries.lastIndex) {
-                                                HairlineDivider(alpha = 0.3f)
+                                        Column(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clip(RoundedCornerShape(16.dp))
+                                        ) {
+                                            mealEntries.forEachIndexed { index, entry ->
+                                                FoodEntryRow(
+                                                    entry = entry,
+                                                    cardColor = colorScheme.surfaceContainer,
+                                                    onOpen = { onOpenEntryEditor(entry) },
+                                                    onRepeat = { viewModel.repeatEntry(entry) },
+                                                    onDelete = { triggerDelete(entry) }
+                                                )
+                                                if (index != mealEntries.lastIndex) {
+                                                    HairlineDivider(color = colorScheme.outlineVariant, alpha = 0.4f)
+                                                }
                                             }
                                         }
                                     }
@@ -624,8 +660,10 @@ fun NutritionScreen(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(colorScheme.surfaceContainer)
                             .clickable { onOpenNutrientsSheet(entries.flatMap { it.productSnapshot.nutrients }) }
-                            .padding(vertical = 12.dp),
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
