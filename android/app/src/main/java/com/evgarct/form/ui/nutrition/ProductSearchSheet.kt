@@ -67,6 +67,7 @@ fun ProductSearchSheet(
     var recentForMeal by remember { mutableStateOf<List<NutritionProduct>>(emptyList()) }
     var moreRecent by remember { mutableStateOf<List<NutritionProduct>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
+    var isLoadingRecents by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         nutritionRepo.recentProducts(mealType, page = 1, pageSize = 20)
@@ -75,6 +76,7 @@ fun ProductSearchSheet(
             .onSuccess { allRecent ->
                 moreRecent = allRecent.items.filter { it !in recentForMeal }
             }
+        isLoadingRecents = false
     }
 
     LaunchedEffect(query) {
@@ -180,6 +182,15 @@ fun ProductSearchSheet(
                             ProductListItem(product = product, onClick = { onSelectProduct(product) })
                         }
                     }
+                }
+            } else if (isLoadingRecents) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    LoadingSpinner()
                 }
             } else {
                 LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp)) {

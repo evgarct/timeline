@@ -1,5 +1,6 @@
 package com.evgarct.form.data.cache
 
+import com.evgarct.form.core.preferences.AppPreferences
 import com.evgarct.form.data.models.FoodEntry
 import com.evgarct.form.data.repository.NutritionRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,11 +13,16 @@ import java.util.Locale
 import java.util.TimeZone
 
 /**
- * In-memory stale-while-revalidate cache for a day's food entries, shared by every
- * screen that reads nutrition data (Today, Nutrition) so a mutation made anywhere
- * is visible everywhere without a separate refresh signal.
+ * Stale-while-revalidate cache for a day's food entries, shared by every screen that
+ * reads nutrition data (Today, Nutrition) so a mutation made anywhere is visible
+ * everywhere without a separate refresh signal. Seeds itself from [AppPreferences] so
+ * a cold app start (fresh process — the common case after Android reclaims memory in
+ * the background) shows real last-known data instead of zeros.
  */
-class NutritionCache(private val repository: NutritionRepository) {
+class NutritionCache(
+    private val repository: NutritionRepository,
+    private val preferences: AppPreferences
+) {
 
     data class DayState(
         val entries: List<FoodEntry> = emptyList(),
@@ -30,10 +36,19 @@ class NutritionCache(private val repository: NutritionRepository) {
 
     private val keyFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
-    private fun key(date: Date, timezone: TimeZone): String {
+    private fun dayKeyOnly(date: Date, timezone: TimeZone): String {
         val formatter = keyFormat.clone() as SimpleDateFormat
         formatter.timeZone = timezone
-        return "${formatter.format(date)}|${timezone.id}"
+        return formatter.format(date)
+    }
+
+    private fun key(date: Date, timezone: TimeZone): String = "${dayKeyOnly(date, timezone)}|${timezone.id}"
+
+    init {
+        val today = dayKeyOnly(Date(), TimeZone.getDefault())
+        preferences.getCachedEntries(today)?.let { cached ->
+            _state.update { it + (key(Date(), TimeZone.getDefault()) to DayState(entries = cached)) }
+        }
     }
 
     fun stateFor(date: Date, timezone: TimeZone = TimeZone.getDefault()): DayState =
@@ -50,6 +65,9 @@ class NutritionCache(private val repository: NutritionRepository) {
             .onSuccess { entries ->
                 _state.update {
                     it + (k to DayState(entries = entries, isLoading = false, lastFetchedAt = System.currentTimeMillis()))
+                }
+                if (dayKeyOnly(date, timezone) == dayKeyOnly(Date(), TimeZone.getDefault())) {
+                    preferences.setCachedEntries(dayKeyOnly(date, timezone), entries)
                 }
             }
             .onFailure { e ->

@@ -50,6 +50,24 @@ class NutritionViewModel : ViewModel() {
         collapsedMeals = if (meal.name in collapsedMeals) collapsedMeals - meal.name else collapsedMeals + meal.name
     }
 
+    /** Meal names currently repeating from yesterday, so the header can show a small in-place spinner. */
+    var repeatingMeals by mutableStateOf(emptySet<String>())
+        private set
+
+    /** The "repeat this whole meal" case: pulls yesterday's items for [meal] into [targetDate] (today by default). */
+    fun repeatMealFromYesterday(meal: MealType, targetDate: Date = Date(), timezone: TimeZone = TimeZone.getDefault()) {
+        if (meal.name in repeatingMeals) return
+        val sourceCal = java.util.Calendar.getInstance().apply { time = targetDate; add(java.util.Calendar.DAY_OF_YEAR, -1) }
+        repeatingMeals = repeatingMeals + meal.name
+        viewModelScope.launch {
+            repository.repeatMeal(meal, sourceCal.time, targetDate, timezone)
+                .onSuccess { newEntries ->
+                    newEntries.forEach { cache.applyOptimisticUpsert(targetDate, timezone, it) }
+                }
+            repeatingMeals = repeatingMeals - meal.name
+        }
+    }
+
     fun dayState(date: Date, timezone: TimeZone = TimeZone.getDefault()): NutritionCache.DayState =
         cache.stateFor(date, timezone)
 

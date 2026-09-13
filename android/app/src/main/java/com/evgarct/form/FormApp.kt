@@ -43,8 +43,8 @@ class FormApp : Application() {
     lateinit var activityRepository: ActivityRepository
         private set
 
-    val nutritionCache: NutritionCache by lazy { NutritionCache(nutritionRepository) }
-    val activityCache: ActivityCache by lazy { ActivityCache(healthConnectRepository) }
+    val nutritionCache: NutritionCache by lazy { NutritionCache(nutritionRepository, appPreferences) }
+    val activityCache: ActivityCache by lazy { ActivityCache(healthConnectRepository, appPreferences) }
 
     override fun onCreate() {
         super.onCreate()

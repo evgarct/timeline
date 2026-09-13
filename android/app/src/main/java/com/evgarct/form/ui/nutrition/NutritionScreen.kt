@@ -1,11 +1,11 @@
 package com.evgarct.form.ui.nutrition
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,8 +29,12 @@ import androidx.compose.material.icons.filled.Adjust
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.ExpandMore
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Grain
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -56,8 +60,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -184,24 +188,40 @@ private fun goalStatusColor(status: GoalStatus, neutralColor: Color): Color = wh
     is GoalStatus.Over -> OrangeAccent
 }
 
+/** One compact icon+number(+percent) column, replacing the old letter-header + numbers + chip rows. */
 @Composable
-private fun GoalPercentCell(actual: Double, goal: Double?, neutralColor: Color, chipColor: Color, modifier: Modifier) {
-    if (goal == null || goal <= 0) {
-        Box(modifier = modifier)
-        return
-    }
-    val percent = (actual * 100 / goal).toInt()
-    val color = goalStatusColor(GoalStatus.compute(actual, goal), neutralColor)
-    Box(modifier = modifier, contentAlignment = Alignment.CenterEnd) {
-        Box(
-            modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
-                .background(chipColor)
-                .padding(horizontal = 8.dp, vertical = 2.dp)
-        ) {
+private fun DayTotalStat(
+    icon: ImageVector,
+    value: Double,
+    goal: Double?,
+    onContainer: Color,
+    modifier: Modifier,
+    emphasized: Boolean = false
+) {
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = onContainer.copy(alpha = 0.7f),
+            modifier = Modifier.size(16.dp)
+        )
+        Text(
+            text = String.format(Locale.US, "%.0f", value),
+            fontSize = 22.sp,
+            fontWeight = if (emphasized) FontWeight.Bold else FontWeight.SemiBold,
+            fontFamily = FontFamily.Monospace,
+            color = onContainer
+        )
+        if (goal != null && goal > 0) {
+            val percent = (value * 100 / goal).toInt()
+            val color = goalStatusColor(GoalStatus.compute(value, goal), onContainer.copy(alpha = 0.6f))
             Text(
                 text = "$percent%",
-                fontSize = 12.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
                 color = color
             )
@@ -210,14 +230,21 @@ private fun GoalPercentCell(actual: Double, goal: Double?, neutralColor: Color, 
 }
 
 @Composable
-private fun GoalPercentRow(daySummary: NutritionSummary, goals: StoredNutritionGoals, neutralColor: Color, chipColor: Color) {
-    val hasAnyGoal = listOf(goals.calories, goals.protein, goals.fat, goals.carbohydrates).any { it != null && it > 0 }
-    if (!hasAnyGoal) return
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-        GoalPercentCell(daySummary.protein, goals.protein, neutralColor, chipColor, Modifier.weight(1f))
-        GoalPercentCell(daySummary.fat, goals.fat, neutralColor, chipColor, Modifier.weight(1f))
-        GoalPercentCell(daySummary.carbohydrates, goals.carbohydrates, neutralColor, chipColor, Modifier.weight(1f))
-        GoalPercentCell(daySummary.calories, goals.calories, neutralColor, chipColor, Modifier.weight(1f))
+private fun DayTotalCard(daySummary: NutritionSummary, goals: StoredNutritionGoals) {
+    val colorScheme = MaterialTheme.colorScheme
+    val onContainer = colorScheme.onPrimaryContainer
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(24.dp))
+            .background(colorScheme.primaryContainer)
+            .padding(horizontal = 12.dp, vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        DayTotalStat(Icons.Default.FitnessCenter, daySummary.protein, goals.protein, onContainer, Modifier.weight(1f))
+        DayTotalStat(Icons.Default.WaterDrop, daySummary.fat, goals.fat, onContainer, Modifier.weight(1f))
+        DayTotalStat(Icons.Default.Grain, daySummary.carbohydrates, goals.carbohydrates, onContainer, Modifier.weight(1f))
+        DayTotalStat(Icons.Default.LocalFireDepartment, daySummary.calories, goals.calories, onContainer, Modifier.weight(1f), emphasized = true)
     }
 }
 
@@ -328,7 +355,11 @@ private fun FoodEntryRow(
                 }
             }
 
-            DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+                containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
+            ) {
                 DropdownMenuItem(
                     text = { Text(stringResource(R.string.nutrition_edit)) },
                     leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
@@ -352,15 +383,20 @@ private fun FoodEntryRow(
 @Composable
 private fun MealSectionHeader(
     meal: MealType,
-    expanded: Boolean,
+    isRepeating: Boolean,
     onToggleExpand: () -> Unit,
-    onAdd: () -> Unit
+    onAdd: () -> Unit,
+    onRepeatFromYesterday: () -> Unit
 ) {
-    val chevronRotation by animateFloatAsState(targetValue = if (expanded) 0f else -90f, label = "chevron")
+    val colorScheme = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onToggleExpand),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onToggleExpand
+            ),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -369,13 +405,13 @@ private fun MealSectionHeader(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.secondaryContainer),
+                    .background(colorScheme.secondaryContainer),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = meal.icon,
                     contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                    tint = colorScheme.onSecondaryContainer,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -387,30 +423,45 @@ private fun MealSectionHeader(
             )
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(
                 modifier = Modifier
                     .size(32.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.tertiaryContainer)
+                    .background(colorScheme.surfaceContainerHigh)
+                    .clickable(enabled = !isRepeating, onClick = onRepeatFromYesterday),
+                contentAlignment = Alignment.Center
+            ) {
+                if (isRepeating) {
+                    CircularProgressIndicator(
+                        color = TextSecondary,
+                        strokeWidth = 2.dp,
+                        modifier = Modifier.size(14.dp)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Repeat,
+                        contentDescription = stringResource(R.string.nutrition_repeat),
+                        tint = TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+            Box(
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(colorScheme.tertiaryContainer)
                     .clickable(onClick = onAdd),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Default.Add,
                     contentDescription = stringResource(R.string.nutrition_add),
-                    tint = MaterialTheme.colorScheme.onTertiaryContainer,
+                    tint = colorScheme.onTertiaryContainer,
                     modifier = Modifier.size(18.dp)
                 )
             }
-            Icon(
-                imageVector = Icons.Default.ExpandMore,
-                contentDescription = null,
-                tint = TextMuted,
-                modifier = Modifier
-                    .size(28.dp)
-                    .rotate(chevronRotation)
-            )
         }
     }
 }
@@ -571,29 +622,7 @@ fun NutritionScreen(
                 }
 
                 item(key = "day-total") {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(28.dp))
-                            .background(colorScheme.primaryContainer)
-                            .padding(horizontal = 20.dp, vertical = 18.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        MacroColumnsHeader(color = colorScheme.onPrimaryContainer.copy(alpha = 0.6f))
-                        MacroColumns(
-                            summary = daySummary,
-                            fontSize = 26.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            secondaryColor = colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
-                            primaryColor = colorScheme.onPrimaryContainer
-                        )
-                        GoalPercentRow(
-                            daySummary = daySummary,
-                            goals = goals,
-                            neutralColor = colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
-                            chipColor = colorScheme.onPrimaryContainer.copy(alpha = 0.14f)
-                        )
-                    }
+                    DayTotalCard(daySummary = daySummary, goals = goals)
                 }
 
                 MealType.values().forEach { meal ->
@@ -612,9 +641,10 @@ fun NutritionScreen(
                         ) {
                             MealSectionHeader(
                                 meal = meal,
-                                expanded = expanded,
+                                isRepeating = meal.name in viewModel.repeatingMeals,
                                 onToggleExpand = { viewModel.toggleMealCollapsed(meal) },
-                                onAdd = { onOpenAddProduct(meal, selectedDate) }
+                                onAdd = { onOpenAddProduct(meal, selectedDate) },
+                                onRepeatFromYesterday = { viewModel.repeatMealFromYesterday(meal, selectedDate) }
                             )
 
                             AnimatedVisibility(visible = expanded) {

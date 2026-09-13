@@ -1,7 +1,6 @@
 package com.evgarct.form.ui.today
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,6 +30,7 @@ import androidx.compose.material.icons.filled.MoreHoriz
 import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -268,142 +268,53 @@ fun TodayScreen(
                             }
                         }
 
-                        // Summary Glass Capsule
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(30.dp))
-                                .background(LightInk.copy(alpha = 0.12f))
-                                .border(0.8.dp, LightInk.copy(alpha = 0.10f), RoundedCornerShape(30.dp))
-                                .padding(horizontal = 20.dp, vertical = 18.dp)
+                        // Summary Cards
+                        val steps = when (val s = activityState) {
+                            is ActivityDataState.Value -> s.steps.toInt()
+                            else -> 0
+                        }
+                        val workoutsCount = when (val s = activityState) {
+                            is ActivityDataState.Value -> s.workouts.size
+                            else -> 0
+                        }
+                        val stepGoal = prefs.stepGoal
+                        val stepPercent = if (stepGoal > 0) (steps * 100 / stepGoal) else 0
+                        val colorScheme = MaterialTheme.colorScheme
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.Top
-                            ) {
-                                // Nutrition Column
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .clickable(onClick = onOpenNutrition),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Icon(
-                                            imageVector = Icons.Rounded.Restaurant,
-                                            contentDescription = null,
-                                            tint = LightInk.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                        Text(
-                                            text = stringResource(R.string.summary_nutrition).uppercase(),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            letterSpacing = 0.5.sp,
-                                            color = LightInk.copy(alpha = 0.6f)
-                                        )
-                                    }
-                                    Row(verticalAlignment = Alignment.Bottom) {
-                                        Text(
-                                            text = "${todaySummary.calories.toInt()}",
-                                            fontSize = 34.sp,
-                                            fontFamily = FontFamily.Serif,
-                                            color = LightInk
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = stringResource(R.string.summary_calories_unit),
-                                            fontSize = 12.sp,
-                                            color = LightInk.copy(alpha = 0.6f),
-                                            modifier = Modifier.padding(bottom = 4.dp)
-                                        )
-                                    }
-                                    Text(
-                                        text = "${todaySummary.protein.toInt()}p · ${todaySummary.fat.toInt()}f · ${todaySummary.carbohydrates.toInt()}c",
-                                        fontSize = 12.sp,
-                                        color = LightInk.copy(alpha = 0.6f)
-                                    )
+                            SummaryStatCard(
+                                modifier = Modifier.weight(1f),
+                                containerColor = colorScheme.primaryContainer.copy(alpha = 0.9f),
+                                onContainerColor = colorScheme.onPrimaryContainer,
+                                icon = Icons.Rounded.Restaurant,
+                                label = stringResource(R.string.summary_nutrition),
+                                value = "${todaySummary.calories.toInt()}",
+                                unit = stringResource(R.string.summary_calories_unit),
+                                detail = "${todaySummary.protein.toInt()}p · ${todaySummary.fat.toInt()}f · ${todaySummary.carbohydrates.toInt()}c",
+                                onClick = onOpenNutrition
+                            )
+                            SummaryStatCard(
+                                modifier = Modifier.weight(1f),
+                                containerColor = colorScheme.secondaryContainer.copy(alpha = 0.9f),
+                                onContainerColor = colorScheme.onSecondaryContainer,
+                                icon = Icons.AutoMirrored.Rounded.DirectionsWalk,
+                                label = stringResource(R.string.summary_activity),
+                                value = String.format(Locale.US, "%,d", steps),
+                                unit = stringResource(R.string.summary_steps_unit_short),
+                                detail = if (workoutsCount > 0) {
+                                    "${stringResource(R.string.activity_workouts_count_format, workoutsCount)} · ${String.format(Locale.US, "%,d", stepGoal)} · $stepPercent%"
+                                } else {
+                                    "${String.format(Locale.US, "%,d", stepGoal)} · $stepPercent%"
+                                },
+                                onClick = { onOpenActivityDetail(LocalDate.now()) },
+                                onLongClick = {
+                                    goalInput = "${prefs.stepGoal}"
+                                    showStepGoalDialog = true
                                 }
-
-                                // Vertical Hairline Divider
-                                Box(
-                                    modifier = Modifier
-                                        .width(1.dp)
-                                        .height(54.dp)
-                                        .background(LightInk.copy(alpha = 0.18f))
-                                )
-
-                                // Activity Column
-                                val steps = when (val s = activityState) {
-                                    is ActivityDataState.Value -> s.steps.toInt()
-                                    else -> 0
-                                }
-                                val workoutsCount = when (val s = activityState) {
-                                    is ActivityDataState.Value -> s.workouts.size
-                                    else -> 0
-                                }
-                                val stepGoal = prefs.stepGoal
-
-                                Column(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .padding(start = 16.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .combinedClickable(
-                                            onClick = { onOpenActivityDetail(LocalDate.now()) },
-                                            onLongClick = {
-                                                goalInput = "${prefs.stepGoal}"
-                                                showStepGoalDialog = true
-                                            }
-                                        ),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                        Icon(
-                                            imageVector = Icons.AutoMirrored.Rounded.DirectionsWalk,
-                                            contentDescription = null,
-                                            tint = LightInk.copy(alpha = 0.6f),
-                                            modifier = Modifier.size(12.dp)
-                                        )
-                                        Text(
-                                            text = stringResource(R.string.summary_activity).uppercase(),
-                                            fontSize = 11.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            letterSpacing = 0.5.sp,
-                                            color = LightInk.copy(alpha = 0.6f)
-                                        )
-                                    }
-                                    Row(verticalAlignment = Alignment.Bottom) {
-                                        Text(
-                                            text = String.format(Locale.US, "%,d", steps),
-                                            fontSize = 34.sp,
-                                            fontFamily = FontFamily.Serif,
-                                            color = LightInk
-                                        )
-                                        Spacer(modifier = Modifier.width(4.dp))
-                                        Text(
-                                            text = stringResource(R.string.summary_steps_unit_short),
-                                            fontSize = 12.sp,
-                                            color = LightInk.copy(alpha = 0.6f),
-                                            modifier = Modifier.padding(bottom = 4.dp)
-                                        )
-                                    }
-                                    val percent = if (stepGoal > 0) (steps * 100 / stepGoal) else 0
-                                    val footerText = if (workoutsCount > 0) {
-                                        val workoutLabel = stringResource(R.string.activity_workouts_count_format, workoutsCount)
-                                        "$workoutLabel · ${String.format(Locale.US, "%,d", stepGoal)} · $percent%"
-                                    } else {
-                                        "${String.format(Locale.US, "%,d", stepGoal)} target · $percent%"
-                                    }
-                                    Text(
-                                        text = footerText,
-                                        fontSize = 12.sp,
-                                        color = LightInk.copy(alpha = 0.6f)
-                                    )
-                                }
-                            }
+                            )
                         }
                     }
                 }
@@ -566,5 +477,69 @@ fun TodayScreen(
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun SummaryStatCard(
+    modifier: Modifier,
+    containerColor: Color,
+    onContainerColor: Color,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String,
+    unit: String,
+    detail: String,
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null
+) {
+    val cardModifier = if (onLongClick != null) {
+        modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)
+    } else {
+        modifier.clickable(onClick = onClick)
+    }
+    Column(
+        modifier = cardModifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(containerColor)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = onContainerColor.copy(alpha = 0.7f),
+                modifier = Modifier.size(12.dp)
+            )
+            Text(
+                text = label.uppercase(),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.5.sp,
+                color = onContainerColor.copy(alpha = 0.7f)
+            )
+        }
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = value,
+                fontSize = 30.sp,
+                fontFamily = FontFamily.Serif,
+                color = onContainerColor
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = unit,
+                fontSize = 12.sp,
+                color = onContainerColor.copy(alpha = 0.7f),
+                modifier = Modifier.padding(bottom = 4.dp)
+            )
+        }
+        Text(
+            text = detail,
+            fontSize = 12.sp,
+            color = onContainerColor.copy(alpha = 0.7f)
+        )
     }
 }
