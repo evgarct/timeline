@@ -157,6 +157,10 @@
     <string name="placeholder_soon">Coming soon</string>
     <string name="settings_about">About</string>
     <string name="settings_app">App</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_appearance_system">System</string>
+    <string name="settings_appearance_light">Light</string>
+    <string name="settings_appearance_dark">Dark</string>
     <string name="settings_language">Language</string>
     <string name="settings_language_app">App language</string>
     <string name="settings_language_report">Report language</string>
