@@ -157,6 +157,10 @@
     <string name="placeholder_soon">Скоро</string>
     <string name="settings_about">О приложении</string>
     <string name="settings_app">Приложение</string>
+    <string name="settings_appearance">Оформление</string>
+    <string name="settings_appearance_system">Системная</string>
+    <string name="settings_appearance_light">Светлая</string>
+    <string name="settings_appearance_dark">Тёмная</string>
     <string name="settings_language">Язык</string>
     <string name="settings_language_app">Язык приложения</string>
     <string name="settings_language_report">Язык отчёта</string>

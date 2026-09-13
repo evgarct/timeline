@@ -31,12 +31,20 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evgarct.form.FormApp
+import com.evgarct.form.R
+import com.evgarct.form.core.theme.Ink
+import com.evgarct.form.core.theme.RedAccent
+import com.evgarct.form.core.theme.SurfaceCard
+import com.evgarct.form.core.theme.SurfaceCardBorder
+import com.evgarct.form.core.theme.TextMuted
+import com.evgarct.form.core.theme.TextPrimary
+import com.evgarct.form.core.theme.ThemeMode
 import kotlinx.coroutines.launch
 
 @Composable
@@ -50,13 +58,19 @@ fun SettingsSheet(
 
     var appLanguage by remember { mutableStateOf(prefs.appLanguage) }
     var reportLanguage by remember { mutableStateOf(prefs.reportLanguage) }
+    var themeMode by remember { mutableStateOf(prefs.themeMode) }
 
     val languages = listOf("en" to "English", "ru" to "Русский", "cs" to "Čeština")
+    val themeModes = listOf(
+        ThemeMode.SYSTEM to stringResource(R.string.settings_appearance_system),
+        ThemeMode.LIGHT to stringResource(R.string.settings_appearance_light),
+        ThemeMode.DARK to stringResource(R.string.settings_appearance_dark)
+    )
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF13110E))
+            .background(Ink)
     ) {
         Column(
             modifier = Modifier
@@ -78,21 +92,21 @@ fun SettingsSheet(
                     fontSize = 32.sp,
                     fontFamily = FontFamily.Serif,
                     letterSpacing = (-0.8).sp,
-                    color = Color.White
+                    color = TextPrimary
                 )
 
                 Box(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.12f))
+                        .background(SurfaceCard)
                         .clickable { onDismiss() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Close",
-                        tint = Color.White,
+                        tint = TextPrimary,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -100,141 +114,66 @@ fun SettingsSheet(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // App Language Section
-            Text(
-                text = "APP LANGUAGE",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.2.sp,
-                color = Color.White.copy(alpha = 0.4f)
-            )
+            // Appearance Section
+            SettingsSectionHeader(text = stringResource(R.string.settings_appearance))
             Spacer(modifier = Modifier.height(8.dp))
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
-            ) {
-                languages.forEachIndexed { index, (code, name) ->
-                    val isSelected = appLanguage == code
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                appLanguage = code
-                                prefs.appLanguage = code
-                            }
-                            .padding(horizontal = 18.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = name,
-                            fontSize = 16.sp,
-                            color = Color.White
-                        )
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                    if (index < languages.size - 1) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 18.dp)
-                                .height(1.dp)
-                                .background(Color.White.copy(alpha = 0.06f))
-                        )
-                    }
+            SettingsOptionGroup(
+                options = themeModes,
+                isSelected = { it.first == themeMode },
+                label = { it.second },
+                onSelect = { (mode, _) ->
+                    themeMode = mode
+                    prefs.updateThemeMode(mode)
                 }
-            }
+            )
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // App Language Section
+            SettingsSectionHeader(text = "APP LANGUAGE")
+            Spacer(modifier = Modifier.height(8.dp))
+            SettingsOptionGroup(
+                options = languages,
+                isSelected = { it.first == appLanguage },
+                label = { it.second },
+                onSelect = { (code, _) ->
+                    appLanguage = code
+                    prefs.appLanguage = code
+                }
+            )
 
             Spacer(modifier = Modifier.height(28.dp))
 
             // Report Language Section
-            Text(
-                text = "REPORT LANGUAGE",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.2.sp,
-                color = Color.White.copy(alpha = 0.4f)
-            )
+            SettingsSectionHeader(text = "REPORT LANGUAGE")
             Spacer(modifier = Modifier.height(8.dp))
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
-            ) {
-                languages.forEachIndexed { index, (code, name) ->
-                    val isSelected = reportLanguage == code
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                reportLanguage = code
-                                prefs.reportLanguage = code
-                            }
-                            .padding(horizontal = 18.dp, vertical = 14.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = name,
-                            fontSize = 16.sp,
-                            color = Color.White
-                        )
-                        if (isSelected) {
-                            Icon(
-                                imageVector = Icons.Default.Check,
-                                contentDescription = null,
-                                tint = Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                    if (index < languages.size - 1) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 18.dp)
-                                .height(1.dp)
-                                .background(Color.White.copy(alpha = 0.06f))
-                        )
-                    }
+            SettingsOptionGroup(
+                options = languages,
+                isSelected = { it.first == reportLanguage },
+                label = { it.second },
+                onSelect = { (code, _) ->
+                    reportLanguage = code
+                    prefs.reportLanguage = code
                 }
-            }
+            )
 
             Spacer(modifier = Modifier.height(28.dp))
 
             // About Section
-            Text(
-                text = "ABOUT",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.2.sp,
-                color = Color.White.copy(alpha = 0.4f)
-            )
+            SettingsSectionHeader(text = "ABOUT")
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
-                    .background(Color.White.copy(alpha = 0.05f))
+                    .background(SurfaceCard)
                     .padding(horizontal = 18.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "Form", fontSize = 16.sp, color = Color.White)
-                Text(text = "0.1.0", fontSize = 15.sp, color = Color.White.copy(alpha = 0.5f))
+                Text(text = "Form", fontSize = 16.sp, color = TextPrimary)
+                Text(text = "0.1.0", fontSize = 15.sp, color = TextMuted)
             }
 
             Spacer(modifier = Modifier.height(36.dp))
@@ -245,7 +184,7 @@ fun SettingsSheet(
                     .fillMaxWidth()
                     .height(48.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0x22FF453A))
+                    .background(RedAccent.copy(alpha = 0.15f))
                     .clickable {
                         scope.launch {
                             authRepo.signOut()
@@ -258,11 +197,72 @@ fun SettingsSheet(
                     text = "Sign Out",
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFFFF453A)
+                    color = RedAccent
                 )
             }
 
             Spacer(modifier = Modifier.height(36.dp))
+        }
+    }
+}
+
+@Composable
+private fun SettingsSectionHeader(text: String) {
+    Text(
+        text = text,
+        fontSize = 11.sp,
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 1.2.sp,
+        color = TextMuted
+    )
+}
+
+/** The checkmark-list picker pattern shared by the Appearance and language sections. */
+@Composable
+private fun <T> SettingsOptionGroup(
+    options: List<T>,
+    isSelected: (T) -> Boolean,
+    label: (T) -> String,
+    onSelect: (T) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceCard)
+    ) {
+        options.forEachIndexed { index, option ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onSelect(option) }
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = label(option),
+                    fontSize = 16.sp,
+                    color = TextPrimary
+                )
+                if (isSelected(option)) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        tint = TextPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+            if (index < options.size - 1) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.dp)
+                        .height(1.dp)
+                        .background(SurfaceCardBorder)
+                )
+            }
         }
     }
 }

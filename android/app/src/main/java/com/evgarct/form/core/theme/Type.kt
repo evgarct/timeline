@@ -1,12 +1,19 @@
 package com.evgarct.form.core.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-val Typography = Typography(
+/**
+ * Built inside a composable (not a plain top-level val) because each style's baked-in `color`
+ * now resolves through the active MaterialTheme.colorScheme (see Color.kt) so typography tracks
+ * light/dark mode and dynamic color like everything else.
+ */
+@Composable
+fun formTypography(): Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = FontFamily.Serif,
         fontWeight = FontWeight.Normal,

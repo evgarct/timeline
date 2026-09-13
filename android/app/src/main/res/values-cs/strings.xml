@@ -157,6 +157,10 @@
     <string name="placeholder_soon">Brzy</string>
     <string name="settings_about">O aplikaci</string>
     <string name="settings_app">Aplikace</string>
+    <string name="settings_appearance">Vzhled</string>
+    <string name="settings_appearance_system">Systémový</string>
+    <string name="settings_appearance_light">Světlý</string>
+    <string name="settings_appearance_dark">Tmavý</string>
     <string name="settings_language">Jazyk</string>
     <string name="settings_language_app">Jazyk aplikace</string>
     <string name="settings_language_report">Jazyk reportu</string>

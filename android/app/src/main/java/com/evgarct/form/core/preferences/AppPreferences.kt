@@ -2,6 +2,10 @@ package com.evgarct.form.core.preferences
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.evgarct.form.core.theme.ThemeMode
 import com.evgarct.form.data.models.FoodEntry
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -33,6 +37,15 @@ class AppPreferences(context: Context) {
     var stepGoal: Int
         get() = prefs.getInt("step_goal", 10000)
         set(value) = prefs.edit().putInt("step_goal", value).apply()
+
+    /** Compose-observable so `FormTheme` (above any ViewModel) recomposes when this changes. */
+    var themeMode: ThemeMode by mutableStateOf(ThemeMode.fromKey(prefs.getString("theme_mode", null)))
+        private set
+
+    fun updateThemeMode(mode: ThemeMode) {
+        themeMode = mode
+        prefs.edit().putString("theme_mode", mode.key).apply()
+    }
 
     var nutritionGoals: StoredNutritionGoals
         get() {
