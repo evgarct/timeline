@@ -156,6 +156,8 @@ switch ($Action) {
         Write-Host "Granting Health Connect permissions to com.evgarct.form..."
         & adb -s $dev shell pm grant com.evgarct.form android.permission.health.READ_STEPS
         & adb -s $dev shell pm grant com.evgarct.form android.permission.health.READ_EXERCISE
+        & adb -s $dev shell pm grant com.evgarct.form android.permission.health.READ_DISTANCE
+        & adb -s $dev shell pm grant com.evgarct.form android.permission.health.READ_TOTAL_CALORIES_BURNED
         Write-Host "Health permissions granted."
     }
 

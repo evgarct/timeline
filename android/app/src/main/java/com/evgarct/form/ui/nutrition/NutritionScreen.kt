@@ -30,8 +30,6 @@ import androidx.compose.material.icons.filled.Fastfood
 import androidx.compose.material.icons.filled.Nightlife
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Restaurant
-import androidx.compose.material.icons.filled.Share
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,14 +54,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.platform.LocalContext
-import android.content.Intent
-import android.widget.Toast
-import com.evgarct.form.data.models.NutritionGoals
-import com.evgarct.form.ui.nutrition.report.NutritionReportBuilder
-import com.evgarct.form.ui.nutrition.report.NutritionReportRenderer
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import com.evgarct.form.FormApp
 import com.evgarct.form.R
 import com.evgarct.form.data.models.FoodEntry
@@ -173,69 +163,10 @@ fun NutritionScreen(
     val nutritionRepo = FormApp.instance.nutritionRepository
     val prefs = FormApp.instance.appPreferences
     val scope = rememberCoroutineScope()
-    val context = LocalContext.current
 
     var selectedDate by remember { mutableStateOf(Date()) }
     var entries by remember { mutableStateOf<List<FoodEntry>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    var isExporting by remember { mutableStateOf(false) }
-
-    fun exportReport() {
-        if (isExporting || entries.isEmpty()) return
-        isExporting = true
-        scope.launch {
-            try {
-                val reportLangCode = prefs.reportLanguage
-                val reportLocale = Locale(reportLangCode)
-                val healthRepo = FormApp.instance.healthConnectRepository
-                val payload = NutritionReportBuilder.buildPayload(
-                    selectedDate = selectedDate,
-                    entries = entries,
-                    timezone = TimeZone.getDefault(),
-                    stepGoal = prefs.stepGoal,
-                    goals = NutritionGoals(
-                        calories = prefs.nutritionGoals.calories,
-                        protein = prefs.nutritionGoals.protein,
-                        fat = prefs.nutritionGoals.fat,
-                        carbohydrates = prefs.nutritionGoals.carbohydrates
-                    ),
-                    nutritionRepo = nutritionRepo,
-                    healthRepo = healthRepo
-                )
-
-                val pdfBytes = withContext(Dispatchers.Default) {
-                    NutritionReportRenderer.renderPdf(context, payload, reportLocale)
-                }
-                val ogBytes = withContext(Dispatchers.Default) {
-                    NutritionReportRenderer.renderOgImage(context, payload, reportLocale)
-                }
-
-                nutritionRepo.submitReport(
-                    pdfBytes = pdfBytes,
-                    ogImageBytes = ogBytes,
-                    reportDate = selectedDate,
-                    timezone = TimeZone.getDefault()
-                ).onSuccess { shareUrl ->
-                    isExporting = false
-                    val df = SimpleDateFormat("EEEE, d MMMM", Locale("ru"))
-                    val greeting = "Привет! Отчет за ${df.format(selectedDate)}"
-                    val shareText = "$greeting\n$shareUrl"
-
-                    val intent = Intent(Intent.ACTION_SEND).apply {
-                        type = "text/plain"
-                        putExtra(Intent.EXTRA_TEXT, shareText)
-                    }
-                    context.startActivity(Intent.createChooser(intent, null))
-                }.onFailure { err ->
-                    isExporting = false
-                    Toast.makeText(context, err.localizedMessage ?: "Failed to export report", Toast.LENGTH_LONG).show()
-                }
-            } catch (e: Exception) {
-                isExporting = false
-                Toast.makeText(context, e.localizedMessage ?: "Failed to export report", Toast.LENGTH_LONG).show()
-            }
-        }
-    }
 
     fun loadEntries() {
         isLoading = true
@@ -355,53 +286,21 @@ fun NutritionScreen(
                     }
                 }
 
-                // Action buttons on the right: Goals + Export Report
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                // Goals Button
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.12f))
+                        .clickable { onOpenGoalsEditor() },
+                    contentAlignment = Alignment.Center
                 ) {
-                    // Goals Button
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.12f))
-                            .clickable { onOpenGoalsEditor() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Adjust,
-                            contentDescription = "Goals",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    // Export Report Button
-                    val isExportDisabled = entries.isEmpty() || isExporting
-                    Box(
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(if (isExportDisabled) Color.White.copy(alpha = 0.05f) else Color.White.copy(alpha = 0.12f))
-                            .clickable(enabled = !isExportDisabled) { exportReport() },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isExporting) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                strokeWidth = 2.dp,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Share,
-                                contentDescription = stringResource(R.string.nutrition_export),
-                                tint = if (isExportDisabled) Color.White.copy(alpha = 0.3f) else Color.White,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
+                    Icon(
+                        imageVector = Icons.Default.Adjust,
+                        contentDescription = "Goals",
+                        tint = Color.White,
+                        modifier = Modifier.size(18.dp)
+                    )
                 }
             }
 

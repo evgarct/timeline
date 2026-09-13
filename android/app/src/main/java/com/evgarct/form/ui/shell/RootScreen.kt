@@ -4,15 +4,16 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
+import androidx.compose.material.icons.automirrored.rounded.ShowChart
+import androidx.compose.material.icons.rounded.Home
+import androidx.compose.material.icons.rounded.IosShare
+import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,16 +23,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.evgarct.form.core.theme.Ink
-import com.evgarct.form.core.theme.LightInk
-import com.evgarct.form.core.theme.SurfaceCard
-import com.evgarct.form.core.theme.TextMuted
-import com.evgarct.form.core.theme.Trace
 import com.evgarct.form.data.models.FoodEntry
 import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutrientValue
 import com.evgarct.form.data.models.NutritionProduct
 import com.evgarct.form.data.models.PhotoItem
+import com.evgarct.form.ui.activity.ActivityScreen
+import com.evgarct.form.ui.export.ExportScreen
 import com.evgarct.form.ui.nutrition.BarcodeScannerSheet
 import com.evgarct.form.ui.nutrition.FoodEntryEditorSheet
 import com.evgarct.form.ui.nutrition.NutrientDetailsSheet
@@ -42,13 +40,11 @@ import com.evgarct.form.ui.nutrition.QuantityEditorSheet
 import com.evgarct.form.ui.settings.SettingsSheet
 import com.evgarct.form.ui.timeline.MeasurementEditorSheet
 import com.evgarct.form.ui.timeline.TimelineScreen
-import com.evgarct.form.ui.today.ActivityDetailSheet
 import com.evgarct.form.ui.today.PhotoGallerySheet
 import com.evgarct.form.ui.today.TodayScreen
-import java.time.LocalDate
 import java.util.Date
 
-enum class AppTab { TODAY, NUTRITION, TIMELINE }
+enum class AppTab { TODAY, ACTIVITY, NUTRITION, TIMELINE, EXPORT }
 
 @Composable
 fun RootScreen(
@@ -63,9 +59,6 @@ fun RootScreen(
     data class GalleryState(val eventId: String, val photos: List<PhotoItem>, val initialIndex: Int)
     var activeGallery by remember { mutableStateOf<GalleryState?>(null) }
 
-    // Activity detail sheet state
-    var activeActivityDate by remember { mutableStateOf<LocalDate?>(null) }
-
     // Measurement editor state
     var showMeasurementEditor by remember { mutableStateOf(false) }
 
@@ -79,50 +72,41 @@ fun RootScreen(
     var activeNutrientsList by remember { mutableStateOf<List<NutrientValue>?>(null) }
 
     Scaffold(
-        containerColor = Color.Black,
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             NavigationBar(
-                containerColor = Color.Black,
+                containerColor = MaterialTheme.colorScheme.background,
                 tonalElevation = 0.dp
             ) {
                 NavigationBarItem(
                     selected = selectedTab == AppTab.TODAY,
                     onClick = { selectedTab = AppTab.TODAY },
-                    icon = { Icon(Icons.Default.Home, contentDescription = "Today") },
-                    label = { Text("Today") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color.White,
-                        selectedTextColor = Color.White,
-                        unselectedIconColor = Color.White.copy(alpha = 0.45f),
-                        unselectedTextColor = Color.White.copy(alpha = 0.45f),
-                        indicatorColor = Color.Transparent
-                    )
+                    icon = { Icon(Icons.Rounded.Home, contentDescription = "Today") },
+                    label = { Text("Today") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == AppTab.ACTIVITY,
+                    onClick = { selectedTab = AppTab.ACTIVITY },
+                    icon = { Icon(Icons.AutoMirrored.Rounded.DirectionsWalk, contentDescription = "Activity") },
+                    label = { Text("Activity") }
                 )
                 NavigationBarItem(
                     selected = selectedTab == AppTab.NUTRITION,
                     onClick = { selectedTab = AppTab.NUTRITION },
-                    icon = { Icon(Icons.Default.Restaurant, contentDescription = "Nutrition") },
-                    label = { Text("Nutrition") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color.White,
-                        selectedTextColor = Color.White,
-                        unselectedIconColor = Color.White.copy(alpha = 0.45f),
-                        unselectedTextColor = Color.White.copy(alpha = 0.45f),
-                        indicatorColor = Color.Transparent
-                    )
+                    icon = { Icon(Icons.Rounded.Restaurant, contentDescription = "Nutrition") },
+                    label = { Text("Nutrition") }
                 )
                 NavigationBarItem(
                     selected = selectedTab == AppTab.TIMELINE,
                     onClick = { selectedTab = AppTab.TIMELINE },
-                    icon = { Icon(Icons.Default.BarChart, contentDescription = "Timeline") },
-                    label = { Text("Timeline") },
-                    colors = NavigationBarItemDefaults.colors(
-                        selectedIconColor = Color.White,
-                        selectedTextColor = Color.White,
-                        unselectedIconColor = Color.White.copy(alpha = 0.45f),
-                        unselectedTextColor = Color.White.copy(alpha = 0.45f),
-                        indicatorColor = Color.Transparent
-                    )
+                    icon = { Icon(Icons.AutoMirrored.Rounded.ShowChart, contentDescription = "Timeline") },
+                    label = { Text("Timeline") }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == AppTab.EXPORT,
+                    onClick = { selectedTab = AppTab.EXPORT },
+                    icon = { Icon(Icons.Rounded.IosShare, contentDescription = "Export") },
+                    label = { Text("Export") }
                 )
             }
         }
@@ -131,7 +115,7 @@ fun RootScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(bottom = innerPadding.calculateBottomPadding())
-                .background(Ink)
+                .background(MaterialTheme.colorScheme.background)
         ) {
             when (selectedTab) {
                 AppTab.TODAY -> {
@@ -140,8 +124,11 @@ fun RootScreen(
                         onOpenPhotoGallery = { id, photos, idx ->
                             activeGallery = GalleryState(id, photos, idx)
                         },
-                        onOpenActivityDetail = { activeActivityDate = it }
+                        onOpenActivityDetail = { selectedTab = AppTab.ACTIVITY }
                     )
+                }
+                AppTab.ACTIVITY -> {
+                    ActivityScreen()
                 }
                 AppTab.NUTRITION -> {
                     NutritionScreen(
@@ -158,6 +145,9 @@ fun RootScreen(
                         },
                         onOpenMeasurementEditor = { showMeasurementEditor = true }
                     )
+                }
+                AppTab.EXPORT -> {
+                    ExportScreen()
                 }
             }
 
@@ -179,13 +169,6 @@ fun RootScreen(
                     initialIndex = gallery.initialIndex,
                     canPinCover = selectedTab == AppTab.TODAY,
                     onDismiss = { activeGallery = null }
-                )
-            }
-
-            activeActivityDate?.let { date ->
-                ActivityDetailSheet(
-                    initialDate = date,
-                    onDismiss = { activeActivityDate = null }
                 )
             }
 

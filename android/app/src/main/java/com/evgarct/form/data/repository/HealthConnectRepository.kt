@@ -12,6 +12,8 @@ import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.evgarct.form.R
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -121,58 +123,63 @@ class HealthConnectRepository(private val context: Context) {
             val startOfDay = date.atStartOfDay(zoneId).toInstant()
             val endOfDay = date.plusDays(1).atStartOfDay(zoneId).toInstant()
 
-            // Daily steps
-            val stepAggregate = client.aggregate(
-                AggregateRequest(
-                    metrics = setOf(StepsRecord.COUNT_TOTAL),
-                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
-                )
-            )
-            val steps = stepAggregate[StepsRecord.COUNT_TOTAL] ?: 0L
-
-            // Daily distance
-            val distanceAggregate = client.aggregate(
-                AggregateRequest(
-                    metrics = setOf(DistanceRecord.DISTANCE_TOTAL),
-                    timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
-                )
-            )
-            val distance = distanceAggregate[DistanceRecord.DISTANCE_TOTAL]?.inMeters
-
-            // Weekly history (7 days ending with date)
-            val weekStart = date.minusDays(6).atStartOfDay(zoneId).toInstant()
-            val weeklyResponse = client.aggregateGroupByDuration(
-                AggregateGroupByDurationRequest(
-                    metrics = setOf(StepsRecord.COUNT_TOTAL),
-                    timeRangeFilter = TimeRangeFilter.between(weekStart, endOfDay),
-                    timeRangeSlicer = Duration.ofDays(1)
-                )
-            )
-
-            val weeklySteps = (0..6).map { dayOffset ->
-                val targetDay = date.minusDays(6L - dayOffset)
-                val matchingBucket = weeklyResponse.find { bucket ->
-                    val bucketDate = bucket.startTime.atZone(zoneId).toLocalDate()
-                    bucketDate == targetDay
+            coroutineScope {
+                // These are independent Health Connect reads — run them concurrently
+                // instead of sequentially, since each one is a separate Binder round
+                // trip and can take noticeably longer as more data accumulates.
+                val stepsDeferred = async {
+                    client.aggregate(
+                        AggregateRequest(
+                            metrics = setOf(StepsRecord.COUNT_TOTAL),
+                            timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+                        )
+                    )[StepsRecord.COUNT_TOTAL] ?: 0L
                 }
-                val count = matchingBucket?.result?.get(StepsRecord.COUNT_TOTAL) ?: 0L
-                DailyStepData(targetDay, count)
+
+                val distanceDeferred = async {
+                    client.aggregate(
+                        AggregateRequest(
+                            metrics = setOf(DistanceRecord.DISTANCE_TOTAL),
+                            timeRangeFilter = TimeRangeFilter.between(startOfDay, endOfDay)
+                        )
+                    )[DistanceRecord.DISTANCE_TOTAL]?.inMeters
+                }
+
+                val weeklyStepsDeferred = async {
+                    val weekStart = date.minusDays(6).atStartOfDay(zoneId).toInstant()
+                    val weeklyResponse = client.aggregateGroupByDuration(
+                        AggregateGroupByDurationRequest(
+                            metrics = setOf(StepsRecord.COUNT_TOTAL),
+                            timeRangeFilter = TimeRangeFilter.between(weekStart, endOfDay),
+                            timeRangeSlicer = Duration.ofDays(1)
+                        )
+                    )
+                    (0..6).map { dayOffset ->
+                        val targetDay = date.minusDays(6L - dayOffset)
+                        val matchingBucket = weeklyResponse.find { bucket ->
+                            val bucketDate = bucket.startTime.atZone(zoneId).toLocalDate()
+                            bucketDate == targetDay
+                        }
+                        val count = matchingBucket?.result?.get(StepsRecord.COUNT_TOTAL) ?: 0L
+                        DailyStepData(targetDay, count)
+                    }
+                }
+
+                val workoutsDeferred = async { readWorkouts(client, startOfDay, endOfDay) }
+
+                val weeklySteps = weeklyStepsDeferred.await()
+                val totalWeeklySteps = weeklySteps.sumOf { it.steps }
+                val avg = if (weeklySteps.isNotEmpty()) totalWeeklySteps / weeklySteps.size else 0L
+
+                ActivityDataState.Value(
+                    steps = stepsDeferred.await(),
+                    goal = goal,
+                    distanceMeters = distanceDeferred.await(),
+                    weeklyAverage = avg,
+                    weeklySteps = weeklySteps,
+                    workouts = workoutsDeferred.await()
+                )
             }
-
-            val totalWeeklySteps = weeklySteps.sumOf { it.steps }
-            val avg = if (weeklySteps.isNotEmpty()) totalWeeklySteps / weeklySteps.size else 0L
-
-            // Workouts on selected day
-            val workouts = readWorkouts(client, startOfDay, endOfDay)
-
-            ActivityDataState.Value(
-                steps = steps,
-                goal = goal,
-                distanceMeters = distance,
-                weeklyAverage = avg,
-                weeklySteps = weeklySteps,
-                workouts = workouts
-            )
         } catch (e: Exception) {
             ActivityDataState.Unavailable
         }

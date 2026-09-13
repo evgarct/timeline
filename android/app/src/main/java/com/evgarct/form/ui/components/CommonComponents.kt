@@ -32,20 +32,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.evgarct.form.core.theme.Ink
-import com.evgarct.form.core.theme.LightInk
-import com.evgarct.form.core.theme.SurfaceCard
-import com.evgarct.form.core.theme.SurfaceCardBorder
-import com.evgarct.form.core.theme.TextMuted
-import com.evgarct.form.core.theme.TextSecondary
-import com.evgarct.form.core.theme.Trace
-
 @Composable
 fun GlassCard(
     modifier: Modifier = Modifier,
     shape: Shape = RoundedCornerShape(16.dp),
-    backgroundColor: Color = SurfaceCard.copy(alpha = 0.85f),
-    borderColor: Color = SurfaceCardBorder,
+    backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f),
+    borderColor: Color = MaterialTheme.colorScheme.outline,
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
@@ -71,7 +63,7 @@ fun SerifNumber(
     value: String,
     modifier: Modifier = Modifier,
     unit: String? = null,
-    color: Color = LightInk,
+    color: Color = MaterialTheme.colorScheme.onBackground,
     fontSize: Int = 32
 ) {
     Row(
@@ -92,7 +84,7 @@ fun SerifNumber(
                 fontFamily = FontFamily.Default,
                 fontWeight = FontWeight.Normal,
                 fontSize = (fontSize * 0.45).sp,
-                color = TextSecondary,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(bottom = (fontSize * 0.1).dp)
             )
         }
@@ -107,7 +99,7 @@ fun SectionEyebrow(
     Text(
         text = text.uppercase(),
         style = MaterialTheme.typography.labelMedium,
-        color = Trace,
+        color = MaterialTheme.colorScheme.primary,
         modifier = modifier
     )
 }
@@ -116,7 +108,7 @@ fun SectionEyebrow(
 fun LoadingSpinner(
     modifier: Modifier = Modifier,
     size: Dp = 32.dp,
-    color: Color = Trace
+    color: Color = MaterialTheme.colorScheme.primary
 ) {
     Box(
         modifier = modifier,
@@ -134,8 +126,8 @@ fun LoadingSpinner(
 fun LinearProgressBar(
     progress: Float,
     modifier: Modifier = Modifier,
-    color: Color = Trace,
-    backgroundColor: Color = SurfaceCardBorder,
+    color: Color = MaterialTheme.colorScheme.primary,
+    backgroundColor: Color = MaterialTheme.colorScheme.outline,
     height: Dp = 4.dp
 ) {
     val clampedProgress = progress.coerceIn(0f, 1f)

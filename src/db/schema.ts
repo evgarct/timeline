@@ -113,6 +113,23 @@ export const nutritionReports = pgTable("nutrition_reports", {
   uniqueIndex("nutrition_reports_user_id_id_idx").on(table.userId, table.id)
 ]);
 
+export const dailyActivity = pgTable("daily_activity", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  activityDate: text("activity_date").notNull(),
+  timezone: text("timezone").notNull(),
+  steps: integer("steps").notNull(),
+  goalSteps: integer("goal_steps").notNull(),
+  distanceMeters: integer("distance_meters"),
+  weeklyAverage: integer("weekly_average"),
+  workoutCount: integer("workout_count").default(0).notNull(),
+  workoutSummary: jsonb("workout_summary"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+}, (table) => [
+  uniqueIndex("daily_activity_user_id_date_idx").on(table.userId, table.activityDate)
+]);
+
 export const storagePolicies = pgTable("storage_policies", {
   userId: text("user_id").primaryKey(),
   limitBytes: integer("limit_bytes"),
