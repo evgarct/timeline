@@ -14,11 +14,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -27,8 +31,6 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -40,20 +42,23 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.evgarct.form.core.theme.LightInk
 import com.evgarct.form.core.theme.RedAccent
-import com.evgarct.form.core.theme.SurfaceCard
-import com.evgarct.form.core.theme.SurfaceCardBorder
+import com.evgarct.form.core.theme.TextMuted
+import com.evgarct.form.core.theme.TextPrimary
 import com.evgarct.form.core.theme.TextSecondary
-import com.evgarct.form.core.theme.Trace
 import com.evgarct.form.data.models.FoodEntry
 import com.evgarct.form.data.models.FoodQuantity
 import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutrientValue
+import com.evgarct.form.data.models.icon
 import com.evgarct.form.data.models.parseIsoDate
 import com.evgarct.form.ui.nutrition.components.FormModalSheet
 import java.text.SimpleDateFormat
@@ -70,6 +75,7 @@ fun FoodEntryEditorSheet(
     onOpenNutrients: (List<NutrientValue>) -> Unit
 ) {
     val viewModel: NutritionViewModel = viewModel()
+    val colorScheme = MaterialTheme.colorScheme
     val originalDate = remember { parseIsoDate(entry.occurredAt) }
 
     var selectedMealType by remember { mutableStateOf(entry.mealType) }
@@ -102,184 +108,173 @@ fun FoodEntryEditorSheet(
         onDeleted()
     }
 
-    FormModalSheet(onDismissRequest = onDismiss) {
+    FormModalSheet(onDismissRequest = onDismiss, title = "Edit entry") {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
-            // Header
+            Text(
+                text = entry.productSnapshot.name,
+                style = MaterialTheme.typography.headlineSmall,
+                color = TextPrimary
+            )
+            entry.productSnapshot.brand?.let {
+                Text(text = it, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Meal Type Picker
+            Text(text = "MEAL", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.2.sp, color = TextMuted)
+            Spacer(modifier = Modifier.height(10.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                MealType.values().forEach { type ->
+                    val isSelected = selectedMealType == type
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(if (isSelected) colorScheme.secondaryContainer else colorScheme.surfaceContainer)
+                            .clickable { selectedMealType = type }
+                            .padding(vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = type.icon,
+                            contentDescription = null,
+                            tint = if (isSelected) colorScheme.onSecondaryContainer else TextMuted,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Text(
+                            text = type.name.lowercase().replaceFirstChar { it.uppercase() },
+                            fontSize = 12.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (isSelected) colorScheme.onSecondaryContainer else TextMuted
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Quantity Row
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 12.dp),
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(colorScheme.surfaceContainer)
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "Cancel",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = TextSecondary,
-                    modifier = Modifier.clickable { onDismiss() }
-                )
+                Text(text = "Quantity", style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
 
-                Text(
-                    text = "Edit Entry",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = LightInk
-                )
-
-                Text(
-                    text = "Save",
-                    style = MaterialTheme.typography.titleSmall,
-                    color = Trace,
-                    modifier = Modifier.clickable { update() }
-                )
+                Box(
+                    modifier = Modifier
+                        .width(110.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(colorScheme.surfaceContainerHigh)
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.End, modifier = Modifier.fillMaxWidth()) {
+                        BasicTextField(
+                            value = amountText,
+                            onValueChange = { text ->
+                                if (text.isEmpty() || text.matches(Regex("""^\d*\.?\d*$"""))) {
+                                    amountText = text
+                                }
+                            },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            textStyle = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Medium, color = TextPrimary, textAlign = TextAlign.End),
+                            cursorBrush = SolidColor(TextPrimary),
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(text = entry.quantity.unitLabel, fontSize = 12.sp, color = TextMuted)
+                    }
+                }
             }
 
-            Column(
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Date Row
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(colorScheme.surfaceContainer)
+                    .clickable { showDatePicker = true }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = entry.productSnapshot.name,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = LightInk
-                )
-                entry.productSnapshot.brand?.let {
-                    Text(text = it, style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // Meal Type Picker
-                Text(text = "MEAL", style = MaterialTheme.typography.labelSmall, color = Trace)
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceCard)
-                        .padding(4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    listOf(
-                        MealType.BREAKFAST to "Breakfast",
-                        MealType.LUNCH to "Lunch",
-                        MealType.DINNER to "Dinner",
-                        MealType.SNACK to "Snack"
-                    ).forEach { (type, label) ->
-                        val isSelected = selectedMealType == type
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isSelected) Trace else androidx.compose.ui.graphics.Color.Transparent)
-                                .clickable { selectedMealType = type }
-                                .padding(vertical = 8.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = label,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = if (isSelected) LightInk else TextSecondary,
-                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Quantity Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = "Quantity (${entry.quantity.unitLabel})",
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = LightInk
-                    )
-
-                    OutlinedTextField(
-                        value = amountText,
-                        onValueChange = { text ->
-                            if (text.isEmpty() || text.matches(Regex("""^\d*\.?\d*$"""))) {
-                                amountText = text
-                            }
-                        },
-                        modifier = Modifier.width(120.dp),
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedContainerColor = SurfaceCard,
-                            unfocusedContainerColor = SurfaceCard,
-                            focusedBorderColor = Trace,
-                            unfocusedBorderColor = SurfaceCardBorder,
-                            focusedTextColor = LightInk,
-                            unfocusedTextColor = LightInk
-                        )
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // Date Row
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceCard)
-                        .clickable { showDatePicker = true }
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(text = "Date", style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(text = dateFormatter.format(selectedDate), style = MaterialTheme.typography.bodyMedium, color = LightInk)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Icon(Icons.Default.CalendarToday, contentDescription = null, tint = Trace, modifier = Modifier.size(16.dp))
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(24.dp))
-
-                // All Nutrients link
-                Text(
-                    text = "All nutrients",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = Trace,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceCard)
-                        .clickable { onOpenNutrients(entry.productSnapshot.nutrients) }
-                        .padding(16.dp)
-                )
-
-                Spacer(modifier = Modifier.height(32.dp))
-
-                // Delete Button
-                Button(
-                    onClick = { showDeleteConfirm = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(48.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = RedAccent.copy(alpha = 0.15f),
-                        contentColor = RedAccent
-                    )
-                ) {
-                    Text("Delete entry", fontWeight = FontWeight.SemiBold)
+                Text(text = "Date", style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = dateFormatter.format(selectedDate), style = MaterialTheme.typography.bodyMedium, color = TextSecondary)
+                    Icon(Icons.Default.CalendarToday, contentDescription = null, tint = colorScheme.primary, modifier = Modifier.size(16.dp))
                 }
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // All Nutrients link
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(colorScheme.surfaceContainer)
+                    .clickable { onOpenNutrients(entry.productSnapshot.nutrients) }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "All nutrients", style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+                Icon(Icons.Default.ChevronRight, contentDescription = null, tint = TextMuted, modifier = Modifier.size(18.dp))
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            Button(
+                onClick = { update() },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colorScheme.primaryContainer,
+                    contentColor = colorScheme.onPrimaryContainer
+                )
+            ) {
+                Text("Save", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Button(
+                onClick = { showDeleteConfirm = true },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = RedAccent.copy(alpha = 0.15f),
+                    contentColor = RedAccent
+                )
+            ) {
+                Icon(Icons.Default.DeleteOutline, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Delete entry", fontWeight = FontWeight.SemiBold)
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
         }
 
         if (showDatePicker) {
@@ -291,7 +286,7 @@ fun FoodEntryEditorSheet(
                         datePickerState.selectedDateMillis?.let { selectedDate = Date(it) }
                         showDatePicker = false
                     }) {
-                        Text("OK", color = Trace)
+                        Text("OK", color = colorScheme.primary)
                     }
                 },
                 dismissButton = {

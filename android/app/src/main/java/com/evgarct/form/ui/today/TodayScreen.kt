@@ -26,7 +26,10 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
+import androidx.compose.material.icons.filled.BakeryDining
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.OilBarrel
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -293,7 +296,11 @@ fun TodayScreen(
                                 label = stringResource(R.string.summary_nutrition),
                                 value = "${todaySummary.calories.toInt()}",
                                 unit = stringResource(R.string.summary_calories_unit),
-                                detail = "${todaySummary.protein.toInt()}p · ${todaySummary.fat.toInt()}f · ${todaySummary.carbohydrates.toInt()}c",
+                                detailIcons = listOf(
+                                    Icons.Default.FitnessCenter to "${todaySummary.protein.toInt()}",
+                                    Icons.Default.OilBarrel to "${todaySummary.fat.toInt()}",
+                                    Icons.Default.BakeryDining to "${todaySummary.carbohydrates.toInt()}"
+                                ),
                                 onClick = onOpenNutrition
                             )
                             SummaryStatCard(
@@ -490,7 +497,8 @@ private fun SummaryStatCard(
     label: String,
     value: String,
     unit: String,
-    detail: String,
+    detail: String? = null,
+    detailIcons: List<Pair<androidx.compose.ui.graphics.vector.ImageVector, String>>? = null,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)? = null
 ) {
@@ -524,8 +532,9 @@ private fun SummaryStatCard(
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 text = value,
-                fontSize = 30.sp,
-                fontFamily = FontFamily.Serif,
+                fontSize = 28.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold,
                 color = onContainerColor
             )
             Spacer(modifier = Modifier.width(4.dp))
@@ -536,10 +545,31 @@ private fun SummaryStatCard(
                 modifier = Modifier.padding(bottom = 4.dp)
             )
         }
-        Text(
-            text = detail,
-            fontSize = 12.sp,
-            color = onContainerColor.copy(alpha = 0.7f)
-        )
+        if (detailIcons != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                detailIcons.forEach { (detailIcon, text) ->
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Icon(
+                            imageVector = detailIcon,
+                            contentDescription = null,
+                            tint = onContainerColor.copy(alpha = 0.6f),
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Text(
+                            text = text,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = onContainerColor.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+        } else if (detail != null) {
+            Text(
+                text = detail,
+                fontSize = 12.sp,
+                color = onContainerColor.copy(alpha = 0.7f)
+            )
+        }
     }
 }

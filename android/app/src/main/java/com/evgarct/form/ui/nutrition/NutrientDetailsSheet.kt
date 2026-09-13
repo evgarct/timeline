@@ -86,9 +86,9 @@ fun NutrientDetailsSheet(
                         )
                         Text(
                             text = groupTitle.uppercase(),
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 1.2.sp,
+                            letterSpacing = 0.8.sp,
                             color = colorScheme.primary
                         )
                     }
@@ -131,7 +131,7 @@ fun NutrientRow(nutrient: NutrientValue) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = nutrient.label,
-                fontSize = 15.sp,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
                 color = TextPrimary
             )
@@ -139,7 +139,7 @@ fun NutrientRow(nutrient: NutrientValue) {
                 val provText = if (nutrient.provenance == NutrientProvenance.ESTIMATED) "Estimated" else "Calculated"
                 Text(
                     text = provText,
-                    fontSize = 12.sp,
+                    style = MaterialTheme.typography.bodySmall,
                     color = TextMuted
                 )
             }
@@ -147,14 +147,19 @@ fun NutrientRow(nutrient: NutrientValue) {
 
         val formattedValue = nutrient.value?.let { v ->
             val prefix = nutrient.qualifier ?: ""
-            "$prefix${String.format(Locale.US, "%.1f", v)} ${nutrient.unit}".trim()
+            val numberText = if (v == Math.floor(v)) {
+                String.format(Locale.US, "%.0f", v)
+            } else {
+                String.format(Locale.US, "%.1f", v)
+            }
+            "$prefix$numberText ${nutrient.unit}".trim()
         } ?: nutrient.originalText ?: "—"
 
         Text(
             text = formattedValue,
-            fontSize = 15.sp,
+            style = MaterialTheme.typography.bodyLarge,
             fontFamily = FontFamily.Monospace,
-            color = TextPrimary.copy(alpha = 0.75f)
+            color = TextPrimary.copy(alpha = 0.85f)
         )
     }
 }

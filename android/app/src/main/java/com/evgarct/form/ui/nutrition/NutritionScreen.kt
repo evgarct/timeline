@@ -287,15 +287,18 @@ private fun FoodEntryRow(
     }
 
     val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart) {
-                onDelete()
-                true
-            } else {
-                false
-            }
-        }
+        confirmValueChange = { value -> value != SwipeToDismissBoxValue.StartToEnd }
     )
+
+    // Mutating the list backing this row synchronously inside confirmValueChange froze the
+    // gesture (the row got torn out of composition mid-drag-settle). Defer the actual delete
+    // to a LaunchedEffect that runs after the swipe state has settled, per the documented
+    // SwipeToDismissBox pattern.
+    LaunchedEffect(dismissState.currentValue) {
+        if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+            onDelete()
+        }
+    }
 
     SwipeToDismissBox(
         state = dismissState,
