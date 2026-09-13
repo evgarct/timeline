@@ -12,4 +12,4 @@ This directory is the canonical knowledge base for Form. Human and AI contributo
 - [`FEATURES/Today.md`](FEATURES/Today.md): Today behavior and states.
 - [`DECISIONS/`](DECISIONS): durable architecture decisions.
 
-Files under `docs/` are operational backend, storage, release, and historical design runbooks. They are linked from this knowledge base but are not a competing product specification.
+Files under `docs/` are operational backend, storage, release, Android device debugging (`docs/ANDROID_DEBUGGING.md`), and historical design runbooks. They are linked from this knowledge base but are not a competing product specification.
