@@ -124,7 +124,8 @@ fun RootScreen(
                         onOpenPhotoGallery = { id, photos, idx ->
                             activeGallery = GalleryState(id, photos, idx)
                         },
-                        onOpenActivityDetail = { selectedTab = AppTab.ACTIVITY }
+                        onOpenActivityDetail = { selectedTab = AppTab.ACTIVITY },
+                        onOpenNutrition = { selectedTab = AppTab.NUTRITION }
                     )
                 }
                 AppTab.ACTIVITY -> {

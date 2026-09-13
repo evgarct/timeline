@@ -7,9 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,8 +18,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,18 +42,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evgarct.form.FormApp
-import com.evgarct.form.core.theme.Ink
-import com.evgarct.form.core.theme.LightInk
-import com.evgarct.form.core.theme.SurfaceCard
-import com.evgarct.form.core.theme.SurfaceCardBorder
 import com.evgarct.form.core.theme.TextMuted
+import com.evgarct.form.core.theme.TextPrimary
 import com.evgarct.form.core.theme.TextSecondary
-import com.evgarct.form.core.theme.Trace
 import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutritionProduct
 import com.evgarct.form.ui.components.LoadingSpinner
+import com.evgarct.form.ui.nutrition.components.FormModalSheet
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductSearchSheet(
     mealType: MealType,
@@ -59,12 +60,14 @@ fun ProductSearchSheet(
     onOpenBarcodeScanner: () -> Unit
 ) {
     val nutritionRepo = FormApp.instance.nutritionRepository
+    val colorScheme = MaterialTheme.colorScheme
 
     var query by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<NutritionProduct>>(emptyList()) }
     var recentForMeal by remember { mutableStateOf<List<NutritionProduct>>(emptyList()) }
     var moreRecent by remember { mutableStateOf<List<NutritionProduct>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
+    var isLoadingRecents by remember { mutableStateOf(true) }
 
     LaunchedEffect(Unit) {
         nutritionRepo.recentProducts(mealType, page = 1, pageSize = 20)
@@ -73,6 +76,7 @@ fun ProductSearchSheet(
             .onSuccess { allRecent ->
                 moreRecent = allRecent.items.filter { it !in recentForMeal }
             }
+        isLoadingRecents = false
     }
 
     LaunchedEffect(query) {
@@ -93,15 +97,11 @@ fun ProductSearchSheet(
             }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Ink)
-    ) {
+    FormModalSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 40.dp)
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
         ) {
             // Header with search bar and barcode button
             Row(
@@ -126,14 +126,14 @@ fun ProductSearchSheet(
                         }
                     },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = SurfaceCard,
-                        unfocusedContainerColor = SurfaceCard,
-                        focusedBorderColor = Trace,
-                        unfocusedBorderColor = SurfaceCardBorder,
-                        focusedTextColor = LightInk,
-                        unfocusedTextColor = LightInk
+                        focusedContainerColor = colorScheme.surfaceContainerHigh,
+                        unfocusedContainerColor = colorScheme.surfaceContainerHigh,
+                        focusedBorderColor = colorScheme.primary,
+                        unfocusedBorderColor = colorScheme.outlineVariant,
+                        focusedTextColor = TextPrimary,
+                        unfocusedTextColor = TextPrimary
                     )
                 )
 
@@ -143,21 +143,21 @@ fun ProductSearchSheet(
                     onClick = onOpenBarcodeScanner,
                     modifier = Modifier
                         .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceCard)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(colorScheme.tertiaryContainer)
                 ) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Barcode", tint = Trace)
+                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Barcode", tint = colorScheme.onTertiaryContainer)
                 }
 
                 Spacer(modifier = Modifier.width(4.dp))
 
                 IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = LightInk)
+                    Icon(Icons.Default.Close, contentDescription = "Close", tint = TextPrimary)
                 }
             }
 
             // Results / Recent Lists
-            if (isSearching) {
+            if (isSearching || isLoadingRecents) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -177,39 +177,58 @@ fun ProductSearchSheet(
                         Text(text = "No products found", color = TextMuted)
                     }
                 } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(searchResults) { product ->
-                            ProductListItem(product = product, onClick = { onSelectProduct(product) })
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 480.dp)
+                            .padding(horizontal = 16.dp)
+                    ) {
+                        item {
+                            ProductGroupHeader(icon = Icons.Default.Search, label = "SEARCH RESULTS", color = colorScheme.primary)
+                        }
+                        item {
+                            ProductGroupCard {
+                                searchResults.forEachIndexed { index, product ->
+                                    ProductListItem(product = product, isRecent = false, onClick = { onSelectProduct(product) })
+                                    if (index != searchResults.lastIndex) ProductDivider(colorScheme.outlineVariant)
+                                }
+                            }
                         }
                     }
                 }
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 480.dp)
+                        .padding(horizontal = 16.dp)
+                ) {
                     if (recentForMeal.isNotEmpty()) {
                         item {
-                            Text(
-                                text = "RECENTLY IN THIS MEAL",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Trace,
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
-                            )
+                            ProductGroupHeader(icon = Icons.Default.History, label = "RECENTLY IN THIS MEAL", color = colorScheme.primary)
                         }
-                        items(recentForMeal) { product ->
-                            ProductListItem(product = product, onClick = { onSelectProduct(product) })
+                        item {
+                            ProductGroupCard {
+                                recentForMeal.forEachIndexed { index, product ->
+                                    ProductListItem(product = product, isRecent = true, onClick = { onSelectProduct(product) })
+                                    if (index != recentForMeal.lastIndex) ProductDivider(colorScheme.outlineVariant)
+                                }
+                            }
                         }
+                        item { Spacer(modifier = Modifier.height(20.dp)) }
                     }
 
                     if (moreRecent.isNotEmpty()) {
                         item {
-                            Text(
-                                text = "MORE PRODUCTS",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Trace,
-                                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
-                            )
+                            ProductGroupHeader(icon = Icons.Default.Storage, label = "FROM YOUR DATABASE", color = TextMuted)
                         }
-                        items(moreRecent) { product ->
-                            ProductListItem(product = product, onClick = { onSelectProduct(product) })
+                        item {
+                            ProductGroupCard {
+                                moreRecent.forEachIndexed { index, product ->
+                                    ProductListItem(product = product, isRecent = false, onClick = { onSelectProduct(product) })
+                                    if (index != moreRecent.lastIndex) ProductDivider(colorScheme.outlineVariant)
+                                }
+                            }
                         }
                     }
                 }
@@ -219,30 +238,81 @@ fun ProductSearchSheet(
 }
 
 @Composable
-fun ProductListItem(product: NutritionProduct, onClick: () -> Unit) {
+private fun ProductGroupHeader(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: androidx.compose.ui.graphics.Color) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
+    ) {
+        Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 0.8.sp,
+            color = color
+        )
+    }
+}
+
+@Composable
+private fun ProductGroupCard(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun ProductDivider(color: androidx.compose.ui.graphics.Color) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(0.8.dp)
+            .background(color.copy(alpha = 0.5f))
+    )
+}
+
+@Composable
+fun ProductListItem(product: NutritionProduct, isRecent: Boolean, onClick: () -> Unit) {
     val summary = product.referenceSummary
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = product.name, style = MaterialTheme.typography.bodyLarge, color = LightInk)
-            val subtitle = buildString {
-                product.brand?.let { append(it).append(" • ") }
-                append("${product.referenceBase?.amount?.toInt() ?: 100} ${product.baseUnit}")
+        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (isRecent) {
+                Icon(
+                    imageVector = Icons.Default.History,
+                    contentDescription = "Recently used",
+                    tint = TextMuted,
+                    modifier = Modifier.size(14.dp)
+                )
             }
-            Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            Column {
+                Text(text = product.name, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+                val subtitle = buildString {
+                    product.brand?.let { append(it).append(" • ") }
+                    append("${product.referenceBase?.amount?.toInt() ?: 100} ${product.baseUnit}")
+                }
+                Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+            }
         }
 
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = "${summary.calories.toInt()} kcal",
                 style = MaterialTheme.typography.bodyMedium,
-                color = Trace,
+                color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold
             )
             Text(

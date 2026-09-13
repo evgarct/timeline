@@ -35,6 +35,8 @@
     <string name="nutrition_date">Date</string>
     <string name="nutrition_delete">Delete entry</string>
     <string name="nutrition_delete_confirm">Delete this entry?</string>
+    <string name="nutrition_edit">Edit</string>
+    <string name="nutrition_entry_removed">Entry removed</string>
     <string name="nutrition_error">Could not load nutrition</string>
     <string name="nutrition_estimated">Estimated</string>
     <string name="nutrition_fat_short">F</string>
@@ -120,6 +122,7 @@
     <string name="nutrition_scanner_unavailable_detail">This device doesn\'t support barcode scanning.</string>
     <string name="nutrition_today">Today</string>
     <string name="nutrition_trace">Trace</string>
+    <string name="nutrition_undo">Undo</string>
     <string name="nutrition_units_pieces">Count in pieces</string>
     <string name="summary_nutrition_macros_format" formatted="false">P %\@ · F %\@ · C %\@</string>
     <string name="action_allphotos">All photos</string>

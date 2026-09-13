@@ -1,132 +1,120 @@
 package com.evgarct.form.ui.nutrition
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.BakeryDining
+import androidx.compose.material.icons.filled.Diamond
+import androidx.compose.material.icons.filled.Grain
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.LocalPharmacy
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.filled.OilBarrel
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.evgarct.form.core.theme.TextMuted
+import com.evgarct.form.core.theme.TextPrimary
 import com.evgarct.form.data.models.NutrientProvenance
 import com.evgarct.form.data.models.NutrientValue
+import com.evgarct.form.ui.nutrition.components.FormModalSheet
 import java.util.Locale
 
+private fun groupIcon(groupTitle: String): ImageVector = when (groupTitle) {
+    "Energy & Protein" -> Icons.Default.LocalFireDepartment
+    "Fats" -> Icons.Default.OilBarrel
+    "Carbohydrates, Sugars & Fiber" -> Icons.Default.BakeryDining
+    "Salt & Sodium" -> Icons.Default.Grain
+    "Vitamins" -> Icons.Default.LocalPharmacy
+    "Minerals" -> Icons.Default.Diamond
+    else -> Icons.Default.MoreHoriz
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NutrientDetailsSheet(
-    title: String = "All Nutrients",
+    title: String = "All nutrients",
     nutrients: List<NutrientValue>,
     onDismiss: () -> Unit
 ) {
     val aggregated = aggregateNutrients(nutrients)
     val grouped = groupNutrients(aggregated)
+    val colorScheme = MaterialTheme.colorScheme
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF13110E))
-    ) {
+    FormModalSheet(onDismissRequest = onDismiss, title = title) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .padding(top = 10.dp)
+                .fillMaxWidth()
+                .heightIn(max = 560.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
         ) {
-            // Header
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 22.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = title,
-                    fontSize = 32.sp,
-                    fontFamily = FontFamily.Serif,
-                    letterSpacing = (-0.8).sp,
-                    color = Color.White
-                )
-
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.12f))
-                        .clickable { onDismiss() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = "Close",
-                        tint = Color.White,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 22.dp, vertical = 8.dp)
-            ) {
-                grouped.forEach { (groupTitle, list) ->
-                    if (list.isNotEmpty()) {
+            grouped.forEach { (groupTitle, list) ->
+                if (list.isNotEmpty()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(top = 20.dp, bottom = 10.dp)
+                    ) {
+                        Icon(
+                            imageVector = groupIcon(groupTitle),
+                            contentDescription = null,
+                            tint = colorScheme.primary,
+                            modifier = Modifier.size(14.dp)
+                        )
                         Text(
                             text = groupTitle.uppercase(),
-                            fontSize = 11.sp,
+                            style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold,
-                            letterSpacing = 1.2.sp,
-                            color = Color.White.copy(alpha = 0.4f),
-                            modifier = Modifier.padding(top = 24.dp, bottom = 10.dp)
+                            letterSpacing = 0.8.sp,
+                            color = colorScheme.primary
                         )
+                    }
 
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(Color.White.copy(alpha = 0.05f))
-                        ) {
-                            list.forEachIndexed { index, nutrient ->
-                                NutrientRow(nutrient = nutrient)
-                                if (index < list.size - 1) {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(horizontal = 16.dp)
-                                            .height(1.dp)
-                                            .background(Color.White.copy(alpha = 0.06f))
-                                    )
-                                }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(colorScheme.surfaceContainer)
+                    ) {
+                        list.forEachIndexed { index, nutrient ->
+                            NutrientRow(nutrient = nutrient)
+                            if (index < list.size - 1) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 16.dp)
+                                        .height(0.8.dp)
+                                        .background(colorScheme.outlineVariant.copy(alpha = 0.5f))
+                                )
                             }
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(40.dp))
             }
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
@@ -143,30 +131,35 @@ fun NutrientRow(nutrient: NutrientValue) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = nutrient.label,
-                fontSize = 15.sp,
+                style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
-                color = Color.White
+                color = TextPrimary
             )
             if (nutrient.provenance != NutrientProvenance.STATED) {
                 val provText = if (nutrient.provenance == NutrientProvenance.ESTIMATED) "Estimated" else "Calculated"
                 Text(
                     text = provText,
-                    fontSize = 12.sp,
-                    color = Color.White.copy(alpha = 0.4f)
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextMuted
                 )
             }
         }
 
         val formattedValue = nutrient.value?.let { v ->
             val prefix = nutrient.qualifier ?: ""
-            "$prefix${String.format(Locale.US, "%.1f", v)} ${nutrient.unit}".trim()
+            val numberText = if (v == Math.floor(v)) {
+                String.format(Locale.US, "%.0f", v)
+            } else {
+                String.format(Locale.US, "%.1f", v)
+            }
+            "$prefix$numberText ${nutrient.unit}".trim()
         } ?: nutrient.originalText ?: "—"
 
         Text(
             text = formattedValue,
-            fontSize = 15.sp,
+            style = MaterialTheme.typography.bodyLarge,
             fontFamily = FontFamily.Monospace,
-            color = Color.White.copy(alpha = 0.75f)
+            color = TextPrimary.copy(alpha = 0.85f)
         )
     }
 }

@@ -98,32 +98,34 @@ data class NutritionProduct(
     val alternateBases: List<NutrientBase>
         get() = nutrientBases.filter { it.unit == baseUnit && it.id != referenceBase?.id }
 
-    fun summaryFor(quantity: FoodQuantity): NutritionSummary {
-        val base = referenceBase ?: return NutritionSummary()
-        if (base.amount <= 0) return NutritionSummary()
+    fun scaledNutrients(quantity: FoodQuantity): List<NutrientValue> {
+        val base = referenceBase ?: return emptyList()
+        if (base.amount <= 0) return emptyList()
 
         val amountInBase: Double = when (quantity) {
             is FoodQuantity.Grams -> quantity.amount
             is FoodQuantity.Milliliters -> quantity.amount
             is FoodQuantity.Pieces -> {
-                val opt = pieceSizes.firstOrNull { it.size == quantity.size } ?: return NutritionSummary()
+                val opt = pieceSizes.firstOrNull { it.size == quantity.size } ?: return emptyList()
                 opt.grams * quantity.amount
             }
             is FoodQuantity.Serving -> {
                 val opt = quantity.servingSizeId?.let { id -> servingSizes.firstOrNull { it.id == id } }
                     ?: quantity.label?.let { l -> servingSizes.firstOrNull { it.label == l } }
-                    ?: return NutritionSummary()
+                    ?: return emptyList()
                 opt.amount * quantity.amount
             }
-            is FoodQuantity.AsConsumed -> return NutritionSummary()
+            is FoodQuantity.AsConsumed -> return emptyList()
         }
 
         val multiplier = amountInBase / base.amount
-        val scaled = base.nutrients.map { nutrient ->
+        return base.nutrients.map { nutrient ->
             nutrient.copy(value = nutrient.value?.let { it * multiplier })
         }
-        return NutritionSummary.fromNutrients(scaled)
     }
+
+    fun summaryFor(quantity: FoodQuantity): NutritionSummary =
+        NutritionSummary.fromNutrients(scaledNutrients(quantity))
 }
 
 @Serializable(with = FoodQuantitySerializer::class)

@@ -11,6 +11,8 @@ import androidx.work.WorkRequest
 import com.evgarct.form.core.network.ApiClient
 import com.evgarct.form.core.network.PersistentCookieJar
 import com.evgarct.form.core.preferences.AppPreferences
+import com.evgarct.form.data.cache.ActivityCache
+import com.evgarct.form.data.cache.NutritionCache
 import com.evgarct.form.data.repository.ActivityRepository
 import com.evgarct.form.data.repository.AuthRepository
 import com.evgarct.form.data.repository.HealthConnectRepository
@@ -40,6 +42,9 @@ class FormApp : Application() {
         private set
     lateinit var activityRepository: ActivityRepository
         private set
+
+    val nutritionCache: NutritionCache by lazy { NutritionCache(nutritionRepository, appPreferences) }
+    val activityCache: ActivityCache by lazy { ActivityCache(healthConnectRepository, appPreferences) }
 
     override fun onCreate() {
         super.onCreate()
