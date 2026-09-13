@@ -284,6 +284,7 @@ private fun FoodEntryRow(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .background(Ink)
                     .combinedClickable(onClick = onOpen, onLongClick = { showMenu = true })
                     .padding(vertical = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
