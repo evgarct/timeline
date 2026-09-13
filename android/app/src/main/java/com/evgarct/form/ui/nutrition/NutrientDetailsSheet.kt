@@ -21,7 +21,7 @@ import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.LocalPharmacy
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.OilBarrel
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -44,7 +44,7 @@ import java.util.Locale
 
 private fun groupIcon(groupTitle: String): ImageVector = when (groupTitle) {
     "Energy & Protein" -> Icons.Default.LocalFireDepartment
-    "Fats" -> Icons.Default.WaterDrop
+    "Fats" -> Icons.Default.OilBarrel
     "Carbohydrates, Sugars & Fiber" -> Icons.Default.BakeryDining
     "Salt & Sodium" -> Icons.Default.Grain
     "Vitamins" -> Icons.Default.LocalPharmacy

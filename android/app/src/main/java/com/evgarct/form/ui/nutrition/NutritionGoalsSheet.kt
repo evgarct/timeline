@@ -20,7 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BakeryDining
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.LocalFireDepartment
-import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.OilBarrel
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -92,7 +92,7 @@ fun NutritionGoalsSheet(
 
             GoalInputField(icon = Icons.Default.LocalFireDepartment, label = "Calories", unit = "kcal", value = calories, onValueChange = { calories = it })
             GoalInputField(icon = Icons.Default.FitnessCenter, label = "Protein", unit = "g", value = protein, onValueChange = { protein = it })
-            GoalInputField(icon = Icons.Default.WaterDrop, label = "Fat", unit = "g", value = fat, onValueChange = { fat = it })
+            GoalInputField(icon = Icons.Default.OilBarrel, label = "Fat", unit = "g", value = fat, onValueChange = { fat = it })
             GoalInputField(icon = Icons.Default.BakeryDining, label = "Carbohydrates", unit = "g", value = carbs, onValueChange = { carbs = it })
 
             Spacer(modifier = Modifier.height(8.dp))

@@ -33,7 +33,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Repeat
-import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material.icons.filled.OilBarrel
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -242,7 +242,7 @@ private fun DayTotalCard(daySummary: NutritionSummary, goals: StoredNutritionGoa
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         DayTotalStat(Icons.Default.FitnessCenter, daySummary.protein, goals.protein, onContainer, Modifier.weight(1f))
-        DayTotalStat(Icons.Default.WaterDrop, daySummary.fat, goals.fat, onContainer, Modifier.weight(1f))
+        DayTotalStat(Icons.Default.OilBarrel, daySummary.fat, goals.fat, onContainer, Modifier.weight(1f))
         DayTotalStat(Icons.Default.BakeryDining, daySummary.carbohydrates, goals.carbohydrates, onContainer, Modifier.weight(1f))
         DayTotalStat(Icons.Default.LocalFireDepartment, daySummary.calories, goals.calories, onContainer, Modifier.weight(1f), emphasized = true)
     }
