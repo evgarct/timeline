@@ -26,9 +26,10 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
 import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.rounded.Restaurant
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -42,14 +43,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -58,6 +59,12 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.evgarct.form.FormApp
 import com.evgarct.form.R
+import com.evgarct.form.core.theme.LightInk
+import com.evgarct.form.core.theme.Ink
+import com.evgarct.form.core.theme.SurfaceCard
+import com.evgarct.form.core.theme.TextMuted
+import com.evgarct.form.core.theme.TextPrimary
+import com.evgarct.form.core.theme.TextSecondary
 import com.evgarct.form.data.models.NutritionSummary
 import com.evgarct.form.data.models.PhotoItem
 import com.evgarct.form.data.models.TimelineEvent
@@ -65,56 +72,39 @@ import com.evgarct.form.data.repository.ActivityDataState
 import com.evgarct.form.ui.timeline.TimelineInBodyItem
 import com.evgarct.form.ui.timeline.TimelineMeasurementsItem
 import com.evgarct.form.ui.timeline.TimelinePhotoItem
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TodayScreen(
     onOpenSettings: () -> Unit,
     onOpenPhotoGallery: (String, List<PhotoItem>, Int) -> Unit,
-    onOpenActivityDetail: (LocalDate) -> Unit
+    onOpenActivityDetail: (LocalDate) -> Unit,
+    onOpenNutrition: () -> Unit
 ) {
     val timelineRepo = FormApp.instance.timelineRepository
-    val nutritionRepo = FormApp.instance.nutritionRepository
-    val healthRepo = FormApp.instance.healthConnectRepository
     val prefs = FormApp.instance.appPreferences
     val scope = rememberCoroutineScope()
+    val viewModel: TodayViewModel = viewModel()
 
     var events by remember { mutableStateOf<List<TimelineEvent>>(emptyList()) }
-    var todaySummary by remember { mutableStateOf(NutritionSummary()) }
-    var activityState by remember { mutableStateOf<ActivityDataState>(ActivityDataState.Loading) }
-    var isRefreshing by remember { mutableStateOf(false) }
     var showStepGoalDialog by remember { mutableStateOf(false) }
     var goalInput by remember { mutableStateOf("${prefs.stepGoal}") }
 
-    fun refreshAll() {
-        scope.launch {
-            isRefreshing = true
-            val eventsDeferred = async { timelineRepo.getEvents() }
-            val nutritionDeferred = async {
-                nutritionRepo.getEntries(Date(), TimeZone.getDefault())
-            }
-            val activityDeferred = async {
-                healthRepo.getActivityData(LocalDate.now(), prefs.stepGoal)
-            }
-
-            eventsDeferred.await().onSuccess { events = it }
-            nutritionDeferred.await().onSuccess { entries ->
-                todaySummary = NutritionSummary.fromEntries(entries)
-            }
-            activityState = activityDeferred.await()
-            isRefreshing = false
-        }
+    val nutritionCacheMap by viewModel.nutritionState.collectAsState()
+    val activityCacheMap by viewModel.activityState.collectAsState()
+    val todaySummary = remember(nutritionCacheMap) {
+        NutritionSummary.fromEntries(viewModel.nutritionDayState().entries)
     }
+    val activityState = remember(activityCacheMap) { viewModel.activityDayState().data }
 
     LaunchedEffect(Unit) {
-        refreshAll()
+        scope.launch { timelineRepo.getEvents().onSuccess { events = it } }
+        viewModel.refresh()
     }
 
     // Latest photo session
@@ -122,7 +112,6 @@ fun TodayScreen(
     val latestPhotoEvent = photoEvents.firstOrNull()
     val latestPhotos = latestPhotoEvent?.photos ?: emptyList()
 
-    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val scrollState = rememberScrollState()
 
     val dateFormatted = remember {
@@ -132,7 +121,7 @@ fun TodayScreen(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black)
+            .background(Ink)
     ) {
         val heroHeight = maxHeight
         Column(
@@ -169,7 +158,7 @@ fun TodayScreen(
                                 Brush.verticalGradient(
                                     colors = listOf(
                                         Color(0xFF382E24),
-                                        Color(0xFF13110E),
+                                        Ink,
                                         Color.Black
                                     )
                                 )
@@ -215,7 +204,7 @@ fun TodayScreen(
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.Medium,
                                 letterSpacing = 0.7.sp,
-                                color = Color.White.copy(alpha = 0.75f)
+                                color = LightInk.copy(alpha = 0.75f)
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
@@ -223,7 +212,7 @@ fun TodayScreen(
                                 fontSize = 52.sp,
                                 fontFamily = FontFamily.Serif,
                                 letterSpacing = (-1.2).sp,
-                                color = Color.White
+                                color = LightInk
                             )
                         }
 
@@ -232,14 +221,14 @@ fun TodayScreen(
                             modifier = Modifier
                                 .size(42.dp)
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.15f))
+                                .background(LightInk.copy(alpha = 0.15f))
                                 .clickable { onOpenSettings() },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Default.MoreHoriz,
                                 contentDescription = stringResource(R.string.action_menu),
-                                tint = Color.White,
+                                tint = LightInk,
                                 modifier = Modifier.size(20.dp)
                             )
                         }
@@ -261,7 +250,7 @@ fun TodayScreen(
                                         .weight(1f)
                                         .height(38.dp)
                                         .clip(RoundedCornerShape(19.dp))
-                                        .background(Color.White.copy(alpha = 0.15f))
+                                        .background(LightInk.copy(alpha = 0.15f))
                                         .clickable {
                                             latestPhotoEvent?.let {
                                                 onOpenPhotoGallery(it.id, latestPhotos, 0)
@@ -273,7 +262,7 @@ fun TodayScreen(
                                         text = stringResource(R.string.action_allphotos),
                                         fontSize = 14.sp,
                                         fontWeight = FontWeight.Medium,
-                                        color = Color.White
+                                        color = LightInk
                                     )
                                 }
                             }
@@ -284,8 +273,8 @@ fun TodayScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(30.dp))
-                                .background(Color.White.copy(alpha = 0.12f))
-                                .border(0.8.dp, Color.White.copy(alpha = 0.10f), RoundedCornerShape(30.dp))
+                                .background(LightInk.copy(alpha = 0.12f))
+                                .border(0.8.dp, LightInk.copy(alpha = 0.10f), RoundedCornerShape(30.dp))
                                 .padding(horizontal = 20.dp, vertical = 18.dp)
                         ) {
                             Row(
@@ -295,35 +284,46 @@ fun TodayScreen(
                             ) {
                                 // Nutrition Column
                                 Column(
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .clickable(onClick = onOpenNutrition),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Text(
-                                        text = stringResource(R.string.summary_nutrition).uppercase(),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        letterSpacing = 0.5.sp,
-                                        color = Color.White.copy(alpha = 0.6f)
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Restaurant,
+                                            contentDescription = null,
+                                            tint = LightInk.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.summary_nutrition).uppercase(),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            letterSpacing = 0.5.sp,
+                                            color = LightInk.copy(alpha = 0.6f)
+                                        )
+                                    }
                                     Row(verticalAlignment = Alignment.Bottom) {
                                         Text(
                                             text = "${todaySummary.calories.toInt()}",
                                             fontSize = 34.sp,
                                             fontFamily = FontFamily.Serif,
-                                            color = Color.White
+                                            color = LightInk
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             text = stringResource(R.string.summary_calories_unit),
                                             fontSize = 12.sp,
-                                            color = Color.White.copy(alpha = 0.6f),
+                                            color = LightInk.copy(alpha = 0.6f),
                                             modifier = Modifier.padding(bottom = 4.dp)
                                         )
                                     }
                                     Text(
                                         text = "${todaySummary.protein.toInt()}p · ${todaySummary.fat.toInt()}f · ${todaySummary.carbohydrates.toInt()}c",
                                         fontSize = 12.sp,
-                                        color = Color.White.copy(alpha = 0.6f)
+                                        color = LightInk.copy(alpha = 0.6f)
                                     )
                                 }
 
@@ -332,7 +332,7 @@ fun TodayScreen(
                                     modifier = Modifier
                                         .width(1.dp)
                                         .height(54.dp)
-                                        .background(Color.White.copy(alpha = 0.18f))
+                                        .background(LightInk.copy(alpha = 0.18f))
                                 )
 
                                 // Activity Column
@@ -360,25 +360,33 @@ fun TodayScreen(
                                         ),
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    Text(
-                                        text = stringResource(R.string.summary_activity).uppercase(),
-                                        fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        letterSpacing = 0.5.sp,
-                                        color = Color.White.copy(alpha = 0.6f)
-                                    )
+                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Rounded.DirectionsWalk,
+                                            contentDescription = null,
+                                            tint = LightInk.copy(alpha = 0.6f),
+                                            modifier = Modifier.size(12.dp)
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.summary_activity).uppercase(),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            letterSpacing = 0.5.sp,
+                                            color = LightInk.copy(alpha = 0.6f)
+                                        )
+                                    }
                                     Row(verticalAlignment = Alignment.Bottom) {
                                         Text(
                                             text = String.format(Locale.US, "%,d", steps),
                                             fontSize = 34.sp,
                                             fontFamily = FontFamily.Serif,
-                                            color = Color.White
+                                            color = LightInk
                                         )
                                         Spacer(modifier = Modifier.width(4.dp))
                                         Text(
                                             text = stringResource(R.string.summary_steps_unit_short),
                                             fontSize = 12.sp,
-                                            color = Color.White.copy(alpha = 0.6f),
+                                            color = LightInk.copy(alpha = 0.6f),
                                             modifier = Modifier.padding(bottom = 4.dp)
                                         )
                                     }
@@ -392,7 +400,7 @@ fun TodayScreen(
                                     Text(
                                         text = footerText,
                                         fontSize = 12.sp,
-                                        color = Color.White.copy(alpha = 0.6f)
+                                        color = LightInk.copy(alpha = 0.6f)
                                     )
                                 }
                             }
@@ -408,7 +416,7 @@ fun TodayScreen(
                     title = {
                         Text(
                             text = stringResource(R.string.activity_goal_title),
-                            color = Color.White,
+                            color = TextPrimary,
                             fontSize = 20.sp,
                             fontWeight = FontWeight.SemiBold
                         )
@@ -417,7 +425,7 @@ fun TodayScreen(
                         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                             Text(
                                 text = stringResource(R.string.activity_goal_message),
-                                color = Color.White.copy(alpha = 0.7f),
+                                color = TextSecondary,
                                 fontSize = 14.sp
                             )
 
@@ -432,7 +440,7 @@ fun TodayScreen(
                                         modifier = Modifier
                                             .weight(1f)
                                             .clip(CircleShape)
-                                            .background(if (isSelected) Color.White else Color.White.copy(alpha = 0.12f))
+                                            .background(if (isSelected) TextPrimary else TextPrimary.copy(alpha = 0.12f))
                                             .clickable { goalInput = "$preset" }
                                             .padding(vertical = 8.dp),
                                         contentAlignment = Alignment.Center
@@ -441,7 +449,7 @@ fun TodayScreen(
                                             text = String.format(Locale.US, "%,d", preset).replace(',', ' '),
                                             fontSize = 12.sp,
                                             fontWeight = FontWeight.Medium,
-                                            color = if (isSelected) Color.Black else Color.White
+                                            color = if (isSelected) Ink else TextPrimary
                                         )
                                     }
                                 }
@@ -456,12 +464,12 @@ fun TodayScreen(
                                 singleLine = true,
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedTextColor = Color.White,
-                                    unfocusedTextColor = Color.White,
-                                    focusedBorderColor = Color.White,
-                                    unfocusedBorderColor = Color.White.copy(alpha = 0.3f),
-                                    focusedLabelColor = Color.White,
-                                    unfocusedLabelColor = Color.White.copy(alpha = 0.6f)
+                                    focusedTextColor = TextPrimary,
+                                    unfocusedTextColor = TextPrimary,
+                                    focusedBorderColor = TextPrimary,
+                                    unfocusedBorderColor = TextSecondary,
+                                    focusedLabelColor = TextPrimary,
+                                    unfocusedLabelColor = TextSecondary
                                 ),
                                 modifier = Modifier.fillMaxWidth()
                             )
@@ -473,20 +481,20 @@ fun TodayScreen(
                                 val newGoal = goalInput.toIntOrNull()
                                 if (newGoal != null && newGoal in 1_000..100_000) {
                                     prefs.stepGoal = newGoal
-                                    refreshAll()
+                                    viewModel.refresh(force = true)
                                 }
                                 showStepGoalDialog = false
                             }
                         ) {
-                            Text(stringResource(R.string.common_save), color = Color.White, fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.common_save), color = TextPrimary, fontWeight = FontWeight.Bold)
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showStepGoalDialog = false }) {
-                            Text(stringResource(R.string.common_cancel), color = Color.White.copy(alpha = 0.6f))
+                            Text(stringResource(R.string.common_cancel), color = TextSecondary)
                         }
                     },
-                    containerColor = Color(0xFF1E1C1A),
+                    containerColor = SurfaceCard,
                     shape = RoundedCornerShape(24.dp)
                 )
             }
@@ -495,7 +503,7 @@ fun TodayScreen(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF13110E))
+                    .background(Ink)
                     .padding(horizontal = 18.dp)
                     .padding(top = 36.dp, bottom = 120.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -506,14 +514,14 @@ fun TodayScreen(
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = 1.6.sp,
-                        color = Color.White.copy(alpha = 0.6f)
+                        color = TextSecondary
                     )
                     Text(
                         text = stringResource(R.string.timeline_title),
                         fontSize = 44.sp,
                         fontFamily = FontFamily.Serif,
                         letterSpacing = (-1.2).sp,
-                        color = Color.White
+                        color = TextPrimary
                     )
                 }
 
@@ -530,7 +538,7 @@ fun TodayScreen(
                     ) {
                         Text(
                             text = stringResource(R.string.timeline_empty),
-                            color = Color.White.copy(alpha = 0.5f),
+                            color = TextMuted,
                             fontSize = 16.sp
                         )
                     }

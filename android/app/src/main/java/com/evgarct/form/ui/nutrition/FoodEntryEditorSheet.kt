@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -37,7 +36,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -45,13 +43,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import com.evgarct.form.FormApp
-import com.evgarct.form.core.theme.Ink
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.evgarct.form.core.theme.LightInk
 import com.evgarct.form.core.theme.RedAccent
 import com.evgarct.form.core.theme.SurfaceCard
 import com.evgarct.form.core.theme.SurfaceCardBorder
-import com.evgarct.form.core.theme.TextMuted
 import com.evgarct.form.core.theme.TextSecondary
 import com.evgarct.form.core.theme.Trace
 import com.evgarct.form.data.models.FoodEntry
@@ -59,11 +55,10 @@ import com.evgarct.form.data.models.FoodQuantity
 import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutrientValue
 import com.evgarct.form.data.models.parseIsoDate
-import kotlinx.coroutines.launch
+import com.evgarct.form.ui.nutrition.components.FormModalSheet
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -74,22 +69,21 @@ fun FoodEntryEditorSheet(
     onDeleted: () -> Unit,
     onOpenNutrients: (List<NutrientValue>) -> Unit
 ) {
-    val nutritionRepo = FormApp.instance.nutritionRepository
-    val scope = rememberCoroutineScope()
+    val viewModel: NutritionViewModel = viewModel()
+    val originalDate = remember { parseIsoDate(entry.occurredAt) }
 
     var selectedMealType by remember { mutableStateOf(entry.mealType) }
     var amountText by remember { mutableStateOf(entry.quantity.amount.let { if (it % 1.0 == 0.0) it.toInt().toString() else it.toString() }) }
-    var selectedDate by remember { mutableStateOf(parseIsoDate(entry.occurredAt)) }
+    var selectedDate by remember { mutableStateOf(originalDate) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
-    var isSaving by remember { mutableStateOf(false) }
 
     val dateFormatter = remember { SimpleDateFormat("EEEE, d MMMM", Locale.getDefault()) }
 
+    // Optimistic: the sheet closes immediately, the cache reflects the change right away.
     fun update() {
         val newAmount = amountText.toDoubleOrNull() ?: return
         if (newAmount <= 0) return
-        isSaving = true
 
         val updatedQuantity = when (val q = entry.quantity) {
             is FoodQuantity.Grams -> FoodQuantity.Grams(newAmount)
@@ -99,42 +93,20 @@ fun FoodEntryEditorSheet(
             is FoodQuantity.AsConsumed -> q
         }
 
-        scope.launch {
-            nutritionRepo.updateEntry(entry.id, selectedMealType, updatedQuantity, selectedDate, TimeZone.getDefault())
-                .onSuccess {
-                    isSaving = false
-                    onUpdated()
-                }
-                .onFailure {
-                    isSaving = false
-                }
-        }
+        viewModel.updateEntryOptimistic(entry, selectedMealType, updatedQuantity, originalDate, selectedDate)
+        onUpdated()
     }
 
     fun delete() {
-        isSaving = true
-        scope.launch {
-            nutritionRepo.deleteEntry(entry.id)
-                .onSuccess {
-                    isSaving = false
-                    onDeleted()
-                }
-                .onFailure {
-                    isSaving = false
-                }
-        }
+        viewModel.deleteEntryOptimistic(entry, originalDate)
+        onDeleted()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Ink)
-            .imePadding()
-    ) {
+    FormModalSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 40.dp)
+                .fillMaxWidth()
+                .imePadding()
         ) {
             // Header
             Row(
@@ -158,16 +130,16 @@ fun FoodEntryEditorSheet(
                 )
 
                 Text(
-                    text = if (isSaving) "Saving..." else "Save",
+                    text = "Save",
                     style = MaterialTheme.typography.titleSmall,
                     color = Trace,
-                    modifier = Modifier.clickable(enabled = !isSaving) { update() }
+                    modifier = Modifier.clickable { update() }
                 )
             }
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 8.dp)
             ) {

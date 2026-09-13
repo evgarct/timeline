@@ -35,6 +35,8 @@
     <string name="nutrition_date">Дата</string>
     <string name="nutrition_delete">Удалить запись</string>
     <string name="nutrition_delete_confirm">Удалить эту запись?</string>
+    <string name="nutrition_edit">Изменить</string>
+    <string name="nutrition_entry_removed">Запись удалена</string>
     <string name="nutrition_error">Не удалось загрузить питание</string>
     <string name="nutrition_estimated">Оценка</string>
     <string name="nutrition_fat_short">Ж</string>
@@ -120,6 +122,7 @@
     <string name="nutrition_scanner_unavailable_detail">Это устройство не поддерживает сканирование штрих-кодов.</string>
     <string name="nutrition_today">Сегодня</string>
     <string name="nutrition_trace">Следы</string>
+    <string name="nutrition_undo">Отменить</string>
     <string name="nutrition_units_pieces">Считать в штуках</string>
     <string name="summary_nutrition_macros_format" formatted="false">Б %\@ · Ж %\@ · У %\@</string>
     <string name="action_allphotos">Все фото</string>

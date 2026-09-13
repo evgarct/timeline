@@ -1,13 +1,10 @@
 package com.evgarct.form.ui.nutrition
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -15,6 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -30,14 +28,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.evgarct.form.FormApp
 import com.evgarct.form.core.preferences.StoredNutritionGoals
-import com.evgarct.form.core.theme.Ink
 import com.evgarct.form.core.theme.LightInk
 import com.evgarct.form.core.theme.SurfaceCard
 import com.evgarct.form.core.theme.SurfaceCardBorder
 import com.evgarct.form.core.theme.TextMuted
 import com.evgarct.form.core.theme.TextSecondary
 import com.evgarct.form.core.theme.Trace
+import com.evgarct.form.ui.nutrition.components.FormModalSheet
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NutritionGoalsSheet(
     onDismiss: () -> Unit,
@@ -61,16 +60,12 @@ fun NutritionGoalsSheet(
         onSaved()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Ink)
-            .imePadding()
-    ) {
+    FormModalSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 40.dp, start = 20.dp, end = 20.dp)
+                .fillMaxWidth()
+                .imePadding()
+                .padding(bottom = 24.dp, start = 20.dp, end = 20.dp)
         ) {
             // Header
             Row(

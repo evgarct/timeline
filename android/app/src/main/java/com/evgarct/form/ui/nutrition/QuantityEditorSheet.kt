@@ -7,39 +7,32 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -48,14 +41,18 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.evgarct.form.FormApp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.evgarct.form.core.theme.Ink
+import com.evgarct.form.core.theme.SurfaceCardBorder
+import com.evgarct.form.core.theme.TextMuted
+import com.evgarct.form.core.theme.TextPrimary
+import com.evgarct.form.core.theme.TextSecondary
 import com.evgarct.form.data.models.FoodQuantity
 import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutrientValue
 import com.evgarct.form.data.models.NutritionProduct
-import kotlinx.coroutines.launch
+import com.evgarct.form.ui.nutrition.components.FormModalSheet
 import java.util.Date
-import java.util.TimeZone
 
 sealed class UnitMode {
     object Base : UnitMode()
@@ -63,6 +60,7 @@ sealed class UnitMode {
     data class Serving(val label: String, val id: String?) : UnitMode()
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuantityEditorSheet(
     product: NutritionProduct,
@@ -72,13 +70,11 @@ fun QuantityEditorSheet(
     onSaved: () -> Unit,
     onOpenNutrients: (List<NutrientValue>) -> Unit
 ) {
-    val nutritionRepo = FormApp.instance.nutritionRepository
-    val scope = rememberCoroutineScope()
+    val viewModel: NutritionViewModel = viewModel()
 
     var unitMode by remember { mutableStateOf<UnitMode>(UnitMode.Base) }
     var amount by remember { mutableStateOf(100.0) }
     var amountText by remember { mutableStateOf("100") }
-    var isSaving by remember { mutableStateOf(false) }
 
     val currentQuantity = when (val mode = unitMode) {
         is UnitMode.Base -> {
@@ -90,36 +86,19 @@ fun QuantityEditorSheet(
 
     val liveSummary = product.summaryFor(currentQuantity)
 
+    // Optimistic: the entry appears in the cache (and thus on every screen sharing it)
+    // immediately, so the sheet can close right away instead of waiting on the network.
     fun save() {
-        if (amount <= 0 || isSaving) return
-        isSaving = true
-        scope.launch {
-            nutritionRepo.recordEntry(
-                productId = product.id,
-                mealType = mealType,
-                quantity = currentQuantity,
-                date = date,
-                timezone = TimeZone.getDefault()
-            ).onSuccess {
-                isSaving = false
-                onSaved()
-            }.onFailure {
-                isSaving = false
-            }
-        }
+        if (amount <= 0) return
+        viewModel.addEntryOptimistic(product, mealType, currentQuantity, date)
+        onSaved()
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color(0xFF13110E))
-            .imePadding()
-    ) {
+    FormModalSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .statusBarsPadding()
-                .padding(top = 10.dp)
+                .fillMaxWidth()
+                .imePadding()
         ) {
             // Header
             Row(
@@ -133,14 +112,14 @@ fun QuantityEditorSheet(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.12f))
+                        .background(TextPrimary.copy(alpha = 0.12f))
                         .clickable { onDismiss() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = "Cancel",
-                        tint = Color.White,
+                        tint = TextPrimary,
                         modifier = Modifier.size(18.dp)
                     )
                 }
@@ -149,38 +128,29 @@ fun QuantityEditorSheet(
                     text = "Add to ${mealType.name.lowercase().replaceFirstChar { it.uppercase() }}",
                     fontSize = 17.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color.White
+                    color = TextPrimary
                 )
 
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(18.dp))
-                        .background(if (amount > 0 && !isSaving) Color.White else Color.White.copy(alpha = 0.12f))
-                        .clickable(enabled = amount > 0 && !isSaving) { save() }
+                        .background(if (amount > 0) TextPrimary else TextPrimary.copy(alpha = 0.12f))
+                        .clickable(enabled = amount > 0) { save() }
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (isSaving) {
-                        CircularProgressIndicator(
-                            color = Color.Black,
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    } else {
-                        Text(
-                            text = "Add",
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = if (amount > 0) Color.Black else Color.White.copy(alpha = 0.35f)
-                        )
-                    }
+                    Text(
+                        text = "Add",
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (amount > 0) Ink else TextMuted
+                    )
                 }
             }
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth()
                     .padding(horizontal = 22.dp, vertical = 14.dp),
                 verticalArrangement = Arrangement.spacedBy(28.dp)
             ) {
@@ -191,13 +161,13 @@ fun QuantityEditorSheet(
                         fontSize = 32.sp,
                         fontFamily = FontFamily.Serif,
                         letterSpacing = (-0.8).sp,
-                        color = Color.White
+                        color = TextPrimary
                     )
                     product.brand?.let {
                         Text(
                             text = it,
                             fontSize = 16.sp,
-                            color = Color.White.copy(alpha = 0.5f)
+                            color = TextSecondary
                         )
                     }
                 }
@@ -219,7 +189,7 @@ fun QuantityEditorSheet(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = 1.2.sp,
-                        color = Color.White.copy(alpha = 0.4f)
+                        color = TextMuted
                     )
 
                     Row(
@@ -272,7 +242,7 @@ fun QuantityEditorSheet(
                         fontSize = 11.sp,
                         fontWeight = FontWeight.SemiBold,
                         letterSpacing = 1.2.sp,
-                        color = Color.White.copy(alpha = 0.4f)
+                        color = TextMuted
                     )
 
                     Row(
@@ -285,7 +255,7 @@ fun QuantityEditorSheet(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.12f))
+                                .background(TextPrimary.copy(alpha = 0.12f))
                                 .clickable {
                                     val current = amountText.toDoubleOrNull() ?: 1.0
                                     val step = if (unitMode is UnitMode.Base) 10.0 else 1.0
@@ -295,7 +265,7 @@ fun QuantityEditorSheet(
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = Color.White, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = TextPrimary, modifier = Modifier.size(20.dp))
                         }
 
                         // Glass pill amount field
@@ -304,7 +274,7 @@ fun QuantityEditorSheet(
                                 .width(140.dp)
                                 .height(50.dp)
                                 .clip(RoundedCornerShape(25.dp))
-                                .background(Color.White.copy(alpha = 0.12f)),
+                                .background(TextPrimary.copy(alpha = 0.12f)),
                             contentAlignment = Alignment.Center
                         ) {
                             BasicTextField(
@@ -319,10 +289,10 @@ fun QuantityEditorSheet(
                                     fontSize = 24.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color.White,
+                                    color = TextPrimary,
                                     textAlign = TextAlign.Center
                                 ),
-                                cursorBrush = SolidColor(Color.White),
+                                cursorBrush = SolidColor(TextPrimary),
                                 modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp)
                             )
                         }
@@ -332,7 +302,7 @@ fun QuantityEditorSheet(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.12f))
+                                .background(TextPrimary.copy(alpha = 0.12f))
                                 .clickable {
                                     val current = amountText.toDoubleOrNull() ?: 0.0
                                     val step = if (unitMode is UnitMode.Base) 10.0 else 1.0
@@ -342,7 +312,7 @@ fun QuantityEditorSheet(
                                 },
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Add, contentDescription = "Increase", tint = Color.White, modifier = Modifier.size(20.dp))
+                            Icon(Icons.Default.Add, contentDescription = "Increase", tint = TextPrimary, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
@@ -352,7 +322,7 @@ fun QuantityEditorSheet(
                     modifier = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
-                        .background(Color.White.copy(alpha = 0.06f))
+                        .background(SurfaceCardBorder.copy(alpha = 0.4f))
                         .clickable {
                             val scaled = product.referenceBase?.nutrients ?: emptyList()
                             onOpenNutrients(scaled)
@@ -365,12 +335,12 @@ fun QuantityEditorSheet(
                         text = "All Nutrients",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium,
-                        color = Color.White
+                        color = TextPrimary
                     )
                     Icon(
                         imageVector = Icons.Default.ChevronRight,
                         contentDescription = null,
-                        tint = Color.White.copy(alpha = 0.4f),
+                        tint = TextMuted,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -390,7 +360,7 @@ fun PortionChip(
     Box(
         modifier = Modifier
             .clip(CircleShape)
-            .background(if (isSelected) Color.White else Color.White.copy(alpha = 0.12f))
+            .background(if (isSelected) TextPrimary else TextPrimary.copy(alpha = 0.12f))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 8.dp),
         contentAlignment = Alignment.Center
@@ -399,7 +369,7 @@ fun PortionChip(
             text = label,
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
-            color = if (isSelected) Color.Black else Color.White
+            color = if (isSelected) Ink else TextPrimary
         )
     }
 }

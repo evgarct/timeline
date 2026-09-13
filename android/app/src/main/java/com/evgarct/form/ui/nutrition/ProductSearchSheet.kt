@@ -7,9 +7,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,7 +40,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.evgarct.form.FormApp
-import com.evgarct.form.core.theme.Ink
 import com.evgarct.form.core.theme.LightInk
 import com.evgarct.form.core.theme.SurfaceCard
 import com.evgarct.form.core.theme.SurfaceCardBorder
@@ -49,8 +49,10 @@ import com.evgarct.form.core.theme.Trace
 import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutritionProduct
 import com.evgarct.form.ui.components.LoadingSpinner
+import com.evgarct.form.ui.nutrition.components.FormModalSheet
 import kotlinx.coroutines.delay
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProductSearchSheet(
     mealType: MealType,
@@ -93,15 +95,11 @@ fun ProductSearchSheet(
             }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Ink)
-    ) {
+    FormModalSheet(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(top = 40.dp)
+                .fillMaxWidth()
+                .padding(bottom = 24.dp)
         ) {
             // Header with search bar and barcode button
             Row(
@@ -177,14 +175,14 @@ fun ProductSearchSheet(
                         Text(text = "No products found", color = TextMuted)
                     }
                 } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp)) {
                         items(searchResults) { product ->
                             ProductListItem(product = product, onClick = { onSelectProduct(product) })
                         }
                     }
                 }
             } else {
-                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 480.dp)) {
                     if (recentForMeal.isNotEmpty()) {
                         item {
                             Text(
