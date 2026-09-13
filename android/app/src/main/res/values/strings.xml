@@ -182,6 +182,11 @@
     <string name="activity_refresh_accessibility">Refresh steps</string>
     <string name="activity_share_signature">OBSERVATION · STATE · TIME</string>
     <string name="activity_week_average">Weekly average</string>
+    <string name="activity_workouts_title">Workouts</string>
+    <string name="activity_workouts_count_format" formatted="false">%d workouts</string>
+    <string name="activity_duration_minutes_format" formatted="false">%d min</string>
+    <string name="activity_duration_hours_minutes_format" formatted="false">%d h %d min</string>
+    <string name="activity_calories_format" formatted="false">%d kcal</string>
     <string name="summary_activity">Activity</string>
     <string name="summary_calories_unit">kcal</string>
     <string name="summary_empty">—</string>

@@ -22,6 +22,7 @@ import com.evgarct.form.data.models.GoalStatus
 import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutritionReportPayload
 import com.evgarct.form.data.models.NutritionSummary
+import com.evgarct.form.data.repository.WorkoutSummary
 import java.io.ByteArrayOutputStream
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -238,6 +239,8 @@ object NutritionReportRenderer {
         canvas.drawText(res.getString(R.string.nutrition_report_activity_title), x, curY, titlePaint)
         curY += 60f
 
+        val stepsTopY = curY
+
         // Large Steps figure: e.g. "8 420"
         val stepsPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = COLOR_INK
@@ -257,6 +260,13 @@ object NutritionReportRenderer {
         }
         canvas.drawText(res.getString(R.string.nutrition_report_activity_steps).uppercase(locale), x, curY + 20f, stepsLabelPaint)
         curY += 60f
+
+        // Workouts callout on the right of the Steps figure (matching iOS 1:1)
+        if (activity.workouts.isNotEmpty()) {
+            val workoutX = x + 330f
+            val workoutWidth = width - 330f
+            drawCoverWorkoutCallouts(canvas, workoutX, stepsTopY, workoutWidth, activity.workouts, locale, res)
+        }
 
         // Goal row: "Цель — 10 000 шагов" and "84%"
         val goalStr = "${res.getString(R.string.nutrition_report_activity_goal_prefix).trim()} " +
@@ -312,6 +322,68 @@ object NutritionReportRenderer {
             val distStr = "${res.getString(R.string.nutrition_report_activity_distance_prefix).trim()} " +
                     String.format(locale, "%.1f km", km)
             canvas.drawText(distStr, x, curY, goalTextPaint)
+        }
+    }
+
+    private fun drawCoverWorkoutCallouts(
+        canvas: Canvas,
+        x: Float,
+        y: Float,
+        maxWidth: Float,
+        workouts: List<WorkoutSummary>,
+        locale: Locale,
+        res: Resources
+    ) {
+        val maxShown = 3
+        var wy = y
+
+        val namePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = COLOR_INK
+            textSize = 20f
+            typeface = Typeface.create(Typeface.SANS_SERIF, Typeface.BOLD)
+        }
+
+        val subPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = COLOR_MUTED
+            textSize = 15f
+            typeface = Typeface.MONOSPACE
+        }
+
+        val dotPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = COLOR_ACCENT
+            style = Paint.Style.FILL
+        }
+
+        workouts.take(maxShown).forEach { workout ->
+            val title = workout.title ?: res.getString(workout.kind.stringResId)
+            val totalMins = workout.durationSeconds / 60
+            val durStr = if (totalMins < 60) {
+                String.format(locale, res.getString(R.string.activity_duration_minutes_format), totalMins)
+            } else {
+                val h = totalMins / 60
+                val m = totalMins % 60
+                String.format(locale, res.getString(R.string.activity_duration_hours_minutes_format), h, m)
+            }
+            val calStr = workout.totalEnergyBurnedKcal?.let { kcal ->
+                " · " + String.format(locale, res.getString(R.string.activity_calories_format), kcal.toInt())
+            } ?: ""
+            val subText = durStr + calStr
+
+            // Small accent indicator dot
+            canvas.drawCircle(x + 6f, wy + 14f, 4.5f, dotPaint)
+
+            // Title
+            canvas.drawText(title, x + 20f, wy + 20f, namePaint)
+
+            // Duration & Kcal
+            canvas.drawText(subText, x + 20f, wy + 42f, subPaint)
+
+            wy += 50f
+        }
+
+        if (workouts.size > maxShown) {
+            val overflowStr = "+${workouts.size - maxShown}"
+            canvas.drawText(overflowStr, x + 20f, wy + 15f, subPaint)
         }
     }
 
