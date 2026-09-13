@@ -26,11 +26,11 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Adjust
+import androidx.compose.material.icons.filled.BakeryDining
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.Repeat
 import androidx.compose.material.icons.filled.WaterDrop
@@ -200,7 +200,7 @@ private fun DayTotalStat(
 ) {
     Column(
         modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         Icon(
@@ -238,12 +238,12 @@ private fun DayTotalCard(daySummary: NutritionSummary, goals: StoredNutritionGoa
             .fillMaxWidth()
             .clip(RoundedCornerShape(24.dp))
             .background(colorScheme.primaryContainer)
-            .padding(horizontal = 12.dp, vertical = 16.dp),
+            .padding(horizontal = 16.dp, vertical = 16.dp),
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         DayTotalStat(Icons.Default.FitnessCenter, daySummary.protein, goals.protein, onContainer, Modifier.weight(1f))
         DayTotalStat(Icons.Default.WaterDrop, daySummary.fat, goals.fat, onContainer, Modifier.weight(1f))
-        DayTotalStat(Icons.Default.Grain, daySummary.carbohydrates, goals.carbohydrates, onContainer, Modifier.weight(1f))
+        DayTotalStat(Icons.Default.BakeryDining, daySummary.carbohydrates, goals.carbohydrates, onContainer, Modifier.weight(1f))
         DayTotalStat(Icons.Default.LocalFireDepartment, daySummary.calories, goals.calories, onContainer, Modifier.weight(1f), emphasized = true)
     }
 }
@@ -313,7 +313,7 @@ private fun FoodEntryRow(
             }
         }
     ) {
-        Box {
+        Box(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -423,7 +423,7 @@ private fun MealSectionHeader(
             )
         }
 
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(
                 modifier = Modifier
                     .size(32.dp)

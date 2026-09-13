@@ -25,9 +25,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
+import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.filled.MoreHoriz
-import androidx.compose.material.icons.rounded.Restaurant
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -289,7 +289,7 @@ fun TodayScreen(
                                 modifier = Modifier.weight(1f),
                                 containerColor = colorScheme.primaryContainer.copy(alpha = 0.9f),
                                 onContainerColor = colorScheme.onPrimaryContainer,
-                                icon = Icons.Rounded.Restaurant,
+                                icon = Icons.Default.Restaurant,
                                 label = stringResource(R.string.summary_nutrition),
                                 value = "${todaySummary.calories.toInt()}",
                                 unit = stringResource(R.string.summary_calories_unit),
@@ -300,7 +300,7 @@ fun TodayScreen(
                                 modifier = Modifier.weight(1f),
                                 containerColor = colorScheme.secondaryContainer.copy(alpha = 0.9f),
                                 onContainerColor = colorScheme.onSecondaryContainer,
-                                icon = Icons.AutoMirrored.Rounded.DirectionsWalk,
+                                icon = Icons.AutoMirrored.Filled.DirectionsWalk,
                                 label = stringResource(R.string.summary_activity),
                                 value = String.format(Locale.US, "%,d", steps),
                                 unit = stringResource(R.string.summary_steps_unit_short),

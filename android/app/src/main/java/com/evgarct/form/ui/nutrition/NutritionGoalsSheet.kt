@@ -17,8 +17,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BakeryDining
 import androidx.compose.material.icons.filled.FitnessCenter
-import androidx.compose.material.icons.filled.Grain
 import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.Button
@@ -93,7 +93,7 @@ fun NutritionGoalsSheet(
             GoalInputField(icon = Icons.Default.LocalFireDepartment, label = "Calories", unit = "kcal", value = calories, onValueChange = { calories = it })
             GoalInputField(icon = Icons.Default.FitnessCenter, label = "Protein", unit = "g", value = protein, onValueChange = { protein = it })
             GoalInputField(icon = Icons.Default.WaterDrop, label = "Fat", unit = "g", value = fat, onValueChange = { fat = it })
-            GoalInputField(icon = Icons.Default.Grain, label = "Carbohydrates", unit = "g", value = carbs, onValueChange = { carbs = it })
+            GoalInputField(icon = Icons.Default.BakeryDining, label = "Carbohydrates", unit = "g", value = carbs, onValueChange = { carbs = it })
 
             Spacer(modifier = Modifier.height(8.dp))
 
@@ -104,8 +104,8 @@ fun NutritionGoalsSheet(
                     .height(52.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                 )
             ) {
                 Text("Save", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
