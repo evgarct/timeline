@@ -36,7 +36,6 @@
     <string name="nutrition_delete">Smazat záznam</string>
     <string name="nutrition_delete_confirm">Smazat tento záznam?</string>
     <string name="nutrition_edit">Upravit</string>
-    <string name="nutrition_entry_removed">Záznam odstraněn</string>
     <string name="nutrition_error">Jídlo nelze načíst</string>
     <string name="nutrition_estimated">Odhad</string>
     <string name="nutrition_fat_short">T</string>
@@ -122,7 +121,6 @@
     <string name="nutrition_scanner_unavailable_detail">Toto zařízení nepodporuje skenování čárových kódů.</string>
     <string name="nutrition_today">Dnes</string>
     <string name="nutrition_trace">Stopové množství</string>
-    <string name="nutrition_undo">Zpět</string>
     <string name="nutrition_units_pieces">Počítat v kusech</string>
     <string name="summary_nutrition_macros_format" formatted="false">B %\@ · T %\@ · S %\@</string>
     <string name="action_allphotos">Všechny fotky</string>

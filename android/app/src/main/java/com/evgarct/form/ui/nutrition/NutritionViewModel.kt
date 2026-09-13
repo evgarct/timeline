@@ -12,8 +12,6 @@ import com.evgarct.form.data.models.FoodProductSnapshot
 import com.evgarct.form.data.models.FoodQuantity
 import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutritionProduct
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import java.util.Date
@@ -31,16 +29,6 @@ class NutritionViewModel : ViewModel() {
     private val cache = FormApp.instance.nutritionCache
 
     val cacheState: StateFlow<Map<String, NutritionCache.DayState>> = cache.state
-
-    private data class PendingDelete(
-        val entry: FoodEntry,
-        val index: Int,
-        val date: Date,
-        val timezone: TimeZone,
-        val job: Job
-    )
-
-    private var pendingDelete: PendingDelete? = null
 
     /** Collapsed meal-section names, kept here (not in the composable) so it survives tab switches. */
     var collapsedMeals by mutableStateOf(emptySet<String>())
@@ -152,43 +140,12 @@ class NutritionViewModel : ViewModel() {
             calA.get(java.util.Calendar.DAY_OF_YEAR) == calB.get(java.util.Calendar.DAY_OF_YEAR)
     }
 
-    /** Immediate optimistic delete used by the confirm-dialog entry editor (no undo affordance there). */
+    /** Removes an entry immediately (no undo): used by swipe-to-delete and the confirm-dialog entry editor. */
     fun deleteEntryOptimistic(entry: FoodEntry, date: Date, timezone: TimeZone = TimeZone.getDefault()) {
         cache.applyOptimisticRemove(date, timezone, entry.id)
         viewModelScope.launch {
             repository.deleteEntry(entry.id).onFailure {
                 cache.refresh(date, timezone, force = true)
-            }
-        }
-    }
-
-    /** Swipe-to-delete / long-press delete: removes immediately, commits after the undo window. */
-    fun beginPendingDelete(entry: FoodEntry, date: Date, timezone: TimeZone = TimeZone.getDefault()) {
-        commitPendingDeleteNow()
-        val index = cache.stateFor(date, timezone).entries.indexOfFirst { it.id == entry.id }
-        cache.applyOptimisticRemove(date, timezone, entry.id)
-        val job = viewModelScope.launch {
-            delay(4000)
-            repository.deleteEntry(entry.id).onFailure { cache.refresh(date, timezone, force = true) }
-            pendingDelete = null
-        }
-        pendingDelete = PendingDelete(entry, index, date, timezone, job)
-    }
-
-    fun undoDelete() {
-        val pending = pendingDelete ?: return
-        pending.job.cancel()
-        cache.applyOptimisticRestore(pending.date, pending.timezone, pending.entry, pending.index)
-        pendingDelete = null
-    }
-
-    private fun commitPendingDeleteNow() {
-        val pending = pendingDelete ?: return
-        pending.job.cancel()
-        pendingDelete = null
-        viewModelScope.launch {
-            repository.deleteEntry(pending.entry.id).onFailure {
-                cache.refresh(pending.date, pending.timezone, force = true)
             }
         }
     }

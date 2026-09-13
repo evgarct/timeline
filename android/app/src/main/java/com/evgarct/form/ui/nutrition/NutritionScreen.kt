@@ -1,6 +1,9 @@
 package com.evgarct.form.ui.nutrition
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -41,10 +44,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -53,9 +52,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,7 +85,7 @@ import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutrientValue
 import com.evgarct.form.data.models.NutritionSummary
 import com.evgarct.form.data.models.icon
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -289,6 +288,7 @@ private fun FoodEntryRow(
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value -> value != SwipeToDismissBoxValue.StartToEnd }
     )
+    var dismissed by remember { mutableStateOf(false) }
 
     // Mutating the list backing this row synchronously inside confirmValueChange froze the
     // gesture (the row got torn out of composition mid-drag-settle). Defer the actual delete
@@ -296,27 +296,42 @@ private fun FoodEntryRow(
     // SwipeToDismissBox pattern.
     LaunchedEffect(dismissState.currentValue) {
         if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+            dismissed = true
+        }
+    }
+
+    // Let the row finish sliding off horizontally before collapsing its height, instead of
+    // both happening at once (which reads as a jarring pop). The delay matches the
+    // shrinkVertically animation below so the surrounding meal card's height only starts
+    // animating once the row itself is gone.
+    LaunchedEffect(dismissed) {
+        if (dismissed) {
+            delay(220)
             onDelete()
         }
     }
 
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = false,
-        backgroundContent = {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(RedAccent.copy(alpha = 0.85f))
-                    .padding(horizontal = 18.dp),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                Icon(imageVector = Icons.Default.Delete, contentDescription = null, tint = TextPrimary)
-            }
-        }
+    AnimatedVisibility(
+        visible = !dismissed,
+        exit = shrinkVertically(animationSpec = tween(220), shrinkTowards = Alignment.Top) + fadeOut(tween(150))
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+        SwipeToDismissBox(
+            state = dismissState,
+            enableDismissFromStartToEnd = false,
+            backgroundContent = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(RedAccent.copy(alpha = 0.85f))
+                        .padding(horizontal = 18.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = null, tint = TextPrimary)
+                }
+            }
+        ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -379,6 +394,7 @@ private fun FoodEntryRow(
                     onClick = { showMenu = false; onDelete() }
                 )
             }
+        }
         }
     }
 }
@@ -478,9 +494,7 @@ fun NutritionScreen(
     onOpenEntryEditor: (FoodEntry) -> Unit
 ) {
     val prefs = FormApp.instance.appPreferences
-    val scope = rememberCoroutineScope()
     val viewModel: NutritionViewModel = viewModel()
-    val snackbarHostState = remember { SnackbarHostState() }
     val timezone = remember { TimeZone.getDefault() }
     val colorScheme = MaterialTheme.colorScheme
 
@@ -488,8 +502,6 @@ fun NutritionScreen(
     val cacheMap by viewModel.cacheState.collectAsState()
     val dayState = remember(cacheMap, selectedDate) { viewModel.dayState(selectedDate, timezone) }
     val entries = dayState.entries
-    val entryRemovedMessage = stringResource(R.string.nutrition_entry_removed)
-    val undoLabel = stringResource(R.string.nutrition_undo)
 
     LaunchedEffect(selectedDate) {
         viewModel.refresh(selectedDate, timezone)
@@ -522,17 +534,7 @@ fun NutritionScreen(
     }
 
     fun triggerDelete(entry: FoodEntry) {
-        viewModel.beginPendingDelete(entry, selectedDate, timezone)
-        scope.launch {
-            val result = snackbarHostState.showSnackbar(
-                message = entryRemovedMessage,
-                actionLabel = undoLabel,
-                duration = SnackbarDuration.Short
-            )
-            if (result == SnackbarResult.ActionPerformed) {
-                viewModel.undoDelete()
-            }
-        }
+        viewModel.deleteEntryOptimistic(entry, selectedDate, timezone)
     }
 
     Box(
@@ -542,8 +544,7 @@ fun NutritionScreen(
     ) {
         Scaffold(
             containerColor = Color.Transparent,
-            contentWindowInsets = WindowInsets(0, 0, 0, 0),
-            snackbarHost = { SnackbarHost(snackbarHostState) }
+            contentWindowInsets = WindowInsets(0, 0, 0, 0)
         ) { padding ->
             LazyColumn(
                 modifier = Modifier
@@ -670,15 +671,17 @@ fun NutritionScreen(
                                                 .clip(RoundedCornerShape(16.dp))
                                         ) {
                                             mealEntries.forEachIndexed { index, entry ->
-                                                FoodEntryRow(
-                                                    entry = entry,
-                                                    cardColor = colorScheme.surfaceContainer,
-                                                    onOpen = { onOpenEntryEditor(entry) },
-                                                    onRepeat = { viewModel.repeatEntry(entry) },
-                                                    onDelete = { triggerDelete(entry) }
-                                                )
-                                                if (index != mealEntries.lastIndex) {
-                                                    HairlineDivider(color = colorScheme.outlineVariant, alpha = 0.4f)
+                                                key(entry.id) {
+                                                    FoodEntryRow(
+                                                        entry = entry,
+                                                        cardColor = colorScheme.surfaceContainer,
+                                                        onOpen = { onOpenEntryEditor(entry) },
+                                                        onRepeat = { viewModel.repeatEntry(entry) },
+                                                        onDelete = { triggerDelete(entry) }
+                                                    )
+                                                    if (index != mealEntries.lastIndex) {
+                                                        HairlineDivider(color = colorScheme.outlineVariant, alpha = 0.4f)
+                                                    }
                                                 }
                                             }
                                         }

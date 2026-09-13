@@ -180,7 +180,8 @@ fun RootScreen(
                 )
             }
 
-            activeAddProduct?.let { addState ->
+            if (activeAddProduct != null && !showBarcodeScanner) {
+                val addState = activeAddProduct!!
                 ProductSearchSheet(
                     mealType = addState.mealType,
                     onDismiss = { activeAddProduct = null },
