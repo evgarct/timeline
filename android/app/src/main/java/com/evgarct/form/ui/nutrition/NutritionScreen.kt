@@ -1,6 +1,9 @@
 package com.evgarct.form.ui.nutrition
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -86,6 +89,7 @@ import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutrientValue
 import com.evgarct.form.data.models.NutritionSummary
 import com.evgarct.form.data.models.icon
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -289,6 +293,7 @@ private fun FoodEntryRow(
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value -> value != SwipeToDismissBoxValue.StartToEnd }
     )
+    var dismissed by remember { mutableStateOf(false) }
 
     // Mutating the list backing this row synchronously inside confirmValueChange froze the
     // gesture (the row got torn out of composition mid-drag-settle). Defer the actual delete
@@ -296,27 +301,42 @@ private fun FoodEntryRow(
     // SwipeToDismissBox pattern.
     LaunchedEffect(dismissState.currentValue) {
         if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+            dismissed = true
+        }
+    }
+
+    // Let the row finish sliding off horizontally before collapsing its height, instead of
+    // both happening at once (which reads as a jarring pop). The delay matches the
+    // shrinkVertically animation below so the surrounding meal card's height only starts
+    // animating once the row itself is gone.
+    LaunchedEffect(dismissed) {
+        if (dismissed) {
+            delay(220)
             onDelete()
         }
     }
 
-    SwipeToDismissBox(
-        state = dismissState,
-        enableDismissFromStartToEnd = false,
-        backgroundContent = {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(RedAccent.copy(alpha = 0.85f))
-                    .padding(horizontal = 18.dp),
-                contentAlignment = Alignment.CenterEnd
-            ) {
-                Icon(imageVector = Icons.Default.Delete, contentDescription = null, tint = TextPrimary)
-            }
-        }
+    AnimatedVisibility(
+        visible = !dismissed,
+        exit = shrinkVertically(animationSpec = tween(220), shrinkTowards = Alignment.Top) + fadeOut(tween(150))
     ) {
-        Box(modifier = Modifier.fillMaxWidth()) {
+        SwipeToDismissBox(
+            state = dismissState,
+            enableDismissFromStartToEnd = false,
+            backgroundContent = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(RedAccent.copy(alpha = 0.85f))
+                        .padding(horizontal = 18.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Icon(imageVector = Icons.Default.Delete, contentDescription = null, tint = TextPrimary)
+                }
+            }
+        ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -379,6 +399,7 @@ private fun FoodEntryRow(
                     onClick = { showMenu = false; onDelete() }
                 )
             }
+        }
         }
     }
 }
