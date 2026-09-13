@@ -5,6 +5,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -128,11 +129,12 @@ fun TodayScreen(
         SimpleDateFormat("d MMMM", Locale.getDefault()).format(Date())
     }
 
-    Box(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
     ) {
+        val heroHeight = maxHeight
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -142,7 +144,7 @@ fun TodayScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(screenHeight)
+                    .height(heroHeight)
             ) {
                 // Background Photo Layer
                 if (latestPhotos.isNotEmpty()) {
