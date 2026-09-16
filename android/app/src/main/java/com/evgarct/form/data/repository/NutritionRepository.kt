@@ -1,6 +1,8 @@
 package com.evgarct.form.data.repository
 
+import android.util.Log
 import com.evgarct.form.core.network.ApiClient
+import com.evgarct.form.core.preferences.AppPreferences
 import com.evgarct.form.data.models.FoodEntry
 import com.evgarct.form.data.models.FoodQuantity
 import com.evgarct.form.data.models.MealType
@@ -27,11 +29,40 @@ data class ReportUploadResponse(
     val shareUrl: String
 )
 
-class NutritionRepository(private val apiClient: ApiClient) {
+class NutritionRepository(
+    private val apiClient: ApiClient,
+    private val healthConnectRepository: HealthConnectRepository,
+    private val appPreferences: AppPreferences
+) {
 
     private fun dateFormatter(timezone: TimeZone): SimpleDateFormat {
         return SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
             timeZone = timezone
+        }
+    }
+
+    /**
+     * Best-effort push of a food entry into Health Connect's NutritionRecord store. Never
+     * surfaces failures to callers — an HC write failure must not flip a successful backend
+     * write into an error the UI reports to the user.
+     */
+    private suspend fun syncToHealthConnect(entry: FoodEntry) {
+        if (!appPreferences.syncNutritionToHealthConnect) return
+        try {
+            if (!healthConnectRepository.hasNutritionWritePermission()) return
+            healthConnectRepository.upsertNutritionRecord(entry)
+        } catch (e: Exception) {
+            Log.d("NutritionRepository", "Health Connect sync failed for entry ${entry.id}", e)
+        }
+    }
+
+    private suspend fun deleteFromHealthConnect(entryId: String) {
+        if (!appPreferences.syncNutritionToHealthConnect) return
+        try {
+            if (!healthConnectRepository.hasNutritionWritePermission()) return
+            healthConnectRepository.deleteNutritionRecord(entryId)
+        } catch (e: Exception) {
+            Log.d("NutritionRepository", "Health Connect delete failed for entry $entryId", e)
         }
     }
 
@@ -72,7 +103,9 @@ class NutritionRepository(private val apiClient: ApiClient) {
         }.toString()
 
         val jsonStr = apiClient.postJson("api/nutrition/entries", body)
-        apiClient.json.decodeFromString(FoodEntry.serializer(), jsonStr)
+        val entry = apiClient.json.decodeFromString(FoodEntry.serializer(), jsonStr)
+        syncToHealthConnect(entry)
+        entry
     }
 
     suspend fun updateEntry(
@@ -101,11 +134,14 @@ class NutritionRepository(private val apiClient: ApiClient) {
         }.toString()
 
         val jsonStr = apiClient.putJson("api/nutrition/entries/$entryId", body)
-        apiClient.json.decodeFromString(FoodEntry.serializer(), jsonStr)
+        val entry = apiClient.json.decodeFromString(FoodEntry.serializer(), jsonStr)
+        syncToHealthConnect(entry)
+        entry
     }
 
     suspend fun deleteEntry(entryId: String): Result<Unit> = runCatching {
         apiClient.delete("api/nutrition/entries/$entryId")
+        deleteFromHealthConnect(entryId)
     }
 
     suspend fun repeatMeal(
