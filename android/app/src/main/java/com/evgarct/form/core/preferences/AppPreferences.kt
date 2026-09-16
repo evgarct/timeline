@@ -38,6 +38,11 @@ class AppPreferences(context: Context) {
         get() = prefs.getInt("step_goal", 10000)
         set(value) = prefs.edit().putInt("step_goal", value).apply()
 
+    /** Opt-in: whether logged food entries should also be written to Health Connect's NutritionRecord store. */
+    var syncNutritionToHealthConnect: Boolean
+        get() = prefs.getBoolean("sync_nutrition_to_health_connect", false)
+        set(value) = prefs.edit().putBoolean("sync_nutrition_to_health_connect", value).apply()
+
     /** Compose-observable so `FormTheme` (above any ViewModel) recomposes when this changes. */
     var themeMode: ThemeMode by mutableStateOf(ThemeMode.fromKey(prefs.getString("theme_mode", null)))
         private set

@@ -1,17 +1,21 @@
 package com.evgarct.form.data.repository
 
 import android.content.Context
+import android.util.Log
 import androidx.health.connect.client.HealthConnectClient
 import androidx.health.connect.client.permission.HealthPermission
 import androidx.health.connect.client.records.DistanceRecord
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.NutritionRecord
 import androidx.health.connect.client.records.StepsRecord
+import androidx.health.connect.client.records.metadata.DataOrigin
 import androidx.health.connect.client.records.TotalCaloriesBurnedRecord
 import androidx.health.connect.client.request.AggregateGroupByDurationRequest
 import androidx.health.connect.client.request.AggregateRequest
 import androidx.health.connect.client.request.ReadRecordsRequest
 import androidx.health.connect.client.time.TimeRangeFilter
 import com.evgarct.form.R
+import com.evgarct.form.data.models.FoodEntry
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import java.time.Duration
@@ -89,11 +93,24 @@ sealed class ActivityDataState {
 
 class HealthConnectRepository(private val context: Context) {
 
+    private companion object {
+        const val TAG = "HealthConnectRepo"
+    }
+
     val permissions = setOf(
         HealthPermission.getReadPermission(StepsRecord::class),
         HealthPermission.getReadPermission(DistanceRecord::class),
         HealthPermission.getReadPermission(ExerciseSessionRecord::class),
         HealthPermission.getReadPermission(TotalCaloriesBurnedRecord::class)
+    )
+
+    /**
+     * Kept separate from [permissions] so the nutrition-sync consent prompt (Settings) doesn't
+     * also ask for unrelated step/exercise read access, and vice versa for the Activity tab.
+     */
+    val nutritionPermissions = setOf(
+        HealthPermission.getWritePermission(NutritionRecord::class),
+        HealthPermission.getReadPermission(NutritionRecord::class)
     )
 
     private val healthConnectClient: HealthConnectClient? by lazy {
@@ -109,6 +126,76 @@ class HealthConnectRepository(private val context: Context) {
             granted.contains(HealthPermission.getReadPermission(StepsRecord::class))
         } catch (e: Exception) {
             false
+        }
+    }
+
+    suspend fun hasNutritionWritePermission(): Boolean {
+        val client = healthConnectClient ?: return false
+        return try {
+            val granted = client.permissionController.getGrantedPermissions()
+            granted.contains(HealthPermission.getWritePermission(NutritionRecord::class))
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    suspend fun upsertNutritionRecord(entry: FoodEntry): Result<Unit> {
+        val client = healthConnectClient ?: return Result.failure(IllegalStateException("Health Connect unavailable"))
+        if (NutritionRecordMapper.parseOccurredAt(entry.occurredAt).isAfter(Instant.now())) {
+            // Form allows logging a meal for later today (e.g. a planned dinner); Health Connect
+            // rejects any IntervalRecord whose startTime is in the future — NutritionRecord's own
+            // constructor throws before NutritionRecordMapper.map() can even return, so this must
+            // be checked before calling it, not after. Skip for now — the next daily backfill
+            // (NutritionSyncWorker) re-attempts every entry for "today" regardless of time, so
+            // this becomes a normal write once its timestamp is no longer in the future.
+            return Result.success(Unit)
+        }
+        return try {
+            val record = NutritionRecordMapper.map(entry)
+            client.insertRecords(listOf(record))
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.w(TAG, "upsertNutritionRecord failed for entry ${entry.id}", e)
+            Result.failure(e)
+        }
+    }
+
+    suspend fun deleteNutritionRecord(entryId: String): Result<Unit> {
+        val client = healthConnectClient ?: return Result.failure(IllegalStateException("Health Connect unavailable"))
+        return try {
+            client.deleteRecords(
+                recordType = NutritionRecord::class,
+                recordIdsList = emptyList(),
+                clientRecordIdsList = listOf(entryId)
+            )
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.w(TAG, "deleteNutritionRecord failed for entry $entryId", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * The set of Form's own `clientRecordId`s (== Form entry ids) currently present in Health
+     * Connect for the given time range. Used to reconcile deletions that happened outside the
+     * app (e.g. via the MCP nutrition tools) — Health Connect itself is the source of truth for
+     * "what Form has previously written" here, rather than a separately maintained local list,
+     * so this stays correct even after a reinstall.
+     */
+    suspend fun readOwnNutritionClientRecordIds(startTime: Instant, endTime: Instant): Result<Set<String>> {
+        val client = healthConnectClient ?: return Result.failure(IllegalStateException("Health Connect unavailable"))
+        return try {
+            val response = client.readRecords(
+                ReadRecordsRequest(
+                    recordType = NutritionRecord::class,
+                    timeRangeFilter = TimeRangeFilter.between(startTime, endTime),
+                    dataOriginFilter = setOf(DataOrigin(context.packageName))
+                )
+            )
+            Result.success(response.records.mapNotNull { it.metadata.clientRecordId }.toSet())
+        } catch (e: Exception) {
+            Log.w(TAG, "readOwnNutritionClientRecordIds failed", e)
+            Result.failure(e)
         }
     }
 

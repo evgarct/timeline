@@ -180,6 +180,12 @@ adb -s <DEVICE_ID> shell pm grant com.evgarct.form android.permission.health.REA
 ```powershell
 adb -s <DEVICE_ID> shell am start -a androidx.health.ACTION_HEALTH_CONNECT_SETTINGS
 ```
+> **На новых сборках (наблюдалось на Pixel 11 Pro XL, Android 17/API 37) это действие не резолвится** (`Error: Activity not started, unable to resolve Intent`) — на таких сборках Health Connect полностью интегрирован в Settings под пакетом `com.google.android.healthconnect.controller`, и рабочий intent-action другой:
+> ```powershell
+> adb -s <DEVICE_ID> shell am start -a android.health.connect.action.HEALTH_HOME_SETTINGS
+> ```
+> Если оба действия не резолвятся на новой версии Android, найти актуальное можно через `adb -s <DEVICE_ID> shell dumpsys package com.google.android.healthconnect.controller | Select-String "Activity Resolver Table" -Context 0,30` — там перечислены все зарегистрированные non-data actions для этого пакета.
+> Экран **Health Connect → Data and access → Nutrition** — самый надёжный способ проверить, что запись `NutritionRecord` из приложения реально долетела: он показывает каждую запись с указанием исходного приложения (`Form`) и всех замапленных полей (Energy, Protein, Total fat, Total carbohydrate, Sugar, Dietary fibre, Saturated fat, ...). Если код, пишущий в Health Connect, глушит исключения без логирования (как в `HealthConnectRepository` — `catch (e: Exception) { Result.failure(e) }` без `Log`), logcat не покажет причину сбоя — сразу идти в этот экран вместо повторных попыток вытащить трейс из logcat.
 
 ---
 

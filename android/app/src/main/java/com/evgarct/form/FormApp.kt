@@ -19,6 +19,7 @@ import com.evgarct.form.data.repository.HealthConnectRepository
 import com.evgarct.form.data.repository.NutritionRepository
 import com.evgarct.form.data.repository.TimelineRepository
 import com.evgarct.form.work.ActivitySyncWorker
+import com.evgarct.form.work.NutritionSyncWorker
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
@@ -56,11 +57,12 @@ class FormApp : Application() {
 
         authRepository = AuthRepository(apiClient)
         timelineRepository = TimelineRepository(apiClient)
-        nutritionRepository = NutritionRepository(apiClient)
         healthConnectRepository = HealthConnectRepository(this)
+        nutritionRepository = NutritionRepository(apiClient, healthConnectRepository, appPreferences)
         activityRepository = ActivityRepository(apiClient)
 
         scheduleActivitySync()
+        scheduleNutritionSync()
     }
 
     private fun scheduleActivitySync() {
@@ -80,6 +82,33 @@ class FormApp : Application() {
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "activity-daily-sync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
+    }
+
+    /**
+     * Daily catch-up for the Health Connect nutrition sync: re-upserts recent food entries so
+     * ones logged while the sync was off, offline, or a live write silently failed still land.
+     * The worker itself no-ops if [AppPreferences.syncNutritionToHealthConnect] is off.
+     */
+    private fun scheduleNutritionSync() {
+        val now = LocalDateTime.now()
+        val nextRun = now.toLocalDate().plusDays(1).atTime(LocalTime.of(0, 10))
+        val initialDelayMinutes = ChronoUnit.MINUTES.between(now, nextRun).coerceAtLeast(1)
+
+        val request = PeriodicWorkRequestBuilder<NutritionSyncWorker>(24, TimeUnit.HOURS)
+            .setInitialDelay(initialDelayMinutes, TimeUnit.MINUTES)
+            .setConstraints(
+                Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+            )
+            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, WorkRequest.MIN_BACKOFF_MILLIS, TimeUnit.MILLISECONDS)
+            .build()
+
+        WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+            "nutrition-daily-sync",
             ExistingPeriodicWorkPolicy.KEEP,
             request
         )

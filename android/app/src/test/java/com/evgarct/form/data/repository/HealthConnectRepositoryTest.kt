@@ -1,7 +1,14 @@
 package com.evgarct.form.data.repository
 
 import androidx.health.connect.client.records.ExerciseSessionRecord
+import androidx.health.connect.client.records.MealType as HcMealType
+import com.evgarct.form.data.models.FoodEntry
+import com.evgarct.form.data.models.FoodProductSnapshot
+import com.evgarct.form.data.models.FoodQuantity
+import com.evgarct.form.data.models.MealType
+import com.evgarct.form.data.models.NutrientValue
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.Instant
 
@@ -72,5 +79,66 @@ class HealthConnectRepositoryTest {
         assertEquals(10000, state.goal)
         assertEquals(1, state.workouts.size)
         assertEquals(WorkoutKind.WALKING, state.workouts.first().kind)
+    }
+
+    private fun sampleEntry(nutrients: List<NutrientValue>, mealType: MealType = MealType.LUNCH): FoodEntry =
+        FoodEntry(
+            id = "entry-1",
+            occurredAt = "2026-09-16T12:30:00.000Z",
+            timezone = "UTC",
+            mealType = mealType,
+            quantity = FoodQuantity.Grams(150.0),
+            productSnapshot = FoodProductSnapshot(name = "Chicken breast", nutrients = nutrients)
+        )
+
+    @Test
+    fun testNutritionRecordMapperMapsKnownNutrients() {
+        val entry = sampleEntry(
+            listOf(
+                NutrientValue(key = "energy_kcal", label = "Energy", value = 250.0, unit = "kcal"),
+                NutrientValue(key = "protein", label = "Protein", value = 30.0, unit = "g"),
+                NutrientValue(key = "fat", label = "Fat", value = 8.0, unit = "g"),
+                NutrientValue(key = "carbohydrates", label = "Carbs", value = 0.0, unit = "g"),
+                NutrientValue(key = "sodium", label = "Sodium", value = 120.0, unit = "mg"),
+                NutrientValue(key = "vitamin_c", label = "Vitamin C", value = 5.0, unit = "mg")
+            )
+        )
+
+        val record = NutritionRecordMapper.map(entry)
+
+        assertEquals(250.0, record.energy?.inKilocalories ?: 0.0, 0.01)
+        assertEquals(30.0, record.protein?.inGrams ?: 0.0, 0.01)
+        assertEquals(8.0, record.totalFat?.inGrams ?: 0.0, 0.01)
+        assertEquals(0.0, record.totalCarbohydrate?.inGrams ?: -1.0, 0.01)
+        assertEquals(120.0, record.sodium?.inMilligrams ?: 0.0, 0.01)
+        assertEquals(5.0, record.vitaminC?.inMilligrams ?: 0.0, 0.01)
+        assertEquals(HcMealType.MEAL_TYPE_LUNCH, record.mealType)
+        assertEquals("Chicken breast", record.name)
+        assertEquals("entry-1", record.metadata.clientRecordId)
+    }
+
+    @Test
+    fun testNutritionRecordMapperSkipsUnrecognizedKeys() {
+        val entry = sampleEntry(
+            listOf(
+                NutrientValue(key = "energy_kcal", label = "Energy", value = 100.0, unit = "kcal"),
+                NutrientValue(key = "omega_3", label = "Omega 3", value = 2.0, unit = "g"),
+                NutrientValue(key = null, label = "Unknown", value = 1.0, unit = "g")
+            )
+        )
+
+        val record = NutritionRecordMapper.map(entry)
+
+        assertEquals(100.0, record.energy?.inKilocalories ?: 0.0, 0.01)
+        assertNull(record.protein)
+        assertNull(record.sodium)
+    }
+
+    @Test
+    fun testNutritionRecordMapperMapsAllMealTypes() {
+        assertEquals(HcMealType.MEAL_TYPE_BREAKFAST, NutritionRecordMapper.map(sampleEntry(emptyList(), MealType.BREAKFAST)).mealType)
+        assertEquals(HcMealType.MEAL_TYPE_LUNCH, NutritionRecordMapper.map(sampleEntry(emptyList(), MealType.LUNCH)).mealType)
+        assertEquals(HcMealType.MEAL_TYPE_DINNER, NutritionRecordMapper.map(sampleEntry(emptyList(), MealType.DINNER)).mealType)
+        assertEquals(HcMealType.MEAL_TYPE_SNACK, NutritionRecordMapper.map(sampleEntry(emptyList(), MealType.SNACK)).mealType)
     }
 }

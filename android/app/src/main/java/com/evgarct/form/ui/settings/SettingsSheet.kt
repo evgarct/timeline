@@ -21,6 +21,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,6 +29,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,6 +38,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.health.connect.client.PermissionController
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
 import com.evgarct.form.FormApp
 import com.evgarct.form.R
 import com.evgarct.form.core.theme.Ink
@@ -45,6 +50,7 @@ import com.evgarct.form.core.theme.SurfaceCardBorder
 import com.evgarct.form.core.theme.TextMuted
 import com.evgarct.form.core.theme.TextPrimary
 import com.evgarct.form.core.theme.ThemeMode
+import com.evgarct.form.work.NutritionSyncWorker
 import kotlinx.coroutines.launch
 
 @Composable
@@ -54,11 +60,27 @@ fun SettingsSheet(
 ) {
     val prefs = FormApp.instance.appPreferences
     val authRepo = FormApp.instance.authRepository
+    val healthRepo = FormApp.instance.healthConnectRepository
     val scope = rememberCoroutineScope()
 
     var appLanguage by remember { mutableStateOf(prefs.appLanguage) }
     var reportLanguage by remember { mutableStateOf(prefs.reportLanguage) }
     var themeMode by remember { mutableStateOf(prefs.themeMode) }
+    var syncNutritionToHealthConnect by remember { mutableStateOf(prefs.syncNutritionToHealthConnect) }
+
+    val nutritionPermissionLauncher = rememberLauncherForActivityResult(
+        contract = PermissionController.createRequestPermissionResultContract()
+    ) { granted ->
+        scope.launch {
+            val hasWrite = healthRepo.hasNutritionWritePermission()
+            syncNutritionToHealthConnect = hasWrite
+            prefs.syncNutritionToHealthConnect = hasWrite
+            if (hasWrite) {
+                WorkManager.getInstance(FormApp.instance)
+                    .enqueue(OneTimeWorkRequestBuilder<NutritionSyncWorker>().build())
+            }
+        }
+    }
 
     val languages = listOf("en" to "English", "ru" to "Русский", "cs" to "Čeština")
     val themeModes = listOf(
@@ -156,6 +178,39 @@ fun SettingsSheet(
                     prefs.reportLanguage = code
                 }
             )
+
+            Spacer(modifier = Modifier.height(28.dp))
+
+            // Health Connect Nutrition Sync Section
+            SettingsSectionHeader(text = "HEALTH CONNECT")
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(SurfaceCard)
+                    .padding(horizontal = 18.dp, vertical = 14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Sync nutrition to Health Connect",
+                    fontSize = 16.sp,
+                    color = TextPrimary,
+                    modifier = Modifier.weight(1f)
+                )
+                Switch(
+                    checked = syncNutritionToHealthConnect,
+                    onCheckedChange = { enabled ->
+                        if (enabled) {
+                            nutritionPermissionLauncher.launch(healthRepo.nutritionPermissions)
+                        } else {
+                            syncNutritionToHealthConnect = false
+                            prefs.syncNutritionToHealthConnect = false
+                        }
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.height(28.dp))
 
