@@ -1,4 +1,4 @@
-import { boolean, integer, jsonb, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 export const eventType = pgEnum("event_type", ["progress_photo", "workout", "measurements", "inbody", "nutrition_entry"]);
 export const mediaKind = pgEnum("media_kind", ["progress_photo", "inbody"]);
@@ -45,6 +45,38 @@ export const products = pgTable("products", {
 }, (table) => [
   uniqueIndex("products_user_id_id_idx").on(table.userId, table.id),
   uniqueIndex("products_user_id_barcode_idx").on(table.userId, table.barcode)
+]);
+
+export const exercises = pgTable("exercises", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  normalizedName: text("normalized_name").notNull(),
+  muscleGroups: jsonb("muscle_groups").$type<string[]>(),
+  searchAliases: jsonb("search_aliases").notNull().default([]),
+  normalizedSearchAliases: text("normalized_search_aliases"),
+  externalSource: text("external_source"),
+  externalId: text("external_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+}, (table) => [
+  uniqueIndex("exercises_user_id_id_idx").on(table.userId, table.id),
+  uniqueIndex("exercises_user_external_idx").on(table.userId, table.externalSource, table.externalId)
+]);
+
+export const workoutSets = pgTable("workout_sets", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  eventId: uuid("event_id").notNull(),
+  exerciseId: uuid("exercise_id").notNull(),
+  setIndex: integer("set_index").notNull(),
+  reps: integer("reps"),
+  weightKg: numeric("weight_kg"),
+  completed: boolean("completed").default(true).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
+}, (table) => [
+  index("workout_sets_user_exercise_idx").on(table.userId, table.exerciseId, table.createdAt),
+  index("workout_sets_user_event_idx").on(table.userId, table.eventId)
 ]);
 
 export const taskSchedules = pgTable("task_schedules", {
