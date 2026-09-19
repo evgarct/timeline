@@ -36,6 +36,14 @@ import {
   selectCalculationBase,
   summarizeMacros
 } from "@/domain/nutrition";
+import {
+  getExercise,
+  getExerciseHistory,
+  recordWorkoutSession,
+  searchExercises,
+  upsertExercise
+} from "@/data/exercise-repository";
+import { exerciseInputSchema, setInputSchema } from "@/domain/exercises";
 import { isTaskCompleted, latestEvent } from "@/domain/timeline";
 import { resolveMcpUser } from "@/data/repository";
 
@@ -480,6 +488,78 @@ export function createTimelineMcpServer(userId: string) {
       return result("Daily nutrients", date, totals, [], { text });
     }
     return { content: [{ type: "text" as const, text: "Provide productId, entryId, or date with timezone." }], isError: true };
+  });
+
+  server.registerTool("search_exercises", {
+    title: "Search personal exercise catalog",
+    description: "Search the user's personal exercise catalog by name or searchAliases. Call this before upsert_exercise to check whether an exercise already exists — an exact normalized-name match is reused automatically by upsert_exercise, but this lets you inspect candidates yourself (e.g. to decide between two similarly-named exercises) before deciding whether to create a new one.",
+    inputSchema: {
+      query: z.string().default(""),
+      page: z.number().int().min(1).default(1),
+      pageSize: z.number().int().min(1).max(100).default(30)
+    }
+  }, async ({ query, page, pageSize }) => {
+    const found = await searchExercises(userId, query, page, pageSize);
+    const text = itemizeText(found.items.length, "exercises", found.items.map((exercise) => `${exercise.name} (id: ${exercise.id})`));
+    return result("Exercises", `Personal exercise search: ${query || "all"}`, found, [], { text });
+  });
+
+  server.registerTool("upsert_exercise", {
+    title: "Create or update a personal exercise",
+    description: "Save an exercise to the user's personal catalog, avoiding duplicates: an explicit id updates that exercise; otherwise an exact externalRef match (a stable id from a source like \"trainero\") is reused if present, else an exact normalized-name match is reused, else a new exercise is created. An ambiguous_exercise error means more than one existing exercise matched by exact name — resolve it with search_exercises and pass an explicit id instead of retrying blindly.",
+    inputSchema: { exercise: exerciseInputSchema }
+  }, async ({ exercise }) => {
+    try {
+      const saved = await upsertExercise(userId, exercise);
+      return result("Exercise saved", saved.name, saved, [], { id: saved.id, text: `${saved.name} (id: ${saved.id})` });
+    } catch (error) {
+      return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "exercise_save_failed" }], isError: true };
+    }
+  });
+
+  server.registerTool("record_workout_session", {
+    title: "Record a workout session",
+    description: "Record one completed workout: creates a \"workout\" timeline event plus its per-set detail rows (exercise, set index, reps, weight in kg) in one call. Every set's exerciseId must already exist — call search_exercises/upsert_exercise first for each exercise. Reuse the same idempotencyKey when retrying to avoid double-recording.",
+    inputSchema: {
+      occurredAt: z.string().describe("ISO 8601 date-time, e.g. 2026-09-19T18:00:00Z"),
+      timezone: z.string().min(1),
+      muscleGroups: z.array(z.string().min(1)).min(1).max(8),
+      note: z.string().max(2000).optional(),
+      sets: z.array(setInputSchema).min(1),
+      idempotencyKey: z.string().min(1).max(200).optional()
+    }
+  }, async ({ occurredAt, timezone, muscleGroups, note, sets, idempotencyKey }) => {
+    const parsedOccurredAt = new Date(occurredAt);
+    if (Number.isNaN(parsedOccurredAt.getTime())) {
+      return { content: [{ type: "text" as const, text: "Provide a valid occurredAt." }], isError: true };
+    }
+    try {
+      const session = await recordWorkoutSession(userId, {
+        occurredAt: parsedOccurredAt, timezone, muscleGroups, note, sets, idempotencyKey
+      });
+      const text = `Workout recorded (id: ${session.eventId}) — ${session.summary.exerciseCount} exercises, `
+        + `${session.summary.setCount} sets, ${session.summary.tonnageKg}kg tonnage`;
+      return result("Workout recorded", text, session, [], { id: session.eventId, text });
+    } catch (error) {
+      return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "workout_save_failed" }], isError: true };
+    }
+  });
+
+  server.registerTool("get_exercise_history", {
+    title: "Get exercise history",
+    description: "Read recent session history for one exercise: the best set ever logged and the last N sessions' top weight and total reps.",
+    inputSchema: {
+      exerciseId: z.string().uuid(),
+      limit: z.number().int().min(1).max(50).default(8)
+    }
+  }, async ({ exerciseId, limit }) => {
+    const exercise = await getExercise(userId, exerciseId);
+    if (!exercise) return { content: [{ type: "text" as const, text: "exercise_not_found" }], isError: true };
+    const history = await getExerciseHistory(userId, exerciseId, limit);
+    const text = history.bestSet
+      ? `${exercise.name}: best ${history.bestSet.weightKg}kg x${history.bestSet.reps} (${history.bestSet.date}), ${history.windowSessions} recent sessions`
+      : `${exercise.name}: no logged sets yet`;
+    return result("Exercise history", exercise.name, history, [], { text });
   });
 
   return server;
