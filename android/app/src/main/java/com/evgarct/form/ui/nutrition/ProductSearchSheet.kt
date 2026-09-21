@@ -160,14 +160,17 @@ fun ProductSearchSheet(
                 Spacer(modifier = Modifier.width(8.dp))
 
                 if (!selectionMode) {
+                    // Neutral idle background (matches the "select multiple" button's off
+                    // state below) — this is a one-shot action, not a toggle, so it shouldn't
+                    // read as permanently "active" the way a filled tertiaryContainer does.
                     IconButton(
                         onClick = onOpenBarcodeScanner,
                         modifier = Modifier
                             .size(48.dp)
                             .clip(RoundedCornerShape(16.dp))
-                            .background(colorScheme.tertiaryContainer)
+                            .background(colorScheme.surfaceContainerHigh)
                     ) {
-                        Icon(Icons.Default.QrCodeScanner, contentDescription = "Barcode", tint = colorScheme.onTertiaryContainer)
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = "Barcode", tint = TextSecondary)
                     }
 
                     Spacer(modifier = Modifier.width(4.dp))
@@ -394,34 +397,43 @@ fun ProductListItem(
         else -> product.brand.orEmpty()
     }
 
+    // The parent ProductGroupCard already clips to a rounded shape, so a plain full-bleed
+    // tint here is automatically corner-clipped for the first/last row — no extra clip needed.
+    val rowBackground = if (selectionMode && isSelected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+    } else {
+        androidx.compose.ui.graphics.Color.Transparent
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .background(rowBackground)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 9.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             if (selectionMode) {
                 Icon(
                     imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
                     contentDescription = if (isSelected) "Selected" else "Not selected",
-                    tint = if (isSelected) MaterialTheme.colorScheme.primary else TextMuted,
-                    modifier = Modifier.size(20.dp)
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary else TextSecondary,
+                    modifier = Modifier.size(22.dp)
                 )
             }
             Column {
-                Text(text = product.name, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
+                Text(text = product.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = TextPrimary)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     typeLabel?.let { ProductTypeChip(it) }
                     if (subtitle.isNotBlank()) {
-                        Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                        Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                     }
                 }
             }
         }
 
         if (showMacros) {
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             MacroColumns(
                 summary = product.referenceSummary,
                 fontSize = 13.sp,
@@ -436,15 +448,16 @@ fun ProductListItem(
 private fun ProductTypeChip(label: String) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .padding(horizontal = 6.dp, vertical = 1.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            .padding(horizontal = 7.dp, vertical = 2.dp)
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
-            fontSize = 10.sp,
-            color = TextMuted
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            color = TextSecondary
         )
     }
 }
