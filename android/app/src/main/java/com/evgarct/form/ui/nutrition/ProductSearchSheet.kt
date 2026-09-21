@@ -494,10 +494,13 @@ fun ProductListItem(
 @Composable
 private fun ProductTypeChip(label: String) {
     val colorScheme = MaterialTheme.colorScheme
+    // Same family as the day-summary card (DayTotalCard in NutritionScreen.kt) — a calmer,
+    // already-familiar brand tone instead of tertiaryContainer, which read as a loud, same-
+    // color-for-every-category accent that competed with the product name.
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(7.dp))
-            .background(colorScheme.tertiaryContainer)
+            .background(colorScheme.primaryContainer)
             .padding(horizontal = 7.dp, vertical = 3.dp)
     ) {
         Text(
@@ -505,7 +508,7 @@ private fun ProductTypeChip(label: String) {
             style = MaterialTheme.typography.labelSmall,
             fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
-            color = colorScheme.onTertiaryContainer
+            color = colorScheme.onPrimaryContainer
         )
     }
 }
