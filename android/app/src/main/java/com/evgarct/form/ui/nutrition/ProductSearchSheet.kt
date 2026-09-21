@@ -316,19 +316,22 @@ fun ProductSearchSheet(
 
 @Composable
 private fun ProductGroupHeader(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: androidx.compose.ui.graphics.Color) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)
-    ) {
-        Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold,
-            letterSpacing = 0.8.sp,
-            color = color
-        )
+    Column(modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = 0.8.sp,
+                color = color
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        MacroIconHeader()
     }
 }
 
@@ -364,15 +367,13 @@ fun ProductListItem(
     isSelected: Boolean = false
 ) {
     val summary = product.referenceSummary
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (selectionMode) {
                 Icon(
                     imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
@@ -399,18 +400,13 @@ fun ProductListItem(
             }
         }
 
-        Column(horizontalAlignment = Alignment.End) {
-            Text(
-                text = "${summary.calories.toInt()} kcal",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = "${summary.protein.toInt()}p / ${summary.fat.toInt()}f / ${summary.carbohydrates.toInt()}c",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextSecondary
-            )
-        }
+        Spacer(modifier = Modifier.height(6.dp))
+
+        MacroColumns(
+            summary = summary,
+            fontSize = 14.sp,
+            secondaryColor = TextSecondary,
+            primaryColor = MaterialTheme.colorScheme.primary
+        )
     }
 }

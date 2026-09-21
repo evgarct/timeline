@@ -6,19 +6,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.BakeryDining
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.OilBarrel
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -33,12 +37,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.evgarct.form.FormApp
 import com.evgarct.form.core.theme.Ink
+import com.evgarct.form.core.theme.SurfaceCardBorder
 import com.evgarct.form.core.theme.TextMuted
 import com.evgarct.form.core.theme.TextPrimary
 import com.evgarct.form.core.theme.TextSecondary
@@ -65,16 +71,27 @@ private fun BatchRowState.quantityFor(product: NutritionProduct): FoodQuantity =
     is UnitMode.Serving -> FoodQuantity.Serving(amount, mode.label, mode.id)
 }
 
-private fun BatchRowState.unitLabel(product: NutritionProduct): String = when (val mode = unitMode) {
-    is UnitMode.Base -> product.baseUnit
-    is UnitMode.Piece -> mode.size
-    is UnitMode.Serving -> mode.label
+/** A serving/piece label is usually itself a "one unit" description (e.g. "1 капсула",
+ * "1 шт (43.5 г)"), so pairing it with the amount as-is reads like two numbers mashed
+ * together ("4 1 капсула"). Stripping a leading "1 " leaves just the noun ("капсула"). */
+private fun stripLeadingOne(label: String): String {
+    val trimmed = label.trim()
+    return if (trimmed.startsWith("1 ")) trimmed.removePrefix("1 ").trim() else trimmed
+}
+
+private fun BatchRowState.portionText(product: NutritionProduct): String = when (val mode = unitMode) {
+    is UnitMode.Base -> "$amountText ${product.baseUnit}"
+    is UnitMode.Piece -> "$amountText × ${stripLeadingOne(mode.size)}"
+    is UnitMode.Serving -> "$amountText × ${stripLeadingOne(mode.label)}"
 }
 
 /**
  * Confirms portions for several products chosen at once from [ProductSearchSheet]'s
  * multi-select mode. Every row defaults to the amount/unit the user last logged for that
  * product (same source as [QuantityEditorSheet]), editable per row before the batch add.
+ * Macro columns mirror [MacroColumnsHeader]/[MacroColumns] from the main nutrition screen
+ * (icons instead of the P/F/C/KCAL letters, same right-aligned grid) so figures line up
+ * the same way here as everywhere else in the app.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -181,6 +198,10 @@ fun BatchQuantityEditorSheet(
                 }
             }
 
+            Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 22.dp, vertical = 4.dp)) {
+                MacroIconHeader()
+            }
+
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -191,6 +212,25 @@ fun BatchQuantityEditorSheet(
                     val state = rowStates[product.id] ?: return@items
                     BatchProductRow(product = product, state = state)
                 }
+            }
+        }
+    }
+}
+
+/** Icon-only counterpart to [MacroColumnsHeader]'s P/F/C/KCAL letters, same weighted grid.
+ * Shared with [ProductSearchSheet] so every product list in the nutrition flow (recents,
+ * database, search results, batch confirmation) uses the same header instead of abbreviations. */
+@Composable
+internal fun MacroIconHeader(color: Color = TextMuted) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        listOf(
+            Icons.Default.FitnessCenter,
+            Icons.Default.OilBarrel,
+            Icons.Default.BakeryDining,
+            Icons.Default.LocalFireDepartment
+        ).forEach { icon ->
+            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
+                Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
             }
         }
     }
@@ -207,51 +247,58 @@ private fun BatchProductRow(product: NutritionProduct, state: BatchRowState) {
         state.amountText = formatAmount(newV)
     }
 
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp)) {
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
         Text(text = product.name, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
         product.brand?.let {
             Text(text = it, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
         }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(TextPrimary.copy(alpha = 0.1f))
-                        .clickable { applyDelta(-1.0) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = TextPrimary, modifier = Modifier.size(16.dp))
-                }
-                Text(
-                    text = "${state.amountText} ${state.unitLabel(product)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextPrimary,
-                    modifier = Modifier.width(84.dp)
-                )
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(CircleShape)
-                        .background(TextPrimary.copy(alpha = 0.1f))
-                        .clickable { applyDelta(1.0) },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Increase", tint = TextPrimary, modifier = Modifier.size(16.dp))
-                }
-            }
 
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(TextPrimary.copy(alpha = 0.1f))
+                    .clickable { applyDelta(-1.0) },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Remove, contentDescription = "Decrease", tint = TextPrimary, modifier = Modifier.size(15.dp))
+            }
             Text(
-                text = "${summary.calories.toInt()} kcal",
+                text = state.portionText(product),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                fontWeight = FontWeight.SemiBold
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary
             )
+            Box(
+                modifier = Modifier
+                    .size(30.dp)
+                    .clip(CircleShape)
+                    .background(TextPrimary.copy(alpha = 0.1f))
+                    .clickable { applyDelta(1.0) },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Increase", tint = TextPrimary, modifier = Modifier.size(15.dp))
+            }
         }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        MacroColumns(
+            summary = summary,
+            fontSize = 14.sp,
+            secondaryColor = TextSecondary,
+            primaryColor = MaterialTheme.colorScheme.primary
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(0.8.dp)
+                .background(SurfaceCardBorder.copy(alpha = 0.5f))
+        )
     }
 }
