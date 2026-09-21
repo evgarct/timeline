@@ -39,7 +39,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.LaunchedEffect
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.evgarct.form.FormApp
 import com.evgarct.form.core.theme.Ink
 import com.evgarct.form.core.theme.SurfaceCardBorder
 import com.evgarct.form.core.theme.TextMuted
@@ -52,6 +54,9 @@ import com.evgarct.form.data.models.NutritionProduct
 import com.evgarct.form.ui.nutrition.components.FormModalSheet
 import com.evgarct.form.ui.nutrition.components.SelectAllOnFocusTextField
 import java.util.Date
+
+internal fun formatAmount(value: Double): String =
+    if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
 
 sealed class UnitMode {
     object Base : UnitMode()
@@ -74,6 +79,46 @@ fun QuantityEditorSheet(
     var unitMode by remember { mutableStateOf<UnitMode>(UnitMode.Base) }
     var amount by remember { mutableStateOf(100.0) }
     var amountText by remember { mutableStateOf("100") }
+    // True once the user has touched the amount/unit themselves, so the last-used-quantity
+    // fetch below never clobbers a manual edit that happened to land first.
+    var userEditedAmount by remember { mutableStateOf(false) }
+
+    LaunchedEffect(product.id) {
+        FormApp.instance.nutritionRepository.getLastQuantity(product.id).onSuccess { last ->
+            if (last == null || userEditedAmount) return@onSuccess
+            when (last) {
+                is FoodQuantity.Grams -> {
+                    unitMode = UnitMode.Base
+                    amount = last.amount
+                    amountText = formatAmount(last.amount)
+                }
+                is FoodQuantity.Milliliters -> {
+                    unitMode = UnitMode.Base
+                    amount = last.amount
+                    amountText = formatAmount(last.amount)
+                }
+                is FoodQuantity.Pieces -> {
+                    val match = product.pieceSizes.firstOrNull { it.size == last.size }
+                    if (match != null) {
+                        unitMode = UnitMode.Piece(match.size)
+                        amount = last.amount
+                        amountText = formatAmount(last.amount)
+                    }
+                }
+                is FoodQuantity.Serving -> {
+                    val match = product.servingSizes.firstOrNull {
+                        it.id == last.servingSizeId || it.label == last.label
+                    }
+                    if (match != null) {
+                        unitMode = UnitMode.Serving(match.label, match.id)
+                        amount = last.amount
+                        amountText = formatAmount(last.amount)
+                    }
+                }
+                is FoodQuantity.AsConsumed -> Unit
+            }
+        }
+    }
 
     val currentQuantity = when (val mode = unitMode) {
         is UnitMode.Base -> {
@@ -202,6 +247,7 @@ fun QuantityEditorSheet(
                             label = "100 ${product.baseUnit}",
                             isSelected = isBaseSelected,
                             onClick = {
+                                userEditedAmount = true
                                 unitMode = UnitMode.Base
                                 amount = 100.0
                                 amountText = "100"
@@ -214,6 +260,7 @@ fun QuantityEditorSheet(
                                 label = piece.size,
                                 isSelected = isPieceSelected,
                                 onClick = {
+                                    userEditedAmount = true
                                     unitMode = UnitMode.Piece(piece.size)
                                     amount = 1.0
                                     amountText = "1"
@@ -227,6 +274,7 @@ fun QuantityEditorSheet(
                                 label = serving.label,
                                 isSelected = isServingSelected,
                                 onClick = {
+                                    userEditedAmount = true
                                     unitMode = UnitMode.Serving(serving.label, serving.id)
                                     amount = 1.0
                                     amountText = "1"
@@ -258,6 +306,7 @@ fun QuantityEditorSheet(
                                 .clip(CircleShape)
                                 .background(TextPrimary.copy(alpha = 0.12f))
                                 .clickable {
+                                    userEditedAmount = true
                                     val current = amountText.toDoubleOrNull() ?: 1.0
                                     val step = if (unitMode is UnitMode.Base) 10.0 else 1.0
                                     val newV = (current - step).coerceAtLeast(0.0)
@@ -282,6 +331,7 @@ fun QuantityEditorSheet(
                                 value = amountText,
                                 onValueChange = { text ->
                                     if (text.isEmpty() || text.matches(Regex("""^\d*\.?\d*$"""))) {
+                                        userEditedAmount = true
                                         amountText = text
                                         amount = text.toDoubleOrNull() ?: 0.0
                                     }
@@ -305,6 +355,7 @@ fun QuantityEditorSheet(
                                 .clip(CircleShape)
                                 .background(TextPrimary.copy(alpha = 0.12f))
                                 .clickable {
+                                    userEditedAmount = true
                                     val current = amountText.toDoubleOrNull() ?: 0.0
                                     val step = if (unitMode is UnitMode.Base) 10.0 else 1.0
                                     val newV = current + step

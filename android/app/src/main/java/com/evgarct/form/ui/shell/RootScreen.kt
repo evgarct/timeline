@@ -10,19 +10,23 @@ import androidx.compose.material.icons.automirrored.rounded.ShowChart
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.Restaurant
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.evgarct.form.FormApp
 import com.evgarct.form.data.models.FoodEntry
 import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutrientValue
@@ -31,6 +35,7 @@ import com.evgarct.form.data.models.PhotoItem
 import com.evgarct.form.ui.activity.ActivityScreen
 import com.evgarct.form.ui.export.ExportScreen
 import com.evgarct.form.ui.nutrition.BarcodeScannerSheet
+import com.evgarct.form.ui.nutrition.BatchQuantityEditorSheet
 import com.evgarct.form.ui.nutrition.FoodEntryEditorSheet
 import com.evgarct.form.ui.nutrition.NutrientDetailsSheet
 import com.evgarct.form.ui.nutrition.NutritionGoalsSheet
@@ -42,6 +47,7 @@ import com.evgarct.form.ui.timeline.MeasurementEditorSheet
 import com.evgarct.form.ui.timeline.TimelineScreen
 import com.evgarct.form.ui.today.PhotoGallerySheet
 import com.evgarct.form.ui.today.TodayScreen
+import kotlinx.coroutines.launch
 import java.util.Date
 
 enum class AppTab { TODAY, ACTIVITY, NUTRITION, TIMELINE, EXPORT }
@@ -66,10 +72,15 @@ fun RootScreen(
     data class AddProductState(val mealType: MealType, val date: Date)
     var activeAddProduct by remember { mutableStateOf<AddProductState?>(null) }
     var activeQuantityEditor by remember { mutableStateOf<Pair<NutritionProduct, AddProductState>?>(null) }
+    var activeBatchQuantityEditor by remember { mutableStateOf<Pair<List<NutritionProduct>, AddProductState>?>(null) }
     var showBarcodeScanner by remember { mutableStateOf(false) }
+    var barcodeNotFound by remember { mutableStateOf(false) }
     var activeEntryEditor by remember { mutableStateOf<FoodEntry?>(null) }
     var showGoalsEditor by remember { mutableStateOf(false) }
     var activeNutrientsList by remember { mutableStateOf<List<NutrientValue>?>(null) }
+
+    val nutritionRepo = FormApp.instance.nutritionRepository
+    val barcodeLookupScope = rememberCoroutineScope()
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -180,13 +191,16 @@ fun RootScreen(
                 )
             }
 
-            if (activeAddProduct != null && !showBarcodeScanner) {
+            if (activeAddProduct != null && !showBarcodeScanner && activeBatchQuantityEditor == null) {
                 val addState = activeAddProduct!!
                 ProductSearchSheet(
                     mealType = addState.mealType,
                     onDismiss = { activeAddProduct = null },
                     onSelectProduct = { prod ->
                         activeQuantityEditor = prod to addState
+                    },
+                    onSelectMultiple = { products ->
+                        activeBatchQuantityEditor = products to addState
                     },
                     onOpenBarcodeScanner = { showBarcodeScanner = true }
                 )
@@ -206,13 +220,51 @@ fun RootScreen(
                 )
             }
 
+            activeBatchQuantityEditor?.let { (products, addState) ->
+                BatchQuantityEditorSheet(
+                    products = products,
+                    mealType = addState.mealType,
+                    date = addState.date,
+                    onDismiss = { activeBatchQuantityEditor = null },
+                    onSaved = {
+                        activeBatchQuantityEditor = null
+                        activeAddProduct = null
+                    }
+                )
+            }
+
             if (showBarcodeScanner) {
                 BarcodeScannerSheet(
                     onDismiss = { showBarcodeScanner = false },
                     onBarcodeScanned = { barcode ->
                         showBarcodeScanner = false
-                        // look up product by barcode
+                        val addState = activeAddProduct
+                        if (addState != null) {
+                            barcodeLookupScope.launch {
+                                nutritionRepo.findProductByBarcode(barcode)
+                                    .onSuccess { product ->
+                                        if (product != null) {
+                                            activeQuantityEditor = product to addState
+                                            activeAddProduct = null
+                                        } else {
+                                            barcodeNotFound = true
+                                        }
+                                    }
+                                    .onFailure { barcodeNotFound = true }
+                            }
+                        }
                     }
+                )
+            }
+
+            if (barcodeNotFound) {
+                AlertDialog(
+                    onDismissRequest = { barcodeNotFound = false },
+                    confirmButton = {
+                        TextButton(onClick = { barcodeNotFound = false }) { Text("OK") }
+                    },
+                    title = { Text("Product not found") },
+                    text = { Text("No product with this barcode is in your database yet.") }
                 )
             }
 

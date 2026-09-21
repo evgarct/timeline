@@ -17,11 +17,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Checklist
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.outlined.Circle
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +60,7 @@ fun ProductSearchSheet(
     mealType: MealType,
     onDismiss: () -> Unit,
     onSelectProduct: (NutritionProduct) -> Unit,
+    onSelectMultiple: (List<NutritionProduct>) -> Unit,
     onOpenBarcodeScanner: () -> Unit
 ) {
     val nutritionRepo = FormApp.instance.nutritionRepository
@@ -68,6 +72,17 @@ fun ProductSearchSheet(
     var moreRecent by remember { mutableStateOf<List<NutritionProduct>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
     var isLoadingRecents by remember { mutableStateOf(true) }
+
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedProducts by remember { mutableStateOf<List<NutritionProduct>>(emptyList()) }
+
+    fun toggleSelected(product: NutritionProduct) {
+        selectedProducts = if (selectedProducts.any { it.id == product.id }) {
+            selectedProducts.filterNot { it.id == product.id }
+        } else {
+            selectedProducts + product
+        }
+    }
 
     LaunchedEffect(Unit) {
         nutritionRepo.recentProducts(mealType, page = 1, pageSize = 20)
@@ -139,14 +154,35 @@ fun ProductSearchSheet(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
+                if (!selectionMode) {
+                    IconButton(
+                        onClick = onOpenBarcodeScanner,
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(colorScheme.tertiaryContainer)
+                    ) {
+                        Icon(Icons.Default.QrCodeScanner, contentDescription = "Barcode", tint = colorScheme.onTertiaryContainer)
+                    }
+
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+
                 IconButton(
-                    onClick = onOpenBarcodeScanner,
+                    onClick = {
+                        selectionMode = !selectionMode
+                        if (!selectionMode) selectedProducts = emptyList()
+                    },
                     modifier = Modifier
                         .size(48.dp)
                         .clip(RoundedCornerShape(16.dp))
-                        .background(colorScheme.tertiaryContainer)
+                        .background(if (selectionMode) colorScheme.primary else colorScheme.surfaceContainerHigh)
                 ) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = "Barcode", tint = colorScheme.onTertiaryContainer)
+                    Icon(
+                        Icons.Default.Checklist,
+                        contentDescription = "Select multiple",
+                        tint = if (selectionMode) colorScheme.onPrimary else TextMuted
+                    )
                 }
 
                 Spacer(modifier = Modifier.width(4.dp))
@@ -189,7 +225,13 @@ fun ProductSearchSheet(
                         item {
                             ProductGroupCard {
                                 searchResults.forEachIndexed { index, product ->
-                                    ProductListItem(product = product, isRecent = false, onClick = { onSelectProduct(product) })
+                                    ProductListItem(
+                                        product = product,
+                                        isRecent = false,
+                                        selectionMode = selectionMode,
+                                        isSelected = selectedProducts.any { it.id == product.id },
+                                        onClick = { if (selectionMode) toggleSelected(product) else onSelectProduct(product) }
+                                    )
                                     if (index != searchResults.lastIndex) ProductDivider(colorScheme.outlineVariant)
                                 }
                             }
@@ -210,7 +252,13 @@ fun ProductSearchSheet(
                         item {
                             ProductGroupCard {
                                 recentForMeal.forEachIndexed { index, product ->
-                                    ProductListItem(product = product, isRecent = true, onClick = { onSelectProduct(product) })
+                                    ProductListItem(
+                                        product = product,
+                                        isRecent = true,
+                                        selectionMode = selectionMode,
+                                        isSelected = selectedProducts.any { it.id == product.id },
+                                        onClick = { if (selectionMode) toggleSelected(product) else onSelectProduct(product) }
+                                    )
                                     if (index != recentForMeal.lastIndex) ProductDivider(colorScheme.outlineVariant)
                                 }
                             }
@@ -225,12 +273,41 @@ fun ProductSearchSheet(
                         item {
                             ProductGroupCard {
                                 moreRecent.forEachIndexed { index, product ->
-                                    ProductListItem(product = product, isRecent = false, onClick = { onSelectProduct(product) })
+                                    ProductListItem(
+                                        product = product,
+                                        isRecent = false,
+                                        selectionMode = selectionMode,
+                                        isSelected = selectedProducts.any { it.id == product.id },
+                                        onClick = { if (selectionMode) toggleSelected(product) else onSelectProduct(product) }
+                                    )
                                     if (index != moreRecent.lastIndex) ProductDivider(colorScheme.outlineVariant)
                                 }
                             }
                         }
                     }
+                }
+            }
+
+            if (selectionMode && selectedProducts.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(colorScheme.primary)
+                        .clickable {
+                            onSelectMultiple(selectedProducts)
+                            selectionMode = false
+                            selectedProducts = emptyList()
+                        }
+                        .padding(vertical = 14.dp),
+                    horizontalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "Add ${selectedProducts.size} item${if (selectedProducts.size == 1) "" else "s"}",
+                        color = colorScheme.onPrimary,
+                        fontWeight = FontWeight.SemiBold
+                    )
                 }
             }
         }
@@ -279,7 +356,13 @@ private fun ProductDivider(color: androidx.compose.ui.graphics.Color) {
 }
 
 @Composable
-fun ProductListItem(product: NutritionProduct, isRecent: Boolean, onClick: () -> Unit) {
+fun ProductListItem(
+    product: NutritionProduct,
+    isRecent: Boolean,
+    onClick: () -> Unit,
+    selectionMode: Boolean = false,
+    isSelected: Boolean = false
+) {
     val summary = product.referenceSummary
     Row(
         modifier = Modifier
@@ -290,6 +373,14 @@ fun ProductListItem(product: NutritionProduct, isRecent: Boolean, onClick: () ->
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Row(modifier = Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (selectionMode) {
+                Icon(
+                    imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
+                    contentDescription = if (isSelected) "Selected" else "Not selected",
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary else TextMuted,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
             if (isRecent) {
                 Icon(
                     imageVector = Icons.Default.History,
