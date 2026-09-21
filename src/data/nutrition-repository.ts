@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
-import { and, desc, eq, ilike, inArray, or } from "drizzle-orm";
+import { and, count, desc, eq, ilike, inArray, isNotNull, or } from "drizzle-orm";
 import { database } from "@/db/client";
 import { events, products } from "@/db/schema";
 import {
@@ -83,6 +83,40 @@ export async function searchProducts(userId: string, query = "", page = 1, pageS
     pageSize,
     hasMore: rows.length > pageSize
   };
+}
+
+/**
+ * Every distinct category (type) already used in this user's product database, most-used
+ * first. `type` has no enum/shared catalog (see productInputSchema) — this is what callers
+ * (notably the upsert_product MCP tool) check before inventing a new category, so the same
+ * real-world category doesn't accumulate near-duplicate spellings/translations over time.
+ */
+export async function listProductCategories(userId: string) {
+  if (useMemory || !database) {
+    const counts = new Map<string, { en?: string; ru?: string; cs?: string; count: number }>();
+    for (const product of memoryProducts) {
+      if (product.userId !== userId) continue;
+      const type = product.type;
+      if (!type || (!type.en && !type.ru && !type.cs)) continue;
+      const key = `${type.en ?? ""}|${type.ru ?? ""}|${type.cs ?? ""}`;
+      const existing = counts.get(key);
+      if (existing) existing.count += 1;
+      else counts.set(key, { en: type.en, ru: type.ru, cs: type.cs, count: 1 });
+    }
+    return [...counts.values()].sort((a, b) => b.count - a.count);
+  }
+  const rows = await database
+    .select({
+      en: products.typeEn,
+      ru: products.typeRu,
+      cs: products.typeCs,
+      count: count()
+    })
+    .from(products)
+    .where(and(eq(products.userId, userId), isNotNull(products.typeEn)))
+    .groupBy(products.typeEn, products.typeRu, products.typeCs)
+    .orderBy(desc(count()));
+  return rows.map((row) => ({ en: row.en ?? undefined, ru: row.ru ?? undefined, cs: row.cs ?? undefined, count: row.count }));
 }
 
 export async function recentProductsForMeal(
