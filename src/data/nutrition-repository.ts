@@ -100,17 +100,27 @@ export async function recentProductsForMeal(
 
   const seen = new Set<string>();
   const productIds: string[] = [];
+  const lastQuantities: Record<string, FoodQuantity> = {};
   for (const entry of history) {
     if (entry.mealType !== mealType || !entry.productId || seen.has(entry.productId)) continue;
     seen.add(entry.productId);
     productIds.push(entry.productId);
+    lastQuantities[entry.productId] = entry.quantity;
   }
 
   const offset = (page - 1) * pageSize;
   const pageIds = productIds.slice(offset, offset + pageSize);
   const items = (await Promise.all(pageIds.map((id) => getProduct(userId, id))))
     .filter((product): product is Product => Boolean(product));
-  return { items, page, pageSize, hasMore: offset + pageSize < productIds.length };
+  return {
+    items,
+    page,
+    pageSize,
+    hasMore: offset + pageSize < productIds.length,
+    // The quantity actually logged last time, per product id — lets the client default a
+    // new entry's portion/unit to what the user really used instead of a generic 100g/ml.
+    lastQuantities: Object.fromEntries(pageIds.map((id) => [id, lastQuantities[id]]))
+  };
 }
 
 export async function getLastQuantityForProduct(userId: string, productId: string) {

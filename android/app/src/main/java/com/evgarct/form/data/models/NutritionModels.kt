@@ -253,7 +253,11 @@ data class ProductSearchPage(
     val items: List<NutritionProduct> = emptyList(),
     val page: Int = 1,
     val pageSize: Int = 30,
-    val hasMore: Boolean = false
+    val hasMore: Boolean = false,
+    /** Only populated by the "recent products for this meal" endpoint: the quantity actually
+     * logged last time, keyed by product id, so the picker can show the real last-used
+     * portion instead of the product's generic reference amount. */
+    val lastQuantities: Map<String, FoodQuantity> = emptyMap()
 )
 
 data class NutritionSummary(

@@ -48,6 +48,7 @@ import com.evgarct.form.FormApp
 import com.evgarct.form.core.theme.TextMuted
 import com.evgarct.form.core.theme.TextPrimary
 import com.evgarct.form.core.theme.TextSecondary
+import com.evgarct.form.data.models.FoodQuantity
 import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutritionProduct
 import com.evgarct.form.ui.components.LoadingSpinner
@@ -69,6 +70,7 @@ fun ProductSearchSheet(
     var query by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<NutritionProduct>>(emptyList()) }
     var recentForMeal by remember { mutableStateOf<List<NutritionProduct>>(emptyList()) }
+    var recentForMealQuantities by remember { mutableStateOf<Map<String, FoodQuantity>>(emptyMap()) }
     var moreRecent by remember { mutableStateOf<List<NutritionProduct>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
     var isLoadingRecents by remember { mutableStateOf(true) }
@@ -86,7 +88,10 @@ fun ProductSearchSheet(
 
     LaunchedEffect(Unit) {
         nutritionRepo.recentProducts(mealType, page = 1, pageSize = 20)
-            .onSuccess { recentForMeal = it.items }
+            .onSuccess {
+                recentForMeal = it.items
+                recentForMealQuantities = it.lastQuantities
+            }
         nutritionRepo.recentProducts(null, page = 1, pageSize = 20)
             .onSuccess { allRecent ->
                 moreRecent = allRecent.items.filter { it !in recentForMeal }
@@ -220,7 +225,7 @@ fun ProductSearchSheet(
                             .padding(horizontal = 16.dp)
                     ) {
                         item {
-                            ProductGroupHeader(icon = Icons.Default.Search, label = "SEARCH RESULTS", color = colorScheme.primary)
+                            ProductGroupHeader(icon = Icons.Default.Search, label = "SEARCH RESULTS", color = colorScheme.primary, showMacroHeader = true)
                         }
                         item {
                             ProductGroupCard {
@@ -229,6 +234,7 @@ fun ProductSearchSheet(
                                         product = product,
                                         selectionMode = selectionMode,
                                         isSelected = selectedProducts.any { it.id == product.id },
+                                        showMacros = true,
                                         onClick = { if (selectionMode) toggleSelected(product) else onSelectProduct(product) }
                                     )
                                     if (index != searchResults.lastIndex) ProductDivider(colorScheme.outlineVariant)
@@ -246,7 +252,7 @@ fun ProductSearchSheet(
                 ) {
                     if (recentForMeal.isNotEmpty()) {
                         item {
-                            ProductGroupHeader(icon = Icons.Default.History, label = "RECENTLY IN THIS MEAL", color = colorScheme.primary)
+                            ProductGroupHeader(icon = Icons.Default.History, label = "RECENTLY IN THIS MEAL", color = colorScheme.primary, showMacroHeader = false)
                         }
                         item {
                             ProductGroupCard {
@@ -255,6 +261,8 @@ fun ProductSearchSheet(
                                         product = product,
                                         selectionMode = selectionMode,
                                         isSelected = selectedProducts.any { it.id == product.id },
+                                        lastQuantity = recentForMealQuantities[product.id],
+                                        showMacros = false,
                                         onClick = { if (selectionMode) toggleSelected(product) else onSelectProduct(product) }
                                     )
                                     if (index != recentForMeal.lastIndex) ProductDivider(colorScheme.outlineVariant)
@@ -266,7 +274,7 @@ fun ProductSearchSheet(
 
                     if (moreRecent.isNotEmpty()) {
                         item {
-                            ProductGroupHeader(icon = Icons.Default.Storage, label = "FROM YOUR DATABASE", color = TextMuted)
+                            ProductGroupHeader(icon = Icons.Default.Storage, label = "FROM YOUR DATABASE", color = TextMuted, showMacroHeader = false)
                         }
                         item {
                             ProductGroupCard {
@@ -275,6 +283,7 @@ fun ProductSearchSheet(
                                         product = product,
                                         selectionMode = selectionMode,
                                         isSelected = selectedProducts.any { it.id == product.id },
+                                        showMacros = false,
                                         onClick = { if (selectionMode) toggleSelected(product) else onSelectProduct(product) }
                                     )
                                     if (index != moreRecent.lastIndex) ProductDivider(colorScheme.outlineVariant)
@@ -312,7 +321,12 @@ fun ProductSearchSheet(
 }
 
 @Composable
-private fun ProductGroupHeader(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: androidx.compose.ui.graphics.Color) {
+private fun ProductGroupHeader(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    color: androidx.compose.ui.graphics.Color,
+    showMacroHeader: Boolean
+) {
     Column(modifier = Modifier.padding(top = 10.dp, bottom = 4.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -327,8 +341,10 @@ private fun ProductGroupHeader(icon: androidx.compose.ui.graphics.vector.ImageVe
                 color = color
             )
         }
-        Spacer(modifier = Modifier.height(4.dp))
-        MacroIconHeader()
+        if (showMacroHeader) {
+            Spacer(modifier = Modifier.height(4.dp))
+            MacroIconHeader()
+        }
     }
 }
 
@@ -360,9 +376,24 @@ fun ProductListItem(
     product: NutritionProduct,
     onClick: () -> Unit,
     selectionMode: Boolean = false,
-    isSelected: Boolean = false
+    isSelected: Boolean = false,
+    /** The quantity actually logged last time (only known for "recently in this meal"). When
+     * present it replaces the generic reference-amount subtitle with the real last portion. */
+    lastQuantity: FoodQuantity? = null,
+    showMacros: Boolean = true
 ) {
-    val summary = product.referenceSummary
+    val appLanguage = FormApp.instance.appPreferences.appLanguage
+    val typeLabel = product.type?.resolve(appLanguage)
+
+    val subtitle = when {
+        lastQuantity != null -> listOfNotNull(product.brand, lastQuantity.displayText()).joinToString(" • ")
+        showMacros -> listOfNotNull(
+            product.brand,
+            "${product.referenceBase?.amount?.toInt() ?: 100} ${product.baseUnit}"
+        ).joinToString(" • ")
+        else -> product.brand.orEmpty()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -380,21 +411,40 @@ fun ProductListItem(
             }
             Column {
                 Text(text = product.name, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
-                val subtitle = buildString {
-                    product.brand?.let { append(it).append(" • ") }
-                    append("${product.referenceBase?.amount?.toInt() ?: 100} ${product.baseUnit}")
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    typeLabel?.let { ProductTypeChip(it) }
+                    if (subtitle.isNotBlank()) {
+                        Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
+                    }
                 }
-                Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
+        if (showMacros) {
+            Spacer(modifier = Modifier.height(4.dp))
+            MacroColumns(
+                summary = product.referenceSummary,
+                fontSize = 13.sp,
+                secondaryColor = TextSecondary,
+                primaryColor = MaterialTheme.colorScheme.primary
+            )
+        }
+    }
+}
 
-        MacroColumns(
-            summary = summary,
-            fontSize = 13.sp,
-            secondaryColor = TextSecondary,
-            primaryColor = MaterialTheme.colorScheme.primary
+@Composable
+private fun ProductTypeChip(label: String) {
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(6.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 6.dp, vertical = 1.dp)
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            fontSize = 10.sp,
+            color = TextMuted
         )
     }
 }

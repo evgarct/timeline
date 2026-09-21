@@ -74,7 +74,7 @@ private fun BatchRowState.quantityFor(product: NutritionProduct): FoodQuantity =
 /** A serving/piece label is usually itself a "one unit" description (e.g. "1 капсула",
  * "1 шт (43.5 г)"), so pairing it with the amount as-is reads like two numbers mashed
  * together ("4 1 капсула"). Stripping a leading "1 " leaves just the noun ("капсула"). */
-private fun stripLeadingOne(label: String): String {
+internal fun stripLeadingOne(label: String): String {
     val trimmed = label.trim()
     return if (trimmed.startsWith("1 ")) trimmed.removePrefix("1 ").trim() else trimmed
 }
@@ -83,6 +83,19 @@ private fun BatchRowState.portionText(product: NutritionProduct): String = when 
     is UnitMode.Base -> "$amountText ${product.baseUnit}"
     is UnitMode.Piece -> "$amountText × ${stripLeadingOne(mode.size)}"
     is UnitMode.Serving -> "$amountText × ${stripLeadingOne(mode.label)}"
+}
+
+/** Same "amount × noun" formatting as [BatchRowState.portionText], for a raw [FoodQuantity]
+ * with no editable state behind it (e.g. showing a recent product's last-logged portion). */
+internal fun FoodQuantity.displayText(): String {
+    val amountText = formatAmount(amount)
+    return when (this) {
+        is FoodQuantity.Grams -> "$amountText g"
+        is FoodQuantity.Milliliters -> "$amountText ml"
+        is FoodQuantity.Pieces -> "$amountText × ${stripLeadingOne(size)}"
+        is FoodQuantity.Serving -> "$amountText × ${stripLeadingOne(label ?: "serving")}"
+        is FoodQuantity.AsConsumed -> label
+    }
 }
 
 /**
