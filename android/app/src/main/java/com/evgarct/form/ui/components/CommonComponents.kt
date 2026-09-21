@@ -122,6 +122,36 @@ fun LoadingSpinner(
     }
 }
 
+/** Small "syncing" pill: a compact spinner + label for surfacing background data
+ * refreshes (e.g. on app open) without blocking the screen underneath. */
+@Composable
+fun SyncingIndicator(
+    modifier: Modifier = Modifier,
+    label: String = "Syncing…",
+    tint: Color = Color.White
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(tint.copy(alpha = 0.15f))
+            .padding(horizontal = 10.dp, vertical = 5.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CircularProgressIndicator(
+            modifier = Modifier.size(11.dp),
+            color = tint,
+            strokeWidth = 1.6.dp
+        )
+        Spacer(modifier = Modifier.width(6.dp))
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
+            color = tint.copy(alpha = 0.85f)
+        )
+    }
+}
+
 @Composable
 fun LinearProgressBar(
     progress: Float,

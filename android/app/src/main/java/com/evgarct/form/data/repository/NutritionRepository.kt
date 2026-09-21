@@ -29,6 +29,11 @@ data class ReportUploadResponse(
     val shareUrl: String
 )
 
+@Serializable
+private data class LastQuantityResponse(
+    val quantity: FoodQuantity? = null
+)
+
 class NutritionRepository(
     private val apiClient: ApiClient,
     private val healthConnectRepository: HealthConnectRepository,
@@ -185,6 +190,18 @@ class NutritionRepository(
         }
         val jsonStr = apiClient.get(endpoint, params)
         apiClient.json.decodeFromString(ProductSearchPage.serializer(), jsonStr)
+    }
+
+    /** Most recent quantity the user logged for this product (any meal), or null if never logged before. */
+    suspend fun getLastQuantity(productId: String): Result<FoodQuantity?> = runCatching {
+        val jsonStr = apiClient.get("api/nutrition/products/$productId/last-quantity")
+        apiClient.json.decodeFromString(LastQuantityResponse.serializer(), jsonStr).quantity
+    }
+
+    /** Barcodes are matched via the same search index the backend already keys by barcode. */
+    suspend fun findProductByBarcode(barcode: String): Result<NutritionProduct?> = runCatching {
+        val page = searchProducts(barcode, page = 1, pageSize = 10).getOrThrow()
+        page.items.firstOrNull { it.barcode == barcode } ?: page.items.firstOrNull()
     }
 
     suspend fun getNutrients(date: Date, timezone: TimeZone): Result<List<NutrientValue>> = runCatching {

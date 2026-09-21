@@ -113,6 +113,17 @@ export async function recentProductsForMeal(
   return { items, page, pageSize, hasMore: offset + pageSize < productIds.length };
 }
 
+export async function getLastQuantityForProduct(userId: string, productId: string) {
+  const history: NutritionEntryEvent[] = useMemory || !database
+    ? memoryEntries.filter((entry) => entry.userId === userId)
+    : (await database.select().from(events).where(and(
+        eq(events.userId, userId),
+        eq(events.type, "nutrition_entry")
+      )).orderBy(desc(events.occurredAt))).map(entryFromRow);
+
+  return history.find((entry) => entry.productId === productId)?.quantity;
+}
+
 export async function getProduct(userId: string, id: string) {
   if (useMemory || !database) return memoryProducts.find((product) => product.userId === userId && product.id === id);
   const [row] = await database.select().from(products).where(and(eq(products.userId, userId), eq(products.id, id))).limit(1);

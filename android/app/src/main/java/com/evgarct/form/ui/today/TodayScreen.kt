@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.text.KeyboardOptions
@@ -72,6 +73,7 @@ import com.evgarct.form.data.models.NutritionSummary
 import com.evgarct.form.data.models.PhotoItem
 import com.evgarct.form.data.models.TimelineEvent
 import com.evgarct.form.data.repository.ActivityDataState
+import com.evgarct.form.ui.components.SyncingIndicator
 import com.evgarct.form.ui.timeline.TimelineInBodyItem
 import com.evgarct.form.ui.timeline.TimelineMeasurementsItem
 import com.evgarct.form.ui.timeline.TimelinePhotoItem
@@ -104,6 +106,9 @@ fun TodayScreen(
         NutritionSummary.fromEntries(viewModel.nutritionDayState().entries)
     }
     val activityState = remember(activityCacheMap) { viewModel.activityDayState().data }
+    val isSyncing = remember(nutritionCacheMap, activityCacheMap) {
+        viewModel.nutritionDayState().isLoading || viewModel.activityDayState().isLoading
+    }
 
     LaunchedEffect(Unit) {
         scope.launch { timelineRepo.getEvents().onSuccess { events = it } }
@@ -202,13 +207,21 @@ fun TodayScreen(
                         verticalAlignment = Alignment.Top
                     ) {
                         Column {
-                            Text(
-                                text = stringResource(R.string.today_label),
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium,
-                                letterSpacing = 0.7.sp,
-                                color = LightInk.copy(alpha = 0.75f)
-                            )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = stringResource(R.string.today_label),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    letterSpacing = 0.7.sp,
+                                    color = LightInk.copy(alpha = 0.75f)
+                                )
+                                AnimatedVisibility(visible = isSyncing) {
+                                    Row {
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        SyncingIndicator()
+                                    }
+                                }
+                            }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
                                 text = dateFormatted,
