@@ -78,8 +78,10 @@ fun ProductSearchSheet(
     var selectionMode by remember { mutableStateOf(false) }
     var selectedProducts by remember { mutableStateOf<List<NutritionProduct>>(emptyList()) }
 
+    fun isProductSelected(product: NutritionProduct) = selectedProducts.any { it.id == product.id }
+
     fun toggleSelected(product: NutritionProduct) {
-        selectedProducts = if (selectedProducts.any { it.id == product.id }) {
+        selectedProducts = if (isProductSelected(product)) {
             selectedProducts.filterNot { it.id == product.id }
         } else {
             selectedProducts + product
@@ -123,12 +125,15 @@ fun ProductSearchSheet(
                 .fillMaxWidth()
                 .padding(bottom = 24.dp)
         ) {
-            // Header with search bar and barcode button
+            // Header with search bar and action buttons. All controls (field + 3 buttons)
+            // share the same 16dp radius and a borderless filled-surface look, so the row
+            // reads as one consistent family instead of four differently-styled shapes.
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedTextField(
                     value = query,
@@ -136,7 +141,7 @@ fun ProductSearchSheet(
                     modifier = Modifier.weight(1f),
                     placeholder = { Text("Search foods...", color = TextMuted) },
                     leadingIcon = {
-                        Icon(Icons.Default.Search, contentDescription = null, tint = TextMuted)
+                        Icon(Icons.Default.Search, contentDescription = null, tint = TextSecondary)
                     },
                     trailingIcon = {
                         if (query.isNotEmpty()) {
@@ -151,53 +156,31 @@ fun ProductSearchSheet(
                         focusedContainerColor = colorScheme.surfaceContainerHigh,
                         unfocusedContainerColor = colorScheme.surfaceContainerHigh,
                         focusedBorderColor = colorScheme.primary,
-                        unfocusedBorderColor = colorScheme.outlineVariant,
+                        unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
                         focusedTextColor = TextPrimary,
                         unfocusedTextColor = TextPrimary
                     )
                 )
 
-                Spacer(modifier = Modifier.width(8.dp))
-
                 if (!selectionMode) {
-                    // Neutral idle background (matches the "select multiple" button's off
-                    // state below) — this is a one-shot action, not a toggle, so it shouldn't
-                    // read as permanently "active" the way a filled tertiaryContainer does.
-                    IconButton(
+                    HeaderIconButton(
                         onClick = onOpenBarcodeScanner,
-                        modifier = Modifier
-                            .size(48.dp)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(colorScheme.surfaceContainerHigh)
-                    ) {
-                        Icon(Icons.Default.QrCodeScanner, contentDescription = "Barcode", tint = TextSecondary)
-                    }
-
-                    Spacer(modifier = Modifier.width(4.dp))
+                        icon = Icons.Default.QrCodeScanner,
+                        contentDescription = "Barcode"
+                    )
                 }
 
-                IconButton(
+                HeaderIconButton(
                     onClick = {
                         selectionMode = !selectionMode
                         if (!selectionMode) selectedProducts = emptyList()
                     },
-                    modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(if (selectionMode) colorScheme.primary else colorScheme.surfaceContainerHigh)
-                ) {
-                    Icon(
-                        Icons.Default.Checklist,
-                        contentDescription = "Select multiple",
-                        tint = if (selectionMode) colorScheme.onPrimary else TextMuted
-                    )
-                }
+                    icon = Icons.Default.Checklist,
+                    contentDescription = "Select multiple",
+                    active = selectionMode
+                )
 
-                Spacer(modifier = Modifier.width(4.dp))
-
-                IconButton(onClick = onDismiss) {
-                    Icon(Icons.Default.Close, contentDescription = "Close", tint = TextPrimary)
-                }
+                HeaderIconButton(onClick = onDismiss, icon = Icons.Default.Close, contentDescription = "Close")
             }
 
             // Results / Recent Lists
@@ -233,14 +216,19 @@ fun ProductSearchSheet(
                         item {
                             ProductGroupCard {
                                 searchResults.forEachIndexed { index, product ->
+                                    val selected = isProductSelected(product)
+                                    val prevSelected = index > 0 && isProductSelected(searchResults[index - 1])
+                                    val nextSelected = index < searchResults.lastIndex && isProductSelected(searchResults[index + 1])
                                     ProductListItem(
                                         product = product,
                                         selectionMode = selectionMode,
-                                        isSelected = selectedProducts.any { it.id == product.id },
+                                        isSelected = selected,
+                                        mergeTop = prevSelected,
+                                        mergeBottom = nextSelected,
                                         showMacros = true,
                                         onClick = { if (selectionMode) toggleSelected(product) else onSelectProduct(product) }
                                     )
-                                    if (index != searchResults.lastIndex) ProductDivider(colorScheme.outlineVariant)
+                                    if (index != searchResults.lastIndex && !(selected && nextSelected)) ProductDivider(colorScheme.outlineVariant)
                                 }
                             }
                         }
@@ -260,15 +248,20 @@ fun ProductSearchSheet(
                         item {
                             ProductGroupCard {
                                 recentForMeal.forEachIndexed { index, product ->
+                                    val selected = isProductSelected(product)
+                                    val prevSelected = index > 0 && isProductSelected(recentForMeal[index - 1])
+                                    val nextSelected = index < recentForMeal.lastIndex && isProductSelected(recentForMeal[index + 1])
                                     ProductListItem(
                                         product = product,
                                         selectionMode = selectionMode,
-                                        isSelected = selectedProducts.any { it.id == product.id },
+                                        isSelected = selected,
+                                        mergeTop = prevSelected,
+                                        mergeBottom = nextSelected,
                                         lastQuantity = recentForMealQuantities[product.id],
                                         showMacros = false,
                                         onClick = { if (selectionMode) toggleSelected(product) else onSelectProduct(product) }
                                     )
-                                    if (index != recentForMeal.lastIndex) ProductDivider(colorScheme.outlineVariant)
+                                    if (index != recentForMeal.lastIndex && !(selected && nextSelected)) ProductDivider(colorScheme.outlineVariant)
                                 }
                             }
                         }
@@ -282,14 +275,19 @@ fun ProductSearchSheet(
                         item {
                             ProductGroupCard {
                                 moreRecent.forEachIndexed { index, product ->
+                                    val selected = isProductSelected(product)
+                                    val prevSelected = index > 0 && isProductSelected(moreRecent[index - 1])
+                                    val nextSelected = index < moreRecent.lastIndex && isProductSelected(moreRecent[index + 1])
                                     ProductListItem(
                                         product = product,
                                         selectionMode = selectionMode,
-                                        isSelected = selectedProducts.any { it.id == product.id },
+                                        isSelected = selected,
+                                        mergeTop = prevSelected,
+                                        mergeBottom = nextSelected,
                                         showMacros = false,
                                         onClick = { if (selectionMode) toggleSelected(product) else onSelectProduct(product) }
                                     )
-                                    if (index != moreRecent.lastIndex) ProductDivider(colorScheme.outlineVariant)
+                                    if (index != moreRecent.lastIndex && !(selected && nextSelected)) ProductDivider(colorScheme.outlineVariant)
                                 }
                             }
                         }
@@ -320,6 +318,25 @@ fun ProductSearchSheet(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun HeaderIconButton(
+    onClick: () -> Unit,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    active: Boolean = false
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier
+            .size(46.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (active) colorScheme.primary else colorScheme.surfaceContainerHigh)
+    ) {
+        Icon(icon, contentDescription = contentDescription, tint = if (active) colorScheme.onPrimary else TextSecondary)
     }
 }
 
@@ -380,11 +397,18 @@ fun ProductListItem(
     onClick: () -> Unit,
     selectionMode: Boolean = false,
     isSelected: Boolean = false,
+    /** True when the previous/next row in the same list is also selected — flattens the
+     * shared edge so a run of adjacent selected rows reads as one continuous shape instead
+     * of a stack of individually-rounded cards. A selected row with no selected neighbor on
+     * a given side keeps that corner rounded. */
+    mergeTop: Boolean = false,
+    mergeBottom: Boolean = false,
     /** The quantity actually logged last time (only known for "recently in this meal"). When
      * present it replaces the generic reference-amount subtitle with the real last portion. */
     lastQuantity: FoodQuantity? = null,
     showMacros: Boolean = true
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     val appLanguage = FormApp.instance.appPreferences.appLanguage
     val typeLabel = product.type?.resolve(appLanguage)
 
@@ -397,38 +421,61 @@ fun ProductListItem(
         else -> product.brand.orEmpty()
     }
 
-    // The parent ProductGroupCard already clips to a rounded shape, so a plain full-bleed
-    // tint here is automatically corner-clipped for the first/last row — no extra clip needed.
-    val rowBackground = if (selectionMode && isSelected) {
-        MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
-    } else {
-        androidx.compose.ui.graphics.Color.Transparent
-    }
+    val highlightRadius = 14.dp
+    val highlightShape = RoundedCornerShape(
+        topStart = if (mergeTop) 0.dp else highlightRadius,
+        topEnd = if (mergeTop) 0.dp else highlightRadius,
+        bottomStart = if (mergeBottom) 0.dp else highlightRadius,
+        bottomEnd = if (mergeBottom) 0.dp else highlightRadius
+    )
+    // Selected rows get a 6dp inset "card" instead of an edge-to-edge tint, so the highlight
+    // never touches (and looks awkward against) the divider lines or the group card's own
+    // rounded corners. Content padding shrinks by the same 6dp so the text never shifts
+    // horizontally when a row becomes selected.
+    val outerInset = if (isSelected) 6.dp else 0.dp
+    val innerPadding = if (isSelected) 10.dp else 16.dp
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(rowBackground)
+            .padding(horizontal = outerInset)
+            .then(
+                if (isSelected) {
+                    Modifier
+                        .clip(highlightShape)
+                        .background(colorScheme.primary.copy(alpha = 0.12f))
+                } else {
+                    Modifier
+                }
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = innerPadding, vertical = 10.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    typeLabel?.let { ProductTypeChip(it) }
+                    Text(text = product.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = TextPrimary)
+                }
+                if (subtitle.isNotBlank()) {
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+            }
+            // Fixed trailing slot: the leading chip+name+subtitle column never moves when
+            // selection mode toggles, only the available width for it changes slightly.
             if (selectionMode) {
+                Spacer(modifier = Modifier.width(10.dp))
                 Icon(
                     imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
                     contentDescription = if (isSelected) "Selected" else "Not selected",
-                    tint = if (isSelected) MaterialTheme.colorScheme.primary else TextSecondary,
+                    tint = if (isSelected) colorScheme.primary else TextSecondary,
                     modifier = Modifier.size(22.dp)
                 )
-            }
-            Column {
-                Text(text = product.name, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, color = TextPrimary)
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    typeLabel?.let { ProductTypeChip(it) }
-                    if (subtitle.isNotBlank()) {
-                        Text(text = subtitle, style = MaterialTheme.typography.bodySmall, color = TextSecondary)
-                    }
-                }
             }
         }
 
@@ -438,7 +485,7 @@ fun ProductListItem(
                 summary = product.referenceSummary,
                 fontSize = 13.sp,
                 secondaryColor = TextSecondary,
-                primaryColor = MaterialTheme.colorScheme.primary
+                primaryColor = colorScheme.primary
             )
         }
     }
@@ -446,18 +493,19 @@ fun ProductListItem(
 
 @Composable
 private fun ProductTypeChip(label: String) {
+    val colorScheme = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-            .padding(horizontal = 7.dp, vertical = 2.dp)
+            .clip(RoundedCornerShape(7.dp))
+            .background(colorScheme.tertiaryContainer)
+            .padding(horizontal = 7.dp, vertical = 3.dp)
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
             fontSize = 11.sp,
-            fontWeight = FontWeight.Medium,
-            color = TextSecondary
+            fontWeight = FontWeight.SemiBold,
+            color = colorScheme.onTertiaryContainer
         )
     }
 }
