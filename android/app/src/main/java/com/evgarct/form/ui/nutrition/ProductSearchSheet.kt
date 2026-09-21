@@ -227,7 +227,6 @@ fun ProductSearchSheet(
                                 searchResults.forEachIndexed { index, product ->
                                     ProductListItem(
                                         product = product,
-                                        isRecent = false,
                                         selectionMode = selectionMode,
                                         isSelected = selectedProducts.any { it.id == product.id },
                                         onClick = { if (selectionMode) toggleSelected(product) else onSelectProduct(product) }
@@ -254,7 +253,6 @@ fun ProductSearchSheet(
                                 recentForMeal.forEachIndexed { index, product ->
                                     ProductListItem(
                                         product = product,
-                                        isRecent = true,
                                         selectionMode = selectionMode,
                                         isSelected = selectedProducts.any { it.id == product.id },
                                         onClick = { if (selectionMode) toggleSelected(product) else onSelectProduct(product) }
@@ -275,7 +273,6 @@ fun ProductSearchSheet(
                                 moreRecent.forEachIndexed { index, product ->
                                     ProductListItem(
                                         product = product,
-                                        isRecent = false,
                                         selectionMode = selectionMode,
                                         isSelected = selectedProducts.any { it.id == product.id },
                                         onClick = { if (selectionMode) toggleSelected(product) else onSelectProduct(product) }
@@ -316,12 +313,12 @@ fun ProductSearchSheet(
 
 @Composable
 private fun ProductGroupHeader(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: androidx.compose.ui.graphics.Color) {
-    Column(modifier = Modifier.padding(top = 12.dp, bottom = 8.dp)) {
+    Column(modifier = Modifier.padding(top = 10.dp, bottom = 4.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(14.dp))
+            Icon(imageVector = icon, contentDescription = null, tint = color, modifier = Modifier.size(13.dp))
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
@@ -330,7 +327,7 @@ private fun ProductGroupHeader(icon: androidx.compose.ui.graphics.vector.ImageVe
                 color = color
             )
         }
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         MacroIconHeader()
     }
 }
@@ -361,7 +358,6 @@ private fun ProductDivider(color: androidx.compose.ui.graphics.Color) {
 @Composable
 fun ProductListItem(
     product: NutritionProduct,
-    isRecent: Boolean,
     onClick: () -> Unit,
     selectionMode: Boolean = false,
     isSelected: Boolean = false
@@ -371,7 +367,7 @@ fun ProductListItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 9.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (selectionMode) {
@@ -379,19 +375,11 @@ fun ProductListItem(
                     imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Outlined.Circle,
                     contentDescription = if (isSelected) "Selected" else "Not selected",
                     tint = if (isSelected) MaterialTheme.colorScheme.primary else TextMuted,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
-            if (isRecent) {
-                Icon(
-                    imageVector = Icons.Default.History,
-                    contentDescription = "Recently used",
-                    tint = TextMuted,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(20.dp)
                 )
             }
             Column {
-                Text(text = product.name, style = MaterialTheme.typography.bodyLarge, color = TextPrimary)
+                Text(text = product.name, style = MaterialTheme.typography.bodyMedium, color = TextPrimary)
                 val subtitle = buildString {
                     product.brand?.let { append(it).append(" • ") }
                     append("${product.referenceBase?.amount?.toInt() ?: 100} ${product.baseUnit}")
@@ -400,11 +388,11 @@ fun ProductListItem(
             }
         }
 
-        Spacer(modifier = Modifier.height(6.dp))
+        Spacer(modifier = Modifier.height(4.dp))
 
         MacroColumns(
             summary = summary,
-            fontSize = 14.sp,
+            fontSize = 13.sp,
             secondaryColor = TextSecondary,
             primaryColor = MaterialTheme.colorScheme.primary
         )
