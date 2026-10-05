@@ -2,7 +2,10 @@ package com.evgarct.form.data.workout
 
 import com.evgarct.form.data.models.DraftExercise
 import com.evgarct.form.data.models.DraftSet
+import com.evgarct.form.data.models.TemplateExerciseDto
+import com.evgarct.form.data.models.TemplatePlan
 import com.evgarct.form.data.models.WorkoutDraft
+import com.evgarct.form.data.models.WorkoutTemplateRequest
 import com.evgarct.form.data.models.WorkoutSessionRequest
 import com.evgarct.form.data.models.WorkoutSetDto
 import java.time.Instant
@@ -69,5 +72,62 @@ fun WorkoutDraft.toRequest(): WorkoutSessionRequest? {
         muscleGroups = muscleGroups(),
         sets = sets,
         idempotencyKey = "android-workout:$id"
+    )
+}
+
+/** Turns a template plan into an editable draft: prescribed set count, suggested weight prefilled, supersets kept. */
+fun TemplatePlan.toDraft(
+    draftId: String,
+    startedAtMillis: Long,
+    timezone: String,
+    newId: () -> String
+): WorkoutDraft = WorkoutDraft(
+    id = draftId,
+    startedAtMillis = startedAtMillis,
+    timezone = timezone,
+    exercises = exercises.map { planned ->
+        DraftExercise(
+            exerciseId = planned.exerciseId,
+            name = planned.name,
+            primaryMuscles = planned.primaryMuscles,
+            sets = List(planned.sets.coerceAtLeast(1)) {
+                DraftSet(id = newId(), weightKg = planned.suggestion.weightKg, groupId = planned.groupId)
+            },
+            lastTopWeightKg = planned.lastSets.mapNotNull { it.weightKg }.maxOrNull(),
+            repMin = planned.repMin,
+            repMax = planned.repMax,
+            targetRir = planned.targetRir,
+            restSeconds = planned.restSeconds,
+            suggestedWeightKg = planned.suggestion.weightKg,
+            progression = planned.progression
+        )
+    }
+)
+
+/**
+ * Saves what the lifter actually did as a reusable template. A prescription that came from a
+ * template (rep range, RIR, rest, progression) is kept as is; for ad-hoc exercises the rep range is
+ * derived from the logged sets. Warm-ups never count toward the set total.
+ */
+fun WorkoutDraft.toTemplateRequest(name: String): WorkoutTemplateRequest? {
+    val trimmed = name.trim()
+    if (trimmed.isEmpty() || exercises.isEmpty()) return null
+    return WorkoutTemplateRequest(
+        name = trimmed,
+        exercises = exercises.map { exercise ->
+            val working = exercise.sets.filter { it.setType != "warmup" }
+            val counted = working.filter { it.done || it.reps != null }.ifEmpty { working }
+            val reps = counted.mapNotNull { it.reps }.filter { it in 1..100 }
+            TemplateExerciseDto(
+                exerciseId = exercise.exerciseId,
+                sets = counted.size.coerceIn(1, 20),
+                repMin = exercise.repMin ?: reps.minOrNull(),
+                repMax = exercise.repMax ?: reps.maxOrNull(),
+                targetRir = exercise.targetRir,
+                restSeconds = exercise.restSeconds,
+                groupId = exercise.sets.firstNotNullOfOrNull { it.groupId },
+                progression = exercise.progression
+            )
+        }
     )
 }

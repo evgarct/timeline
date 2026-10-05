@@ -28,7 +28,9 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -37,6 +39,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,6 +66,7 @@ import com.evgarct.form.data.models.DraftExercise
 import com.evgarct.form.data.models.DraftSet
 import com.evgarct.form.data.models.MuscleVolumeWeek
 import com.evgarct.form.data.models.RecentWorkoutSession
+import com.evgarct.form.data.models.WorkoutTemplate
 import com.evgarct.form.data.models.WorkoutDraft
 import com.evgarct.form.data.workout.recordableSetCount
 import com.evgarct.form.data.workout.tonnageKg
@@ -81,6 +85,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel = viewModel()) {
 
     var showPicker by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var showSaveTemplate by remember { mutableStateOf(false) }
     var nothingLogged by remember { mutableStateOf(false) }
 
     val draft = viewModel.draft
@@ -94,6 +99,9 @@ fun WorkoutScreen(viewModel: WorkoutViewModel = viewModel()) {
                 nothingLogged = nothingLogged,
                 onAddExercise = { showPicker = true },
                 onFinish = { nothingLogged = viewModel.finish() == FinishOutcome.NOTHING_LOGGED },
+                onSaveTemplate = { showSaveTemplate = true },
+                templateMessage = viewModel.templateMessage,
+                onMessageShown = viewModel::dismissTemplateMessage,
                 onDiscard = { confirmDiscard = true }
             )
         }
@@ -105,6 +113,34 @@ fun WorkoutScreen(viewModel: WorkoutViewModel = viewModel()) {
             onSelect = { exercise ->
                 viewModel.addExercise(exercise)
                 showPicker = false
+            }
+        )
+    }
+
+    if (showSaveTemplate) {
+        var templateName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showSaveTemplate = false },
+            title = { Text(stringResource(R.string.workout_save_template)) },
+            text = {
+                OutlinedTextField(
+                    value = templateName,
+                    onValueChange = { templateName = it },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.workout_template_name)) }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = templateName.isNotBlank(),
+                    onClick = {
+                        viewModel.saveAsTemplate(templateName)
+                        showSaveTemplate = false
+                    }
+                ) { Text(stringResource(R.string.common_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSaveTemplate = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -189,6 +225,15 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
             }
         }
 
+        if (viewModel.templates.isNotEmpty()) {
+            TemplatesSection(
+                templates = viewModel.templates,
+                startingId = viewModel.startingTemplateId,
+                startFailed = viewModel.templateMessage == TemplateMessage.START_FAILED,
+                onStart = viewModel::startFromTemplate
+            )
+        }
+
         if (viewModel.volume.isNotEmpty()) VolumeSection(viewModel.volume)
 
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -232,6 +277,52 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
                 TextButton(onClick = { pendingDelete = null }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
+    }
+}
+
+@Composable
+internal fun TemplatesSection(
+    templates: List<WorkoutTemplate>,
+    startingId: String?,
+    startFailed: Boolean,
+    onStart: (String) -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Eyebrow(stringResource(R.string.workout_templates_title))
+        Spacer(Modifier.height(8.dp))
+        if (startFailed) {
+            Text(stringResource(R.string.workout_template_start_error), fontSize = 13.sp, color = colorScheme.error)
+        }
+        templates.forEach { template ->
+            key(template.id) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable(enabled = startingId == null) { onStart(template.id) }
+                            .padding(vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(template.name, fontSize = 17.sp, color = colorScheme.onBackground)
+                            Text(
+                                stringResource(R.string.workout_template_exercises, template.exercises.size),
+                                fontSize = 13.sp,
+                                color = colorScheme.onSurfaceVariant
+                            )
+                        }
+                        if (startingId == template.id) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = colorScheme.primary)
+                        }
+                    }
+                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(colorScheme.outlineVariant.copy(alpha = 0.5f)))
+                }
+            }
+        }
     }
 }
 
@@ -393,6 +484,9 @@ private fun ActiveContent(
     nothingLogged: Boolean,
     onAddExercise: () -> Unit,
     onFinish: () -> Unit,
+    onSaveTemplate: () -> Unit,
+    templateMessage: TemplateMessage?,
+    onMessageShown: () -> Unit,
     onDiscard: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -478,6 +572,25 @@ private fun ActiveContent(
             Text(stringResource(R.string.workout_add_exercise), fontWeight = FontWeight.Medium)
         }
 
+        templateMessage?.takeIf { it != TemplateMessage.START_FAILED }?.let { message ->
+            LaunchedEffect(message) {
+                delay(3000)
+                onMessageShown()
+            }
+            Text(
+                text = stringResource(
+                    if (message == TemplateMessage.SAVED) R.string.workout_template_saved else R.string.workout_template_save_error
+                ),
+                fontSize = 13.sp,
+                color = if (message == TemplateMessage.SAVED) colorScheme.primary else colorScheme.error,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        }
+
+        TextButton(onClick = onSaveTemplate, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            Text(stringResource(R.string.workout_save_template), fontSize = 14.sp)
+        }
+
         TextButton(onClick = onDiscard, modifier = Modifier.align(Alignment.CenterHorizontally)) {
             Text(stringResource(R.string.workout_discard), color = colorScheme.error, fontSize = 14.sp)
         }
@@ -541,12 +654,25 @@ private fun ExerciseBlock(
         Row(verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(exercise.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
+                prescriptionLabel(exercise)?.let {
+                    Text(it, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colorScheme.primary)
+                }
                 val meta = listOfNotNull(
                     exercise.lastTopWeightKg?.let { stringResource(R.string.workout_last, formatNumber(it)) },
                     exercise.bestE1rmKg?.let { stringResource(R.string.workout_e1rm, formatNumber(it)) }
                 ).joinToString(" · ")
                 if (meta.isNotEmpty()) Text(meta, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
-                if (isLinkedToNext) Text("⟷", fontSize = 13.sp, color = colorScheme.primary)
+                exercise.suggestedWeightKg?.let {
+                    Text(
+                        stringResource(R.string.workout_suggested, formatNumber(it)),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = colorScheme.onSurface
+                    )
+                }
+                if (isLinkedToNext) {
+                    Text(stringResource(R.string.workout_superset), fontSize = 12.sp, color = colorScheme.tertiary)
+                }
             }
             Box {
                 Icon(
@@ -601,6 +727,20 @@ private fun ExerciseBlock(
             Text(stringResource(R.string.workout_add_set))
         }
     }
+}
+
+/** "3 × 6–10 · RIR 2" for exercises that came from a template; null for ad-hoc ones. */
+@Composable
+private fun prescriptionLabel(exercise: DraftExercise): String? {
+    val min = exercise.repMin
+    val max = exercise.repMax
+    val range = when {
+        min != null && max != null && min != max -> "$min–$max"
+        else -> (max ?: min)?.toString()
+    }
+    val target = range?.let { "${exercise.sets.size} × $it" }
+    val rir = exercise.targetRir?.let { stringResource(R.string.workout_target_rir, it) }
+    return listOfNotNull(target, rir).joinToString(" · ").ifEmpty { null }
 }
 
 @Composable
