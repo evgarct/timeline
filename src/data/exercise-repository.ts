@@ -721,3 +721,13 @@ export async function getMuscleVolume(
     };
   });
 }
+
+// Working/drop sets of the most recent session that contained the exercise, for load suggestions.
+export async function getLastSessionSets(userId: string, exerciseId: string) {
+  const rows = (await loadHistoryRows(userId, exerciseId)).filter((row) => row.setType !== "warmup");
+  if (!rows.length) return [];
+  const latest = rows.reduce((best, row) => (row.occurredAt > best.occurredAt ? row : best), rows[0]);
+  return rows
+    .filter((row) => row.eventId === latest.eventId)
+    .map((row) => ({ reps: row.reps ?? undefined, weightKg: row.weightKg ?? undefined }));
+}
