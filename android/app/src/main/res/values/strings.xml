@@ -281,4 +281,5 @@
     <string name="muscle_hip_flexors">Hip flexors</string>
     <string name="muscle_serratus">Serratus</string>
     <string name="muscle_other">Other</string>
+    <string name="timeline_event_workout">Workout</string>
 </resources>

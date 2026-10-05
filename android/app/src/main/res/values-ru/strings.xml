@@ -281,4 +281,5 @@
     <string name="muscle_hip_flexors">Сгибатели бедра</string>
     <string name="muscle_serratus">Зубчатые</string>
     <string name="muscle_other">Другое</string>
+    <string name="timeline_event_workout">Тренировка</string>
 </resources>
