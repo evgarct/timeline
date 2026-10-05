@@ -1,6 +1,11 @@
 package com.evgarct.form.ui.workout
 
 import android.graphics.Bitmap
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -14,7 +19,12 @@ import com.evgarct.form.FormApp
 import com.evgarct.form.core.theme.FormTheme
 import com.evgarct.form.data.models.DraftExercise
 import com.evgarct.form.data.models.DraftSet
+import com.evgarct.form.data.models.MuscleVolumeWeek
+import com.evgarct.form.data.models.RecentExercise
+import com.evgarct.form.data.models.RecentWorkoutSession
+import com.evgarct.form.data.models.SessionSummary
 import com.evgarct.form.data.models.WorkoutDraft
+import com.evgarct.form.data.models.WorkoutSetDto
 import com.evgarct.form.ui.shell.RootScreen
 import org.junit.Rule
 import org.junit.Test
@@ -91,5 +101,37 @@ class WorkoutScreenshotTest {
         rule.setContent { FormTheme { RootScreen(onSignOut = {}) } }
         rule.onNodeWithText("Train").performClick()
         save("nav-workout-tab")
+    }
+
+    @Test
+    fun volumeAndHistory() {
+        val volume = listOf(
+            MuscleVolumeWeek("2026-10-05", mapOf("chest" to 9.5, "triceps" to 4.5, "shoulders" to 5.0, "lats" to 12.0, "quads" to 3.0), 34.0),
+            MuscleVolumeWeek("2026-09-28", mapOf("chest" to 12.0, "triceps" to 6.0, "lats" to 8.0, "hamstrings" to 6.0), 32.0)
+        )
+        val session = RecentWorkoutSession(
+            eventId = "e1", occurredAt = "2026-10-03T16:00:00Z", timezone = "Europe/Prague",
+            muscleGroups = listOf("chest", "triceps"),
+            exercises = listOf(
+                RecentExercise("a", "Bench Press", listOf(
+                    WorkoutSetDto(setIndex = 1, reps = 10, weightKg = 40.0, setType = "warmup"),
+                    WorkoutSetDto(setIndex = 2, reps = 8, weightKg = 80.0, rir = 2),
+                    WorkoutSetDto(setIndex = 3, reps = 7, weightKg = 82.5, rir = 1)
+                ))
+            ),
+            summary = SessionSummary(setCount = 3, exerciseCount = 1, tonnageKg = 1216.5)
+        )
+        rule.setContent {
+            FormTheme {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(28.dp)
+                ) {
+                    VolumeSection(volume)
+                    RecentSessionRow(session = session, onDelete = {})
+                }
+            }
+        }
+        save("volume")
     }
 }
