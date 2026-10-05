@@ -21,6 +21,12 @@ Source of truth for the strength-training model. Product intent comes from the A
 ## MCP
 `search_exercises`, `upsert_exercise`, `record_workout_session`, `get_exercise_history` expose the same fields. Tool descriptions in `src/mcp/server.ts` are the steering lever. The telegram-bot repo keeps a hand-maintained copy of the tool list and must be updated separately.
 
+## Templates and progression
+- `workout_templates`: one jsonb document per routine. Each exercise carries `sets`, `repMin`/`repMax`, `targetRir` (0–5), `restSeconds`, `groupId` (same value = superset) and an optional `progression` rule. Names are unique per user (normalized); upsert by id, else by exact name; every `exerciseId` must exist (`unknown_exercise`, HTTP 422).
+- Progression is double progression only: keep the weight until every set at the top weight reaches `repMax`, then add `incrementKg` (`suggestNextLoad` in `src/domain/workout-templates.ts`). It never suggests a drop and never invents a load without history; deloads stay the lifter's call.
+- REST: `GET/POST /api/templates`, `GET/PUT/DELETE /api/templates/{id}`, `GET /api/templates/{id}/plan` (prescription + last session's sets + suggested load; read-only).
+- MCP: `list_workout_templates`, `upsert_workout_template`, `delete_workout_template`, `plan_workout_from_template`. Building a program in chat = `search_exercises`/`upsert_exercise` → `upsert_workout_template` → `plan_workout_from_template` → `record_workout_session`.
+
 ## Volume analytics
 - `GET /api/workouts/volume?weeks=4&timezone=` and MCP `get_muscle_volume`: hard sets per muscle per calendar week (Monday start in the given timezone), newest first. Primary muscle = 1 set, secondary = 0.5, warm-ups excluded; legacy exercises fall back to `muscleGroups`; exercises with no muscle data count under `other`.
 - The Train tab shows this week's sets per muscle with a tick for last week. It is a neutral fact display (no goals, colours or streaks, per `docs/DESIGN.md`); the 10–20 sets/week reference lives only in the MCP tool description for planning.

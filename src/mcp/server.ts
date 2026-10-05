@@ -46,6 +46,8 @@ import {
   upsertExercise
 } from "@/data/exercise-repository";
 import { exerciseInputSchema, isValidTimeZone, setInputSchema } from "@/domain/exercises";
+import { deleteTemplate, listTemplates, planTemplate, upsertTemplate } from "@/data/workout-template-repository";
+import { workoutTemplateInputSchema } from "@/domain/workout-templates";
 import { isTaskCompleted, latestEvent } from "@/domain/timeline";
 import { resolveMcpUser } from "@/data/repository";
 
@@ -577,6 +579,54 @@ export function createTimelineMcpServer(userId: string) {
       return `${week.weekStart}: ${muscles.length ? muscles.join(", ") : "no sets"}`;
     }).join("\n");
     return result("Muscle volume", `Weekly sets per muscle (${weeks} weeks)`, { weeks: volume }, [], { text });
+  });
+
+  server.registerTool("list_workout_templates", {
+    title: "List workout templates",
+    description: "List the user's reusable workout templates (routines). Each has exercises with a prescription: sets, repMin-repMax, targetRir (reps in reserve), restSeconds, groupId (same value = superset) and an optional progression rule. Archived templates are hidden unless includeArchived is true.",
+    inputSchema: { includeArchived: z.boolean().default(false) }
+  }, async ({ includeArchived }) => {
+    const items = await listTemplates(userId, includeArchived);
+    const text = itemizeText(items.length, "templates", items.map((template) => `${template.name} (id: ${template.id}, ${template.exercises.length} exercises)`));
+    return result("Workout templates", "Workout templates", { items }, [], { text });
+  });
+
+  server.registerTool("upsert_workout_template", {
+    title: "Create or update a workout template",
+    description: "Save a reusable workout template. An explicit id updates that template, otherwise an exact normalized-name match is updated, else a new one is created; the exercises list is replaced as a whole. Every exerciseId must already exist (unknown_exercise otherwise) — use search_exercises/upsert_exercise first. Prescription per exercise: sets, repMin/repMax (rep range), targetRir (0-5), restSeconds, groupId for supersets, and progression {type: \"double\", incrementKg} = keep the weight until every top set reaches repMax, then add incrementKg. Example: 3 x 6-10 at RIR 2 with +2.5 kg. Set isArchived: true to retire a template without deleting it.",
+    inputSchema: { template: workoutTemplateInputSchema }
+  }, async ({ template }) => {
+    try {
+      const saved = await upsertTemplate(userId, template);
+      return result("Template saved", saved.name, saved, [], { id: saved.id, text: `${saved.name} (id: ${saved.id}, ${saved.exercises.length} exercises)` });
+    } catch (error) {
+      return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "template_save_failed" }], isError: true };
+    }
+  });
+
+  server.registerTool("delete_workout_template", {
+    title: "Delete a workout template",
+    description: "Permanently delete a workout template by id. Logged workouts are unaffected. Prefer upsert_workout_template with isArchived: true when the user may want it back.",
+    inputSchema: { id: z.string().uuid() }
+  }, async ({ id }) => {
+    const deleted = await deleteTemplate(userId, id);
+    if (!deleted) return { content: [{ type: "text" as const, text: "template_not_found" }], isError: true };
+    return result("Template deleted", id, { id }, [], { id, text: `Deleted template ${id}` });
+  });
+
+  server.registerTool("plan_workout_from_template", {
+    title: "Plan the next workout from a template",
+    description: "Read-only preview of the next session for a template: the prescription per exercise plus, from the last logged session, the previous sets and a suggested working weight under the progression rule (reason: increase = every top set reached repMax, hold = keep the weight, no_history = nothing logged yet). Nothing is recorded; log the real session with record_workout_session afterwards.",
+    inputSchema: { id: z.string().uuid() }
+  }, async ({ id }) => {
+    const plan = await planTemplate(userId, id);
+    if (!plan) return { content: [{ type: "text" as const, text: "template_not_found" }], isError: true };
+    const lines = plan.exercises.map((exercise) => {
+      const range = exercise.repMin && exercise.repMax ? `${exercise.repMin}-${exercise.repMax}` : `${exercise.repMax ?? exercise.repMin ?? "?"}`;
+      const load = exercise.suggestion.weightKg !== undefined ? `${exercise.suggestion.weightKg} kg (${exercise.suggestion.reason})` : "no history";
+      return `${exercise.name}: ${exercise.sets} x ${range}${exercise.targetRir !== undefined ? ` @RIR ${exercise.targetRir}` : ""}, ${load}`;
+    });
+    return result("Workout plan", plan.name, plan, [], { text: [plan.name, ...lines].join("\n") });
   });
 
   server.registerTool("get_exercise_history", {

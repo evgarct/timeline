@@ -89,6 +89,23 @@ export const workoutSets = pgTable("workout_sets", {
   index("workout_sets_user_event_idx").on(table.userId, table.eventId)
 ]);
 
+// A reusable plan: one jsonb document of prescribed exercises (sets, rep range, target RIR, rest,
+// superset group, progression rule), so an agent can read and write a whole routine in one call.
+export const workoutTemplates = pgTable("workout_templates", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  name: text("name").notNull(),
+  normalizedName: text("normalized_name").notNull(),
+  note: text("note"),
+  exercises: jsonb("exercises").notNull(),
+  isArchived: boolean("is_archived").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+}, (table) => [
+  uniqueIndex("workout_templates_user_id_id_idx").on(table.userId, table.id),
+  uniqueIndex("workout_templates_user_name_idx").on(table.userId, table.normalizedName)
+]);
+
 export const taskSchedules = pgTable("task_schedules", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull(),
