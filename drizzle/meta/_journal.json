@@ -78,6 +78,13 @@
       "when": 1789841993399,
       "tag": "0010_plain_richard_fisk",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791221461481,
+      "tag": "0011_stale_mongu",
+      "breakpoints": true
     }
   ]
 }
