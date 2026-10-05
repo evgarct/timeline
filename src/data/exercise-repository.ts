@@ -422,6 +422,7 @@ interface HistoryRow {
   reps: number | null;
   weightKg: number | null;
   setType: string;
+  completed: boolean;
   occurredAt: Date;
   timezone: string;
 }
@@ -434,13 +435,13 @@ async function loadHistoryRows(userId: string, exerciseId: string): Promise<Hist
         const event = memoryWorkoutEvents.find((candidate) => candidate.userId === userId && candidate.id === set.eventId);
         return event ? [{
           eventId: set.eventId, reps: set.reps ?? null, weightKg: set.weightKg ?? null,
-          setType: set.setType, occurredAt: event.occurredAt, timezone: event.timezone
+          setType: set.setType, completed: set.completed, occurredAt: event.occurredAt, timezone: event.timezone
         }] : [];
       });
   }
   const rows = await database.select({
     eventId: workoutSets.eventId, reps: workoutSets.reps, weightKg: workoutSets.weightKg,
-    setType: workoutSets.setType, occurredAt: events.occurredAt, timezone: events.timezone
+    setType: workoutSets.setType, completed: workoutSets.completed, occurredAt: events.occurredAt, timezone: events.timezone
   }).from(workoutSets).innerJoin(events, eq(events.id, workoutSets.eventId)).where(and(
     eq(workoutSets.userId, userId), eq(workoutSets.exerciseId, exerciseId)
   )).orderBy(desc(events.occurredAt));
@@ -448,10 +449,10 @@ async function loadHistoryRows(userId: string, exerciseId: string): Promise<Hist
 }
 
 // Reused by both the Android-facing REST endpoint and the get_exercise_history MCP tool so the query
-// logic lives in one place. Warm-up sets never count toward bests; dates use the session's own
+// logic lives in one place. Warm-up and incomplete sets never count toward bests; dates use the session's own
 // timezone, not UTC.
 export async function getExerciseHistory(userId: string, exerciseId: string, limit = 8): Promise<ExerciseHistory> {
-  const rows = (await loadHistoryRows(userId, exerciseId)).filter((row) => row.setType !== "warmup");
+  const rows = (await loadHistoryRows(userId, exerciseId)).filter((row) => row.setType !== "warmup" && row.completed);
 
   const byEvent = new Map<string, HistoryRow[]>();
   for (const row of rows) {
@@ -720,4 +721,14 @@ export async function getMuscleVolume(
       totalSets: Object.values(sets).reduce((total, value) => total + value, 0)
     };
   });
+}
+
+// Working/drop sets of the most recent session that contained the exercise, for load suggestions.
+export async function getLastSessionSets(userId: string, exerciseId: string) {
+  const rows = (await loadHistoryRows(userId, exerciseId)).filter((row) => row.setType !== "warmup" && row.completed);
+  if (!rows.length) return [];
+  const latest = rows.reduce((best, row) => (row.occurredAt > best.occurredAt ? row : best), rows[0]);
+  return rows
+    .filter((row) => row.eventId === latest.eventId)
+    .map((row) => ({ reps: row.reps ?? undefined, weightKg: row.weightKg ?? undefined }));
 }

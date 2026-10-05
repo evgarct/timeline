@@ -282,4 +282,14 @@
     <string name="muscle_serratus">Зубчатые</string>
     <string name="muscle_other">Другое</string>
     <string name="timeline_event_workout">Тренировка</string>
+    <string name="workout_templates_title">Шаблоны</string>
+    <string name="workout_template_exercises">%1$d упр.</string>
+    <string name="workout_template_start_error">Не удалось начать по шаблону</string>
+    <string name="workout_template_saved">Шаблон сохранён</string>
+    <string name="workout_template_save_error">Не удалось сохранить шаблон</string>
+    <string name="workout_save_template">Сохранить как шаблон</string>
+    <string name="workout_template_name">Название шаблона</string>
+    <string name="workout_target_rir">RIR %1$d</string>
+    <string name="workout_suggested">Предложено %1$s кг</string>
+    <string name="workout_start_empty">Пустая тренировка</string>
 </resources>

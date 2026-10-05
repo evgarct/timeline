@@ -21,6 +21,12 @@ Source of truth for the strength-training model. Product intent comes from the A
 ## MCP
 `search_exercises`, `upsert_exercise`, `record_workout_session`, `get_exercise_history` expose the same fields. Tool descriptions in `src/mcp/server.ts` are the steering lever. The telegram-bot repo keeps a hand-maintained copy of the tool list and must be updated separately.
 
+## Templates and progression
+- `workout_templates`: one jsonb document per routine. Each exercise carries `sets`, `repMin`/`repMax`, `targetRir` (0–5), `restSeconds`, `groupId` (same value = superset) and an optional `progression` rule. Names are unique per user (normalized); upsert by id, else by exact name; every `exerciseId` must exist (`unknown_exercise`, HTTP 422).
+- Progression is double progression only: keep the weight until every set at the top weight reaches `repMax`, then add `incrementKg` (`suggestNextLoad` in `src/domain/workout-templates.ts`). It never suggests a drop and never invents a load without history; deloads stay the lifter's call.
+- REST: `GET/POST /api/templates`, `GET/PUT/DELETE /api/templates/{id}`, `GET /api/templates/{id}/plan` (prescription + last session's sets + suggested load; read-only).
+- MCP: `list_workout_templates`, `upsert_workout_template`, `delete_workout_template`, `plan_workout_from_template`. Building a program in chat = `search_exercises`/`upsert_exercise` → `upsert_workout_template` → `plan_workout_from_template` → `record_workout_session`.
+
 ## Volume analytics
 - `GET /api/workouts/volume?weeks=4&timezone=` and MCP `get_muscle_volume`: hard sets per muscle per calendar week (Monday start in the given timezone), newest first. Primary muscle = 1 set, secondary = 0.5, warm-ups excluded; legacy exercises fall back to `muscleGroups`; exercises with no muscle data count under `other`.
 - The Train tab shows this week's sets per muscle with a tick for last week. It is a neutral fact display (no goals, colours or streaks, per `docs/DESIGN.md`); the 10–20 sets/week reference lives only in the MCP tool description for planning.
@@ -32,6 +38,8 @@ Source of truth for the strength-training model. Product intent comes from the A
 - Active session: weight, reps, RIR (tap cycles –,4,3,2,1,0), set type via the set number (working, warm-up, drop, remove), superset link from the exercise menu, rest timer (90 s, ±15 s) started when a working set is marked done. Last top weight and best e1RM are prefilled from `/api/exercises/{id}/history`.
 - Offline model (online + cache, no Room): the draft is written to `WorkoutDraftStore` after every edit and survives process death. Finishing first moves the session into a durable pending queue (idempotency key `android-workout:<draftId>`), then uploads; on failure `WorkoutSyncWorker` retries with backoff when a connection exists. Set indexes run across the whole session so the server keeps exercise order.
 - Visual QA without a login: `WorkoutScreenshotTest` (androidTest) seeds a fixture draft and writes PNGs to the app's external files dir (`adb pull /sdcard/Android/data/com.evgarct.form/files/workout-qa`). Run it with `adb shell am instrument` — `connectedAndroidTest` uninstalls the app and deletes the files.
+
+- Templates on Android: the Train tab lists templates; tapping one loads `/api/templates/{id}/plan` and builds the draft (prescribed set count, suggested weight prefilled, last-time sets, superset groups kept, per-exercise rest used by the timer). The exercise card shows the target ("3 × 6–10 · RIR 2") and the suggestion. "Save as template" turns the current draft into a template: a prescription that came from a template is kept, for ad-hoc exercises the rep range is derived from the logged sets and warm-ups are not counted. There is no in-app template editor yet — edit prescriptions and progression rules through MCP.
 
 ## Open decisions / not yet built
 Production catalog seed (see below), templates and prescriptions, progression rules and mesocycles, analytics (weekly sets per muscle, muscle map), optional Health Connect write of finished sessions.

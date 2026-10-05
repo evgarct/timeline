@@ -116,6 +116,77 @@ data class MuscleVolumeWeek(
 @Serializable
 data class MuscleVolumeResponse(val weeks: List<MuscleVolumeWeek> = emptyList())
 
+// --- Templates (`/api/templates`) ---
+
+@Serializable
+data class ProgressionRule(val type: String = "double", val incrementKg: Double)
+
+/** One prescribed exercise of a template, as stored (no display name). */
+@Serializable
+data class TemplateExerciseDto(
+    val exerciseId: String,
+    val sets: Int = 3,
+    val weightKg: Double? = null,
+    val repMin: Int? = null,
+    val repMax: Int? = null,
+    val targetRir: Int? = null,
+    val restSeconds: Int? = null,
+    val groupId: String? = null,
+    val progression: ProgressionRule? = null,
+    val note: String? = null
+)
+
+@Serializable
+data class WorkoutTemplate(
+    val id: String,
+    val name: String,
+    val note: String? = null,
+    val exercises: List<TemplateExerciseDto> = emptyList(),
+    val isArchived: Boolean = false
+)
+
+@Serializable
+data class WorkoutTemplatesResponse(val items: List<WorkoutTemplate> = emptyList())
+
+/** Request body of POST `/api/templates`. */
+@Serializable
+data class WorkoutTemplateRequest(
+    val name: String,
+    val exercises: List<TemplateExerciseDto>
+)
+
+@Serializable
+data class LoadSuggestion(val weightKg: Double? = null, val reason: String = "no_history")
+
+@Serializable
+data class LastSetDto(val reps: Int? = null, val weightKg: Double? = null)
+
+@Serializable
+data class PlannedExerciseDto(
+    val exerciseId: String,
+    val name: String,
+    val primaryMuscles: List<String> = emptyList(),
+    val sets: Int = 3,
+    val weightKg: Double? = null,
+    val repMin: Int? = null,
+    val repMax: Int? = null,
+    val targetRir: Int? = null,
+    val restSeconds: Int? = null,
+    val groupId: String? = null,
+    val progression: ProgressionRule? = null,
+    val lastSets: List<LastSetDto> = emptyList(),
+    val suggestion: LoadSuggestion = LoadSuggestion()
+)
+
+/** Response of GET `/api/templates/{id}/plan`: the next session as prescribed plus load suggestions. */
+@Serializable
+data class TemplatePlan(
+    val id: String,
+    val name: String,
+    val note: String? = null,
+    val exercises: List<PlannedExerciseDto> = emptyList()
+)
+
 // --- Active-workout draft (persisted locally until the session is finished and acknowledged) ---
 
 @Serializable
@@ -136,7 +207,15 @@ data class DraftExercise(
     val primaryMuscles: List<String> = emptyList(),
     val sets: List<DraftSet> = emptyList(),
     val lastTopWeightKg: Double? = null,
-    val bestE1rmKg: Double? = null
+    val bestE1rmKg: Double? = null,
+    val lastReps: List<Int> = emptyList(),
+    // Prescription copied from a template (all optional; absent for ad-hoc exercises).
+    val repMin: Int? = null,
+    val repMax: Int? = null,
+    val targetRir: Int? = null,
+    val restSeconds: Int? = null,
+    val suggestedWeightKg: Double? = null,
+    val progression: ProgressionRule? = null
 )
 
 @Serializable

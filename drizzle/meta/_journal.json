@@ -85,6 +85,13 @@
       "when": 1791221461481,
       "tag": "0011_stale_mongu",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791223539442,
+      "tag": "0012_gorgeous_dragon_lord",
+      "breakpoints": true
     }
   ]
 }

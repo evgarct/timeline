@@ -282,4 +282,14 @@
     <string name="muscle_serratus">Serratus</string>
     <string name="muscle_other">Other</string>
     <string name="timeline_event_workout">Workout</string>
+    <string name="workout_templates_title">Templates</string>
+    <string name="workout_template_exercises">%1$d exercises</string>
+    <string name="workout_template_start_error">Could not start from this template</string>
+    <string name="workout_template_saved">Template saved</string>
+    <string name="workout_template_save_error">Could not save the template</string>
+    <string name="workout_save_template">Save as template</string>
+    <string name="workout_template_name">Template name</string>
+    <string name="workout_target_rir">RIR %1$d</string>
+    <string name="workout_suggested">Suggested %1$s kg</string>
+    <string name="workout_start_empty">Start an empty workout</string>
 </resources>

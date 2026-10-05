@@ -11,15 +11,21 @@ import com.evgarct.form.data.models.DraftSet
 import com.evgarct.form.data.models.MuscleVolumeWeek
 import com.evgarct.form.data.models.Exercise
 import com.evgarct.form.data.models.RecentWorkoutSession
+import com.evgarct.form.data.models.WorkoutTemplate
 import com.evgarct.form.data.models.WorkoutDraft
 import com.evgarct.form.data.repository.WorkoutRepository
+import com.evgarct.form.data.workout.repsHint
+import com.evgarct.form.data.workout.toDraft
 import com.evgarct.form.data.workout.toRequest
+import com.evgarct.form.data.workout.toTemplateRequest
 import com.evgarct.form.work.WorkoutSyncWorker
 import kotlinx.coroutines.launch
 import java.util.TimeZone
 import java.util.UUID
 
 enum class FinishOutcome { NOTHING_LOGGED, SAVED }
+
+enum class TemplateMessage { SAVED, SAVE_FAILED, START_FAILED }
 
 /**
  * State holder for the Training tab. The active [WorkoutDraft] is written to disk after every
@@ -39,6 +45,15 @@ class WorkoutViewModel : ViewModel() {
         private set
 
     var volume by mutableStateOf<List<MuscleVolumeWeek>>(emptyList())
+        private set
+
+    var templates by mutableStateOf<List<WorkoutTemplate>>(emptyList())
+        private set
+
+    var startingTemplateId by mutableStateOf<String?>(null)
+        private set
+
+    var templateMessage by mutableStateOf<TemplateMessage?>(null)
         private set
 
     var isLoading by mutableStateOf(false)
@@ -67,6 +82,7 @@ class WorkoutViewModel : ViewModel() {
             if (store.pending().isNotEmpty()) repository.flushPending()
             pendingCount = store.pending().size
             repository.muscleVolume(2, TimeZone.getDefault().id).onSuccess { volume = it }
+            repository.templates().onSuccess { templates = it }
             repository.recentSessions()
                 .onSuccess { recent = it; loadFailed = false }
                 .onFailure { loadFailed = true }
@@ -81,6 +97,41 @@ class WorkoutViewModel : ViewModel() {
             startedAtMillis = System.currentTimeMillis(),
             timezone = TimeZone.getDefault().id
         ))
+    }
+
+    /** Starts a session from a template: prescribed sets, last-time sets and a progression-based weight suggestion. */
+    fun startFromTemplate(templateId: String) {
+        if (draft != null || startingTemplateId != null) return
+        startingTemplateId = templateId
+        viewModelScope.launch {
+            repository.templatePlan(templateId)
+                .onSuccess { plan ->
+                    commit(plan.toDraft(
+                        draftId = UUID.randomUUID().toString(),
+                        startedAtMillis = System.currentTimeMillis(),
+                        timezone = TimeZone.getDefault().id,
+                        newId = { UUID.randomUUID().toString() }
+                    ))
+                }
+                .onFailure { templateMessage = TemplateMessage.START_FAILED }
+            startingTemplateId = null
+        }
+    }
+
+    fun saveAsTemplate(name: String) {
+        val request = draft?.toTemplateRequest(name) ?: return
+        viewModelScope.launch {
+            repository.saveTemplate(request)
+                .onSuccess { saved ->
+                    templates = listOf(saved) + templates.filterNot { it.id == saved.id }
+                    templateMessage = TemplateMessage.SAVED
+                }
+                .onFailure { templateMessage = TemplateMessage.SAVE_FAILED }
+        }
+    }
+
+    fun dismissTemplateMessage() {
+        templateMessage = null
     }
 
     fun discardDraft() {
@@ -136,13 +187,19 @@ class WorkoutViewModel : ViewModel() {
 
     fun toggleDone(exerciseId: String, setId: String) {
         var becameDone = false
+        val hint = draft?.exercises?.firstOrNull { it.exerciseId == exerciseId }?.let { entry ->
+            repsHint(entry, entry.sets.indexOfFirst { it.id == setId })
+        }
         updateSet(exerciseId, setId) { set ->
             becameDone = !set.done
-            set.copy(done = !set.done)
+            // Marking a set done without typing reps records the visible hint (last time / bottom of the range).
+            set.copy(done = !set.done, reps = if (becameDone) set.reps ?: hint else set.reps)
         }
-        // Resting after a warm-up is not what the timer is for.
-        val set = draft?.exercises?.firstOrNull { it.exerciseId == exerciseId }?.sets?.firstOrNull { it.id == setId }
-        restEndsAtMillis = if (becameDone && set?.setType != "warmup") System.currentTimeMillis() + restSeconds * 1000L else null
+        // Resting after a warm-up is not what the timer is for; a template can prescribe its own rest.
+        val exercise = draft?.exercises?.firstOrNull { it.exerciseId == exerciseId }
+        val set = exercise?.sets?.firstOrNull { it.id == setId }
+        val rest = exercise?.restSeconds ?: restSeconds
+        restEndsAtMillis = if (becameDone && set?.setType != "warmup") System.currentTimeMillis() + rest * 1000L else null
     }
 
     fun adjustRest(deltaSeconds: Int) {

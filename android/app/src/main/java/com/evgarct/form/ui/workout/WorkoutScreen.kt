@@ -28,7 +28,9 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -37,6 +39,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -63,8 +66,10 @@ import com.evgarct.form.data.models.DraftExercise
 import com.evgarct.form.data.models.DraftSet
 import com.evgarct.form.data.models.MuscleVolumeWeek
 import com.evgarct.form.data.models.RecentWorkoutSession
+import com.evgarct.form.data.models.WorkoutTemplate
 import com.evgarct.form.data.models.WorkoutDraft
 import com.evgarct.form.data.workout.recordableSetCount
+import com.evgarct.form.data.workout.repsHint
 import com.evgarct.form.data.workout.tonnageKg
 import com.evgarct.form.ui.nutrition.components.SelectAllOnFocusTextField
 import kotlinx.coroutines.delay
@@ -81,6 +86,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel = viewModel()) {
 
     var showPicker by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
+    var showSaveTemplate by remember { mutableStateOf(false) }
     var nothingLogged by remember { mutableStateOf(false) }
 
     val draft = viewModel.draft
@@ -94,6 +100,9 @@ fun WorkoutScreen(viewModel: WorkoutViewModel = viewModel()) {
                 nothingLogged = nothingLogged,
                 onAddExercise = { showPicker = true },
                 onFinish = { nothingLogged = viewModel.finish() == FinishOutcome.NOTHING_LOGGED },
+                onSaveTemplate = { showSaveTemplate = true },
+                templateMessage = viewModel.templateMessage,
+                onMessageShown = viewModel::dismissTemplateMessage,
                 onDiscard = { confirmDiscard = true }
             )
         }
@@ -105,6 +114,34 @@ fun WorkoutScreen(viewModel: WorkoutViewModel = viewModel()) {
             onSelect = { exercise ->
                 viewModel.addExercise(exercise)
                 showPicker = false
+            }
+        )
+    }
+
+    if (showSaveTemplate) {
+        var templateName by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showSaveTemplate = false },
+            title = { Text(stringResource(R.string.workout_save_template)) },
+            text = {
+                OutlinedTextField(
+                    value = templateName,
+                    onValueChange = { templateName = it },
+                    singleLine = true,
+                    label = { Text(stringResource(R.string.workout_template_name)) }
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = templateName.isNotBlank(),
+                    onClick = {
+                        viewModel.saveAsTemplate(templateName)
+                        showSaveTemplate = false
+                    }
+                ) { Text(stringResource(R.string.common_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showSaveTemplate = false }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
     }
@@ -162,23 +199,39 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
             )
         }
 
+        if (viewModel.templates.isNotEmpty()) {
+            TemplatesSection(
+                templates = viewModel.templates,
+                startingId = viewModel.startingTemplateId,
+                startFailed = viewModel.templateMessage == TemplateMessage.START_FAILED,
+                onStart = viewModel::startFromTemplate
+            )
+        }
+
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val hasTemplates = viewModel.templates.isNotEmpty()
             Button(
                 onClick = viewModel::startWorkout,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(18.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = colorScheme.primaryContainer,
-                    contentColor = colorScheme.onPrimaryContainer
+                    containerColor = if (hasTemplates) colorScheme.surfaceContainerHigh else colorScheme.primaryContainer,
+                    contentColor = if (hasTemplates) colorScheme.onSurface else colorScheme.onPrimaryContainer
                 )
             ) {
-                Text(stringResource(R.string.workout_start), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    stringResource(if (hasTemplates) R.string.workout_start_empty else R.string.workout_start),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
-            Text(
-                text = stringResource(R.string.workout_start_caption),
-                fontSize = 13.sp,
-                color = colorScheme.onSurfaceVariant
-            )
+            if (!hasTemplates) {
+                Text(
+                    text = stringResource(R.string.workout_start_caption),
+                    fontSize = 13.sp,
+                    color = colorScheme.onSurfaceVariant
+                )
+            }
             if (viewModel.pendingCount > 0) {
                 Text(
                     text = stringResource(R.string.workout_pending, viewModel.pendingCount),
@@ -232,6 +285,52 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
                 TextButton(onClick = { pendingDelete = null }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
+    }
+}
+
+@Composable
+internal fun TemplatesSection(
+    templates: List<WorkoutTemplate>,
+    startingId: String?,
+    startFailed: Boolean,
+    onStart: (String) -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Eyebrow(stringResource(R.string.workout_templates_title))
+        if (startFailed) {
+            Text(stringResource(R.string.workout_template_start_error), fontSize = 13.sp, color = colorScheme.error)
+        }
+        templates.forEach { template ->
+            key(template.id) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(colorScheme.primaryContainer)
+                            .clickable(enabled = startingId == null) { onStart(template.id) }
+                            .padding(horizontal = 18.dp, vertical = 18.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                            Text(template.name, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onPrimaryContainer)
+                            Text(
+                                stringResource(R.string.workout_template_exercises, template.exercises.size),
+                                fontSize = 13.sp,
+                                color = colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                            )
+                        }
+                        if (startingId == template.id) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = colorScheme.onPrimaryContainer)
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
@@ -393,6 +492,9 @@ private fun ActiveContent(
     nothingLogged: Boolean,
     onAddExercise: () -> Unit,
     onFinish: () -> Unit,
+    onSaveTemplate: () -> Unit,
+    templateMessage: TemplateMessage?,
+    onMessageShown: () -> Unit,
     onDiscard: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -478,6 +580,25 @@ private fun ActiveContent(
             Text(stringResource(R.string.workout_add_exercise), fontWeight = FontWeight.Medium)
         }
 
+        templateMessage?.takeIf { it != TemplateMessage.START_FAILED }?.let { message ->
+            LaunchedEffect(message) {
+                delay(3000)
+                onMessageShown()
+            }
+            Text(
+                text = stringResource(
+                    if (message == TemplateMessage.SAVED) R.string.workout_template_saved else R.string.workout_template_save_error
+                ),
+                fontSize = 13.sp,
+                color = if (message == TemplateMessage.SAVED) colorScheme.primary else colorScheme.error,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        }
+
+        TextButton(onClick = onSaveTemplate, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+            Text(stringResource(R.string.workout_save_template), fontSize = 14.sp)
+        }
+
         TextButton(onClick = onDiscard, modifier = Modifier.align(Alignment.CenterHorizontally)) {
             Text(stringResource(R.string.workout_discard), color = colorScheme.error, fontSize = 14.sp)
         }
@@ -541,12 +662,25 @@ private fun ExerciseBlock(
         Row(verticalAlignment = Alignment.Top) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(exercise.name, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onSurface)
+                prescriptionLabel(exercise)?.let {
+                    Text(it, fontSize = 14.sp, fontWeight = FontWeight.Medium, color = colorScheme.primary)
+                }
                 val meta = listOfNotNull(
                     exercise.lastTopWeightKg?.let { stringResource(R.string.workout_last, formatNumber(it)) },
                     exercise.bestE1rmKg?.let { stringResource(R.string.workout_e1rm, formatNumber(it)) }
                 ).joinToString(" · ")
                 if (meta.isNotEmpty()) Text(meta, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
-                if (isLinkedToNext) Text("⟷", fontSize = 13.sp, color = colorScheme.primary)
+                exercise.suggestedWeightKg?.let {
+                    Text(
+                        stringResource(R.string.workout_suggested, formatNumber(it)),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = colorScheme.onSurface
+                    )
+                }
+                if (isLinkedToNext) {
+                    Text(stringResource(R.string.workout_superset), fontSize = 12.sp, color = colorScheme.tertiary)
+                }
             }
             Box {
                 Icon(
@@ -588,6 +722,7 @@ private fun ExerciseBlock(
                 SetRow(
                     number = index + 1,
                     set = set,
+                    repsHint = repsHint(exercise, index),
                     onChange = { change -> viewModel.updateSet(exercise.exerciseId, set.id, change) },
                     onToggleDone = { viewModel.toggleDone(exercise.exerciseId, set.id) },
                     onRemove = { viewModel.removeSet(exercise.exerciseId, set.id) }
@@ -601,6 +736,20 @@ private fun ExerciseBlock(
             Text(stringResource(R.string.workout_add_set))
         }
     }
+}
+
+/** "3 × 6–10 · RIR 2" for exercises that came from a template; null for ad-hoc ones. */
+@Composable
+private fun prescriptionLabel(exercise: DraftExercise): String? {
+    val min = exercise.repMin
+    val max = exercise.repMax
+    val range = when {
+        min != null && max != null && min != max -> "$min–$max"
+        else -> (max ?: min)?.toString()
+    }
+    val target = range?.let { "${exercise.sets.size} × $it" }
+    val rir = exercise.targetRir?.let { stringResource(R.string.workout_target_rir, it) }
+    return listOfNotNull(target, rir).joinToString(" · ").ifEmpty { null }
 }
 
 @Composable
@@ -620,6 +769,7 @@ private fun SetHeader() {
 private fun SetRow(
     number: Int,
     set: DraftSet,
+    repsHint: Int?,
     onChange: ((DraftSet) -> DraftSet) -> Unit,
     onToggleDone: () -> Unit,
     onRemove: () -> Unit
@@ -632,6 +782,11 @@ private fun SetRow(
     var typeMenu by remember { mutableStateOf(false) }
 
     // A weight prefilled from history arrives after the row was first composed.
+    // The done-tap can fill reps from the hint; show what will be recorded.
+    LaunchedEffect(set.reps) {
+        if (set.reps != null && set.reps.toString() != repsText) repsText = set.reps.toString()
+    }
+
     LaunchedEffect(set.weightKg) {
         val current = weightText.replace(',', '.').toDoubleOrNull()
         if (current != set.weightKg && !(weightText.isBlank() && set.weightKg == null)) {
@@ -720,6 +875,7 @@ private fun SetRow(
             },
             keyboardType = KeyboardType.Number,
             textStyle = fieldStyle,
+            placeholder = repsHint?.toString(),
             modifier = Modifier.weight(1f)
         )
 
@@ -764,7 +920,8 @@ private fun NumberField(
     onValueChange: (String) -> Unit,
     keyboardType: KeyboardType,
     textStyle: TextStyle,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    placeholder: String? = null
 ) {
     Box(
         modifier = modifier
@@ -773,6 +930,13 @@ private fun NumberField(
             .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         contentAlignment = Alignment.Center
     ) {
+        if (value.isEmpty() && placeholder != null) {
+            Text(
+                text = placeholder,
+                style = textStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
         SelectAllOnFocusTextField(
             value = value,
             onValueChange = onValueChange,
