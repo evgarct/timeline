@@ -41,6 +41,27 @@ describe("memory workout template repository", () => {
     })).rejects.toThrow("unknown_exercise");
   });
 
+  it("ignores incomplete sets when planning, so an unfinished top set cannot change the suggestion", async () => {
+    const squat = await exercises.upsertExercise(userId, { name: "Template Squat" });
+    await exercises.recordWorkoutSession(userId, {
+      occurredAt: new Date("2026-09-22T09:00:00.000Z"), timezone: "Europe/Prague", muscleGroups: ["quads"],
+      sets: [
+        { exerciseId: squat.id, setIndex: 1, reps: 8, weightKg: 100 },
+        { exerciseId: squat.id, setIndex: 2, reps: 8, weightKg: 100 },
+        { exerciseId: squat.id, setIndex: 3, reps: 3, weightKg: 120, completed: false }
+      ]
+    });
+    const template = await templates.upsertTemplate(userId, {
+      name: "Squat day",
+      exercises: [{ exerciseId: squat.id, repMin: 5, repMax: 8, progression: { type: "double", incrementKg: 5 } }]
+    });
+
+    const plan = await templates.planTemplate(userId, template.id);
+    expect(plan?.exercises[0].lastSets).toEqual([{ reps: 8, weightKg: 100 }, { reps: 8, weightKg: 100 }]);
+    expect(plan?.exercises[0].suggestion).toEqual({ weightKg: 105, reason: "increase" });
+    expect((await exercises.getExerciseHistory(userId, squat.id)).bestSet?.weightKg).toBe(100);
+  });
+
   it("hides archived templates by default and deletes", async () => {
     const lift = await exercises.upsertExercise(userId, { name: "Template Row" });
     const template = await templates.upsertTemplate(userId, { name: "Pull B", exercises: [{ exerciseId: lift.id }] });
