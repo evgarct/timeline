@@ -239,6 +239,9 @@ fun TimelineScreen(
                         is TimelineEvent.InBody -> {
                             TimelineInBodyItem(event = event)
                         }
+                        is TimelineEvent.Workout -> {
+                            TimelineWorkoutItem(event = event)
+                        }
                         else -> Unit
                     }
                 }

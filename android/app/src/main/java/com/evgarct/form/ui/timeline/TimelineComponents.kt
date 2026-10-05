@@ -37,6 +37,7 @@ import coil.compose.AsyncImage
 import com.evgarct.form.R
 import com.evgarct.form.data.models.TimelineEvent
 import java.text.SimpleDateFormat
+import com.evgarct.form.ui.workout.muscleLabel
 import java.util.Locale
 
 @Composable
@@ -346,5 +347,51 @@ fun TimelineInBodyItem(event: TimelineEvent.InBody) {
                 }
             }
         }
+    }
+}
+
+/** A logged strength session: date, and the muscles it trained. Sets live in the Train tab's history. */
+@Composable
+fun TimelineWorkoutItem(event: TimelineEvent.Workout) {
+    val dateText = formatEventDate(event.occurredAt, event.timezone)
+    val muscles = event.muscleGroups.map { muscleLabel(it) }.joinToString(" · ")
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = Icons.Default.FitnessCenter,
+                    contentDescription = null,
+                    tint = Color.White.copy(alpha = 0.6f),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(R.string.timeline_event_workout),
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.White
+                )
+            }
+            Text(text = dateText, fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
+        }
+        if (muscles.isNotEmpty()) {
+            Text(text = muscles, fontSize = 14.sp, color = Color.White.copy(alpha = 0.7f))
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(Color.White.copy(alpha = 0.08f))
+        )
     }
 }

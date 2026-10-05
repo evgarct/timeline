@@ -281,6 +281,7 @@
     <string name="muscle_hip_flexors">Сгибатели бедра</string>
     <string name="muscle_serratus">Зубчатые</string>
     <string name="muscle_other">Другое</string>
+    <string name="timeline_event_workout">Тренировка</string>
     <string name="workout_templates_title">Шаблоны</string>
     <string name="workout_template_exercises">%1$d упр.</string>
     <string name="workout_template_start_error">Не удалось начать по шаблону</string>
