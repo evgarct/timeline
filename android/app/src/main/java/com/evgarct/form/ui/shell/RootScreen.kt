@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.DirectionsWalk
 import androidx.compose.material.icons.automirrored.rounded.ShowChart
+import androidx.compose.material.icons.rounded.FitnessCenter
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.Restaurant
@@ -25,8 +26,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.evgarct.form.FormApp
+import com.evgarct.form.R
 import com.evgarct.form.data.models.FoodEntry
 import com.evgarct.form.data.models.MealType
 import com.evgarct.form.data.models.NutrientValue
@@ -44,13 +47,14 @@ import com.evgarct.form.ui.nutrition.ProductSearchSheet
 import com.evgarct.form.ui.nutrition.QuantityEditorSheet
 import com.evgarct.form.ui.settings.SettingsSheet
 import com.evgarct.form.ui.timeline.MeasurementEditorSheet
+import com.evgarct.form.ui.workout.WorkoutScreen
 import com.evgarct.form.ui.timeline.TimelineScreen
 import com.evgarct.form.ui.today.PhotoGallerySheet
 import com.evgarct.form.ui.today.TodayScreen
 import kotlinx.coroutines.launch
 import java.util.Date
 
-enum class AppTab { TODAY, ACTIVITY, NUTRITION, TIMELINE, EXPORT }
+enum class AppTab { TODAY, ACTIVITY, NUTRITION, WORKOUT, TIMELINE, EXPORT }
 
 @Composable
 fun RootScreen(
@@ -108,6 +112,12 @@ fun RootScreen(
                     label = { Text("Nutrition") }
                 )
                 NavigationBarItem(
+                    selected = selectedTab == AppTab.WORKOUT,
+                    onClick = { selectedTab = AppTab.WORKOUT },
+                    icon = { Icon(Icons.Rounded.FitnessCenter, contentDescription = stringResource(R.string.nav_workout)) },
+                    label = { Text(stringResource(R.string.nav_workout)) }
+                )
+                NavigationBarItem(
                     selected = selectedTab == AppTab.TIMELINE,
                     onClick = { selectedTab = AppTab.TIMELINE },
                     icon = { Icon(Icons.AutoMirrored.Rounded.ShowChart, contentDescription = "Timeline") },
@@ -149,6 +159,9 @@ fun RootScreen(
                         onOpenAddProduct = { meal, d -> activeAddProduct = AddProductState(meal, d) },
                         onOpenEntryEditor = { activeEntryEditor = it }
                     )
+                }
+                AppTab.WORKOUT -> {
+                    WorkoutScreen()
                 }
                 AppTab.TIMELINE -> {
                     TimelineScreen(

@@ -18,6 +18,9 @@ import com.evgarct.form.data.repository.AuthRepository
 import com.evgarct.form.data.repository.HealthConnectRepository
 import com.evgarct.form.data.repository.NutritionRepository
 import com.evgarct.form.data.repository.TimelineRepository
+import com.evgarct.form.data.repository.WorkoutRepository
+import com.evgarct.form.data.workout.WorkoutDraftStore
+import com.evgarct.form.work.WorkoutSyncWorker
 import com.evgarct.form.work.ActivitySyncWorker
 import com.evgarct.form.work.NutritionSyncWorker
 import java.time.LocalDateTime
@@ -43,6 +46,8 @@ class FormApp : Application() {
         private set
     lateinit var activityRepository: ActivityRepository
         private set
+    lateinit var workoutRepository: WorkoutRepository
+        private set
 
     val nutritionCache: NutritionCache by lazy { NutritionCache(nutritionRepository, appPreferences) }
     val activityCache: ActivityCache by lazy { ActivityCache(healthConnectRepository, appPreferences) }
@@ -60,9 +65,12 @@ class FormApp : Application() {
         healthConnectRepository = HealthConnectRepository(this)
         nutritionRepository = NutritionRepository(apiClient, healthConnectRepository, appPreferences)
         activityRepository = ActivityRepository(apiClient)
+        workoutRepository = WorkoutRepository(apiClient, WorkoutDraftStore(this))
 
         scheduleActivitySync()
         scheduleNutritionSync()
+        // A workout finished offline (or before a crash) is uploaded as soon as a connection exists.
+        if (workoutRepository.draftStore.pending().isNotEmpty()) WorkoutSyncWorker.enqueue(this)
     }
 
     private fun scheduleActivitySync() {
