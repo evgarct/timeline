@@ -8,6 +8,15 @@ export const normalizeExerciseText = normalizeProductText;
 export const movementPatterns = ["squat", "hinge", "push", "pull", "lunge", "carry", "core", "other"] as const;
 export const setTypes = ["working", "warmup", "drop"] as const;
 
+export function isValidTimeZone(value: string) {
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export const externalRefSchema = z.object({
   source: z.string().trim().min(1).max(60),
   id: z.string().trim().min(1).max(200)
@@ -52,7 +61,7 @@ export type SetInput = z.infer<typeof setInputSchema>;
 export const recordWorkoutSessionInputSchema = z.object({
   eventId: z.string().uuid().optional(),
   occurredAt: z.coerce.date(),
-  timezone: z.string().min(1),
+  timezone: z.string().min(1).refine(isValidTimeZone, "invalid_timezone"),
   muscleGroups: z.array(z.string().trim().min(1)).min(1).max(8),
   note: z.string().max(2000).optional(),
   sets: z.array(setInputSchema).min(1),

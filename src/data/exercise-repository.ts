@@ -7,6 +7,7 @@ import { events, exercises, workoutSets } from "@/db/schema";
 import {
   exerciseInputSchema,
   estimateOneRepMaxKg,
+  isValidTimeZone,
   exerciseSchema,
   normalizeExerciseText,
   recordWorkoutSessionInputSchema,
@@ -117,7 +118,8 @@ export async function upsertExercise(userId: string, rawInput: ExerciseInput) {
     existing = await getExerciseByExternalRef(userId, input.externalRef.source, input.externalRef.id);
   }
   if (!existing && !input.externalRef) {
-    const result = await searchExercises(userId, input.name, 1, 20);
+    // Archived exercises still count: re-submitting an archived name must reuse it, not fork its history.
+    const result = await searchExercises(userId, input.name, 1, 20, true);
     const exact = result.items.filter((exercise) => normalizeExerciseText(exercise.name) === normalizedName);
     if (exact.length > 1) throw new Error("ambiguous_exercise");
     existing = exact[0];
@@ -125,6 +127,8 @@ export async function upsertExercise(userId: string, rawInput: ExerciseInput) {
 
   const exercise = exerciseSchema.parse({
     ...input,
+    // Legacy clients only send muscleGroups; keep the canonical field populated for per-muscle analytics.
+    primaryMuscles: input.primaryMuscles ?? input.muscleGroups,
     id: existing?.id ?? randomUUID(),
     createdAt: existing?.createdAt ?? now,
     updatedAt: now
@@ -406,9 +410,10 @@ export interface ExerciseHistory {
   recentSessions: ExerciseHistoryEntry[];
 }
 
+// A malformed stored timezone must not make a whole history endpoint throw: fall back to UTC.
 function dateKey(date: Date, timezone: string) {
   return new Intl.DateTimeFormat("en-CA", {
-    timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit"
+    timeZone: isValidTimeZone(timezone) ? timezone : "UTC", year: "numeric", month: "2-digit", day: "2-digit"
   }).format(date);
 }
 
