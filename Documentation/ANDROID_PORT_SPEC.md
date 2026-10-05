@@ -146,7 +146,7 @@ Full-screen version of the same archive embedded in Today — **must render iden
 - **Progress-photo events** → a tall photo card (title "Photo session", date, photo-count badge) — tapping opens the read-only Photo Gallery.
 - **Measurement events** → a card with the weight headline + delta, and a grid of every other populated measurement (chest, waist, abdomen, arm — relaxed & flexed, forearm, hips, thigh, calf), each showing its own delta vs. the previous measurement event. Note: the backend stores separate left/right values for bicep/thigh/calf/neck, but **the app currently shows only one shared "arm"/"thigh"/"calf" figure** (left-side values), entered as one combined field in the editor — decide deliberately whether to keep this simplification or expose left/right separately on Android.
 - **InBody events** → shown only as a generic row (icon + "InBody" + time) — **no metrics are displayed**, even though the backend stores rich InBody data (see §8). This is a genuine gap in the iOS app, not an intentional simplification — worth deciding whether to fix it in the Android version.
-- **Workout events and nutrition-log events do not appear in this archive at all** — workouts only ever surface inside the Activity Detail screen (from HealthKit, not from a Timeline event), and nutrition entries only live in the Nutrition tab.
+- **Nutrition-log events do not appear in this archive** — nutrition entries only live in the Nutrition tab. **Workout events: not shown on iOS** (workouts surface inside the Activity Detail screen from HealthKit), **but the Android app does show them** as a Timeline row (date in the event's own timezone + the trained muscles); the sets live in the Train tab (see `FEATURES/Workouts.md`).
 - Empty state: a simple "no events yet" message.
 
 **Measurement Editor (add measurements, "+"):**
@@ -171,7 +171,7 @@ Common base fields on every event: `id: string`, `occurredAt: datetime`, `timezo
 
 - **`progress_photo`** → `photos: [{ id, assetId?, url?, thumbnailUrl?, width?, height?, alt }]`
 - **`measurements`** → all fields optional numbers (cm unless noted): `weightKg, waistCm, abdomenCm, chestCm, neckCm, hipsCm, forearmCm, leftBicepCm, rightBicepCm, leftBicepFlexedCm, rightBicepFlexedCm, leftThighCm, rightThighCm, leftCalfCm, rightCalfCm`
-- **`workout`** → `completed: bool, muscleGroups: [string]` (not shown as a Timeline row on iOS — HealthKit is the actual source of workout display data)
+- **`workout`** → `completed: bool, muscleGroups: [string]` (not shown as a Timeline row on iOS — HealthKit is the actual source of workout display data; Android renders it as a row, see `FEATURES/Workouts.md`)
 - **`inbody`** → on iOS, no fields beyond the base event are decoded/shown. The backend's actual schema is richer (see §8).
 - **`nutrition_entry`** → carries a `FoodEntryPayload` (see below) — filtered out of the visible archive on iOS.
 - **`unsupported`** (client-side catch-all) → any event `type` the client doesn't recognize is preserved with just its base fields + the raw type string, so older app versions don't crash on new server event types. **Recommend the Android client implement the same forward-compatibility pattern.**

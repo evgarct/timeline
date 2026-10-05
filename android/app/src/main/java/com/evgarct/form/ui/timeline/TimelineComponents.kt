@@ -353,13 +353,7 @@ fun TimelineInBodyItem(event: TimelineEvent.InBody) {
 /** A logged strength session: date, and the muscles it trained. Sets live in the Train tab's history. */
 @Composable
 fun TimelineWorkoutItem(event: TimelineEvent.Workout) {
-    val dateText = try {
-        val parser = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US)
-        val date = parser.parse(event.occurredAt.take(19))
-        SimpleDateFormat("d MMMM yyyy", Locale.getDefault()).format(date ?: java.util.Date())
-    } catch (e: Exception) {
-        event.occurredAt.take(10)
-    }
+    val dateText = formatEventDate(event.occurredAt, event.timezone)
     val muscles = event.muscleGroups.map { muscleLabel(it) }.joinToString(" · ")
 
     Column(
