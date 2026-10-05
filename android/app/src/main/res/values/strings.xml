@@ -242,8 +242,6 @@
     <string name="workout_set_working">Working set</string>
     <string name="workout_set_warmup">Warm-up</string>
     <string name="workout_set_drop">Drop set</string>
-    <string name="workout_rest">Rest</string>
-    <string name="workout_rest_skip">Skip</string>
     <string name="workout_last">Last %1$s kg</string>
     <string name="workout_e1rm">e1RM %1$s kg</string>
     <string name="workout_search_hint">Search exercises</string>
@@ -292,4 +290,12 @@
     <string name="workout_target_rir">RIR %1$d</string>
     <string name="workout_suggested">Suggested %1$s kg</string>
     <string name="workout_start_empty">Start an empty workout</string>
+    <string name="workout_feedback_title">How did it go?</string>
+    <string name="workout_feedback_exertion">Workout difficulty</string>
+    <string name="workout_feedback_easy">1 · very easy</string>
+    <string name="workout_feedback_hard">5 · very hard</string>
+    <string name="workout_feedback_mood">How you feel</string>
+    <string name="workout_feedback_note">Notes (optional)</string>
+    <string name="workout_feedback_finish">Finish workout</string>
+    <string name="workout_feedback_exertion_value">Difficulty %1$d/5</string>
 </resources>

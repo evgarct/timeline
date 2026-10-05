@@ -127,7 +127,9 @@ sealed class TimelineEvent {
         override val timezone: String,
         override val note: String?,
         val completed: Boolean,
-        val muscleGroups: List<String>
+        val muscleGroups: List<String>,
+        val exertion: Int? = null,
+        val mood: String? = null
     ) : TimelineEvent()
 
     data class NutritionEntry(
@@ -215,7 +217,9 @@ object TimelineEventSerializer : KSerializer<TimelineEvent> {
             "workout" -> {
                 val completed = root["completed"]?.jsonPrimitive?.booleanOrNull ?: false
                 val muscleGroups = root["muscleGroups"]?.jsonArray?.mapNotNull { it.jsonPrimitive.contentOrNull } ?: emptyList()
-                TimelineEvent.Workout(id, occurredAt, timezone, note, completed, muscleGroups)
+                val exertion = root["exertion"]?.jsonPrimitive?.intOrNull
+                val mood = root["mood"]?.jsonPrimitive?.contentOrNull
+                TimelineEvent.Workout(id, occurredAt, timezone, note, completed, muscleGroups, exertion, mood)
             }
             "nutrition_entry" -> {
                 TimelineEvent.NutritionEntry(id, occurredAt, timezone, note)

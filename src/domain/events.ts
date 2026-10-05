@@ -36,7 +36,10 @@ export const progressPhotoEventSchema = baseEventSchema.extend({
 export const workoutEventSchema = baseEventSchema.extend({
   type: z.literal("workout"),
   completed: z.boolean(),
-  muscleGroups: z.array(z.string().min(1)).min(1).max(8)
+  muscleGroups: z.array(z.string().min(1)).min(1).max(8),
+  // How the session felt, entered at the end: effort 1 (very easy) to 5 (very hard), and mood.
+  exertion: z.number().int().min(1).max(5).optional(),
+  mood: z.enum(["bad", "ok", "good"]).optional()
 });
 
 export const measurementsEventSchema = baseEventSchema.extend({

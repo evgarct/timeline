@@ -20,7 +20,7 @@ describe("memory workout template repository", () => {
     const bench = await exercises.upsertExercise(userId, { name: "Template Bench" });
     const created = await templates.upsertTemplate(userId, {
       name: "Push A",
-      exercises: [{ exerciseId: bench.id, sets: 3, repMin: 6, repMax: 10, targetRir: 2, restSeconds: 150 }]
+      exercises: [{ exerciseId: bench.id, sets: 3, repMin: 6, repMax: 10, targetRir: 2 }]
     });
     const reused = await templates.upsertTemplate(userId, {
       name: "push a",

@@ -5,6 +5,7 @@ import com.evgarct.form.data.models.DraftSet
 import com.evgarct.form.data.models.TemplateExerciseDto
 import com.evgarct.form.data.models.TemplatePlan
 import com.evgarct.form.data.models.WorkoutDraft
+import com.evgarct.form.data.models.WorkoutFeedback
 import com.evgarct.form.data.models.WorkoutTemplateRequest
 import com.evgarct.form.data.models.WorkoutSessionRequest
 import com.evgarct.form.data.models.WorkoutSetDto
@@ -52,7 +53,7 @@ fun WorkoutDraft.muscleGroups(): List<String> {
  * because the server orders a session's sets by index — this keeps exercise order intact.
  * Returns null when nothing was actually done.
  */
-fun WorkoutDraft.toRequest(): WorkoutSessionRequest? {
+fun WorkoutDraft.toRequest(feedback: WorkoutFeedback = WorkoutFeedback()): WorkoutSessionRequest? {
     var index = 0
     val sets = exercises.flatMap { exercise: DraftExercise ->
         exercise.sets.filter { it.isRecordable() }.map { set ->
@@ -74,6 +75,9 @@ fun WorkoutDraft.toRequest(): WorkoutSessionRequest? {
         occurredAt = Instant.ofEpochMilli(startedAtMillis).toString(),
         timezone = timezone,
         muscleGroups = muscleGroups(),
+        note = feedback.note?.trim()?.ifEmpty { null },
+        exertion = feedback.exertion?.coerceIn(1, 5),
+        mood = feedback.mood,
         sets = sets,
         idempotencyKey = "android-workout:$id"
     )
@@ -102,7 +106,6 @@ fun TemplatePlan.toDraft(
             repMin = planned.repMin,
             repMax = planned.repMax,
             targetRir = planned.targetRir,
-            restSeconds = planned.restSeconds,
             suggestedWeightKg = planned.suggestion.weightKg,
             progression = planned.progression
         )
@@ -111,7 +114,7 @@ fun TemplatePlan.toDraft(
 
 /**
  * Saves what the lifter actually did as a reusable template. A prescription that came from a
- * template (rep range, RIR, rest, progression) is kept as is; for ad-hoc exercises the rep range is
+ * template (rep range, RIR, progression) is kept as is; for ad-hoc exercises the rep range is
  * derived from the logged sets. Warm-ups never count toward the set total.
  */
 fun WorkoutDraft.toTemplateRequest(name: String): WorkoutTemplateRequest? {
@@ -130,7 +133,6 @@ fun WorkoutDraft.toTemplateRequest(name: String): WorkoutTemplateRequest? {
                 repMin = exercise.repMin ?: reps.minOrNull(),
                 repMax = exercise.repMax ?: reps.maxOrNull(),
                 targetRir = exercise.targetRir,
-                restSeconds = exercise.restSeconds,
                 groupId = exercise.sets.firstNotNullOfOrNull { it.groupId },
                 progression = exercise.progression
             )

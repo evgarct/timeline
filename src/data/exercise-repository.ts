@@ -282,7 +282,8 @@ export async function recordWorkoutSession(userId: string, rawInput: RecordWorko
     if (existingEvent && existingEvent.type === "workout") {
       const sets = await getSetsForEvent(userId, existingEvent.id);
       return summarizeSession(
-        existingEvent.id, existingEvent.occurredAt, existingEvent.timezone, existingEvent.muscleGroups, sets, existingEvent.note
+        existingEvent.id, existingEvent.occurredAt, existingEvent.timezone, existingEvent.muscleGroups, sets, existingEvent.note,
+        { exertion: existingEvent.exertion, mood: existingEvent.mood }
       );
     }
   }
@@ -297,7 +298,9 @@ export async function recordWorkoutSession(userId: string, rawInput: RecordWorko
     timezone: input.timezone,
     note: input.note,
     completed: true,
-    muscleGroups: input.muscleGroups
+    muscleGroups: input.muscleGroups,
+    exertion: input.exertion,
+    mood: input.mood
   });
   const setRows = buildSetRows(userId, eventId, input.sets, input.occurredAt);
   const sets = setRows.map((row) => setFromRow(row));
@@ -305,7 +308,7 @@ export async function recordWorkoutSession(userId: string, rawInput: RecordWorko
   if (useMemory || !database) {
     memoryWorkoutEvents.unshift({ ...workoutEvent, userId, idempotencyKey: input.idempotencyKey });
     for (const set of sets) memorySets.push({ ...set, userId, eventId });
-    return summarizeSession(eventId, input.occurredAt, input.timezone, input.muscleGroups, sets, input.note);
+    return summarizeSession(eventId, input.occurredAt, input.timezone, input.muscleGroups, sets, input.note, { exertion: input.exertion, mood: input.mood });
   }
 
   const db = database;
@@ -317,7 +320,7 @@ export async function recordWorkoutSession(userId: string, rawInput: RecordWorko
     ...setRows.map((row) => db.insert(workoutSets).values(row))
   ];
   await db.batch(statements as unknown as Parameters<typeof db.batch>[0]);
-  return summarizeSession(eventId, input.occurredAt, input.timezone, input.muscleGroups, sets, input.note);
+  return summarizeSession(eventId, input.occurredAt, input.timezone, input.muscleGroups, sets, input.note, { exertion: input.exertion, mood: input.mood });
 }
 
 function removeMemorySets(userId: string, eventId: string) {
@@ -335,7 +338,8 @@ export async function replaceWorkoutSession(userId: string, eventId: string, raw
 
   const workoutEvent = workoutEventSchema.parse({
     id: eventId, type: "workout", occurredAt: input.occurredAt, timezone: input.timezone,
-    note: input.note, completed: true, muscleGroups: input.muscleGroups
+    note: input.note, completed: true, muscleGroups: input.muscleGroups,
+    exertion: input.exertion, mood: input.mood
   });
   const setRows = buildSetRows(userId, eventId, input.sets, input.occurredAt);
   const sets = setRows.map((row) => setFromRow(row));
@@ -345,7 +349,7 @@ export async function replaceWorkoutSession(userId: string, eventId: string, raw
     memoryWorkoutEvents[index] = { ...workoutEvent, userId, idempotencyKey: memoryWorkoutEvents[index].idempotencyKey };
     removeMemorySets(userId, eventId);
     for (const set of sets) memorySets.push({ ...set, userId, eventId });
-    return summarizeSession(eventId, input.occurredAt, input.timezone, input.muscleGroups, sets, input.note);
+    return summarizeSession(eventId, input.occurredAt, input.timezone, input.muscleGroups, sets, input.note, { exertion: input.exertion, mood: input.mood });
   }
 
   const db = database;
@@ -358,14 +362,17 @@ export async function replaceWorkoutSession(userId: string, eventId: string, raw
     ...setRows.map((row) => db.insert(workoutSets).values(row))
   ];
   await db.batch(statements as unknown as Parameters<typeof db.batch>[0]);
-  return summarizeSession(eventId, input.occurredAt, input.timezone, input.muscleGroups, sets, input.note);
+  return summarizeSession(eventId, input.occurredAt, input.timezone, input.muscleGroups, sets, input.note, { exertion: input.exertion, mood: input.mood });
 }
 
 export async function getWorkoutSession(userId: string, eventId: string) {
   const event = await getWorkoutEvent(userId, eventId);
   if (!event || event.type !== "workout") return undefined;
   const sets = await getSetsForEvent(userId, eventId);
-  return summarizeSession(event.id, event.occurredAt, event.timezone, event.muscleGroups, sets, event.note);
+  return summarizeSession(
+    event.id, event.occurredAt, event.timezone, event.muscleGroups, sets, event.note,
+    { exertion: event.exertion, mood: event.mood }
+  );
 }
 
 // Deleting the event cascades to workout_sets in the database (FK on delete cascade); memory mode
@@ -384,13 +391,14 @@ export async function deleteWorkoutSession(userId: string, eventId: string) {
 }
 
 function summarizeSession(
-  eventId: string, occurredAt: Date, timezone: string, muscleGroups: string[], sets: WorkoutSet[], note?: string
+  eventId: string, occurredAt: Date, timezone: string, muscleGroups: string[], sets: WorkoutSet[], note?: string,
+  feedback: { exertion?: number; mood?: string } = {}
 ) {
   const working = sets.filter((set) => set.setType !== "warmup");
   const tonnageKg = working.reduce((total, set) => total + (set.weightKg ?? 0) * (set.reps ?? 0), 0);
   const exerciseCount = new Set(sets.map((set) => set.exerciseId)).size;
   return {
-    eventId, occurredAt, timezone, muscleGroups, note, sets,
+    eventId, occurredAt, timezone, muscleGroups, note, exertion: feedback.exertion, mood: feedback.mood, sets,
     summary: { setCount: sets.length, exerciseCount, tonnageKg: Math.round(tonnageKg * 10) / 10 }
   };
 }
@@ -572,6 +580,8 @@ export interface RecentWorkoutSession {
   timezone: string;
   muscleGroups: string[];
   note?: string;
+  exertion?: number;
+  mood?: string;
   exercises: Array<{ exerciseId: string; name: string; sets: WorkoutForDateExercise["sets"] }>;
   summary: { setCount: number; exerciseCount: number; tonnageKg: number };
 }
@@ -627,6 +637,8 @@ export async function listRecentWorkoutSessions(userId: string, limit = 20): Pro
       timezone: event.timezone,
       muscleGroups: event.muscleGroups,
       note: event.note,
+      exertion: event.exertion,
+      mood: event.mood,
       exercises: [...byExercise.entries()].map(([exerciseId, exerciseSets]) => ({
         exerciseId,
         name: names.get(exerciseId) ?? "Unknown exercise",

@@ -25,6 +25,7 @@ import com.evgarct.form.data.models.RecentWorkoutSession
 import com.evgarct.form.data.models.SessionSummary
 import com.evgarct.form.data.models.TemplateExerciseDto
 import com.evgarct.form.data.models.WorkoutDraft
+import com.evgarct.form.data.models.WorkoutFeedback
 import com.evgarct.form.data.models.WorkoutTemplate
 import com.evgarct.form.data.models.WorkoutSetDto
 import com.evgarct.form.ui.shell.RootScreen
@@ -85,9 +86,9 @@ class WorkoutScreenshotTest {
         rule.setContent { FormTheme { WorkoutScreen() } }
         save("active")
 
-        // Completing a working set starts the rest countdown.
+        // Completing a working set only marks it done (there is no rest timer).
         rule.onAllNodesWithContentDescription("Set done")[2].performClick()
-        save("active-rest")
+        save("active-done")
     }
 
     @Test
@@ -163,7 +164,7 @@ class WorkoutScreenshotTest {
                     DraftExercise(
                         exerciseId = "ex-bench", name = "Barbell Bench Press", primaryMuscles = listOf("chest"),
                         lastTopWeightKg = 80.0, bestE1rmKg = 107.0, lastReps = listOf(9, 8), repMin = 6, repMax = 10, targetRir = 2,
-                        restSeconds = 150, suggestedWeightKg = 82.5,
+                        suggestedWeightKg = 82.5,
                         sets = List(3) { DraftSet("b$it", weightKg = 82.5, groupId = "g1") }
                     ),
                     DraftExercise(
@@ -176,5 +177,20 @@ class WorkoutScreenshotTest {
         )
         rule.setContent { FormTheme { WorkoutScreen() } }
         save("active-template")
+    }
+
+    @Test
+    fun finishFeedbackForm() {
+        rule.setContent {
+            FormTheme {
+                Column(modifier = Modifier.padding(top = 24.dp)) {
+                    FinishFeedbackForm(
+                        onConfirm = {},
+                        initial = WorkoutFeedback(exertion = 4, mood = "good", note = "Плечо немного тянуло")
+                    )
+                }
+            }
+        }
+        save("feedback")
     }
 }

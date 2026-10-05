@@ -8,6 +8,7 @@ import com.evgarct.form.data.models.PlannedExerciseDto
 import com.evgarct.form.data.models.ProgressionRule
 import com.evgarct.form.data.models.TemplatePlan
 import com.evgarct.form.data.models.WorkoutDraft
+import com.evgarct.form.data.models.WorkoutFeedback
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -91,7 +92,7 @@ class WorkoutMathTest {
             exercises = listOf(
                 PlannedExerciseDto(
                     exerciseId = "bench", name = "Bench Press", primaryMuscles = listOf("chest"), sets = 3,
-                    repMin = 6, repMax = 10, targetRir = 2, restSeconds = 150, groupId = "g1",
+                    repMin = 6, repMax = 10, targetRir = 2, groupId = "g1",
                     progression = ProgressionRule("double", 2.5),
                     lastSets = listOf(LastSetDto(10, 80.0), LastSetDto(9, 80.0)),
                     suggestion = LoadSuggestion(82.5, "increase")
@@ -109,7 +110,6 @@ class WorkoutMathTest {
         assertEquals(82.5, bench.sets[0].weightKg!!, 0.001)
         assertEquals("g1", bench.sets[2].groupId)
         assertEquals(80.0, bench.lastTopWeightKg!!, 0.001)
-        assertEquals(150, bench.restSeconds)
         assertEquals(1, draft.exercises[1].sets.size)
         assertNull(draft.exercises[1].sets[0].weightKg)
     }
@@ -118,7 +118,7 @@ class WorkoutMathTest {
     fun savingATemplateKeepsPrescriptionAndDerivesRepsForAdHocExercises() {
         val request = draft(
             DraftExercise(
-                "bench", "Bench", repMin = 6, repMax = 10, targetRir = 2, restSeconds = 150,
+                "bench", "Bench", repMin = 6, repMax = 10, targetRir = 2,
                 progression = ProgressionRule("double", 2.5),
                 sets = listOf(
                     DraftSet("w", reps = 12, weightKg = 40.0, setType = "warmup", done = true),
@@ -186,5 +186,22 @@ class WorkoutMathTest {
             exercise.copy(sets = exercise.sets.map { it.copy(reps = 8, done = true) })
         })
         assertEquals(80.0, withDone.toTemplateRequest("Push")!!.exercises[0].weightKg!!, 0.001)
+    }
+
+    @Test
+    fun feedbackGoesIntoTheRequestAndIsOptional() {
+        val done = draft(DraftExercise("squat", "Squat", listOf("quads"), listOf(DraftSet("a", reps = 5, weightKg = 100.0, done = true))))
+
+        val plain = done.toRequest()!!
+        assertNull(plain.note)
+        assertNull(plain.exertion)
+        assertNull(plain.mood)
+
+        val withFeedback = done.toRequest(WorkoutFeedback(exertion = 9, mood = "good", note = "  колено немного ныло  "))!!
+        assertEquals(5, withFeedback.exertion) // clamped to the 1..5 scale
+        assertEquals("good", withFeedback.mood)
+        assertEquals("колено немного ныло", withFeedback.note)
+
+        assertNull(done.toRequest(WorkoutFeedback(note = "   "))!!.note)
     }
 }

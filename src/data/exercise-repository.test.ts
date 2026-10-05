@@ -244,6 +244,41 @@ describe("memory exercise repository", () => {
     expect((await repository.getMuscleVolume("nobody", 1))[0].sets).toEqual({});
   });
 
+  it("stores end-of-session feedback (exertion 1-5, mood, free text) and returns it everywhere", async () => {
+    const owner = "feedback-owner";
+    const lift = await repository.upsertExercise(owner, { name: "Feedback Press" });
+    const input = {
+      occurredAt: new Date("2026-10-04T09:00:00.000Z"), timezone: "Europe/Prague", muscleGroups: ["chest"],
+      note: "Плечо немного тянуло, последний подход тяжело",
+      exertion: 4, mood: "good" as const,
+      sets: [{ exerciseId: lift.id, setIndex: 1, reps: 8, weightKg: 60 }],
+      idempotencyKey: "feedback-1"
+    };
+    const first = await repository.recordWorkoutSession(owner, input);
+    expect(first).toMatchObject({ note: input.note, exertion: 4, mood: "good" });
+
+    // retry returns the stored feedback even if the retry body differs
+    const retry = await repository.recordWorkoutSession(owner, { ...input, exertion: 1, mood: "bad" as const });
+    expect(retry).toMatchObject({ eventId: first.eventId, exertion: 4, mood: "good" });
+
+    expect(await repository.getWorkoutSession(owner, first.eventId)).toMatchObject({ exertion: 4, mood: "good", note: input.note });
+    expect((await repository.listRecentWorkoutSessions(owner))[0]).toMatchObject({ exertion: 4, mood: "good", note: input.note });
+
+    const replaced = await repository.replaceWorkoutSession(owner, first.eventId, { ...input, exertion: 2, mood: "ok" as const });
+    expect(replaced).toMatchObject({ exertion: 2, mood: "ok" });
+  });
+
+  it("rejects out-of-range exertion and unknown moods", async () => {
+    const lift = await repository.upsertExercise(userId, { name: "Feedback Validation Lift" });
+    const base = {
+      occurredAt: new Date("2026-10-04T09:00:00.000Z"), timezone: "Europe/Prague", muscleGroups: ["chest"],
+      sets: [{ exerciseId: lift.id, setIndex: 1, reps: 5, weightKg: 50 }]
+    };
+    await expect(repository.recordWorkoutSession(userId, { ...base, exertion: 6 })).rejects.toThrow();
+    await expect(repository.recordWorkoutSession(userId, { ...base, exertion: 0 })).rejects.toThrow();
+    await expect(repository.recordWorkoutSession(userId, { ...base, mood: "great" as never })).rejects.toThrow();
+  });
+
   it("archives exercises out of search by default", async () => {
     const exercise = await repository.upsertExercise(userId, { name: "Zercher Squat" });
     await repository.upsertExercise(userId, { id: exercise.id, name: "Zercher Squat", isArchived: true });

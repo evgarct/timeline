@@ -5,6 +5,7 @@ import com.evgarct.form.data.models.DraftSet
 import com.evgarct.form.data.models.ProgressionRule
 import com.evgarct.form.data.models.TemplateExerciseDto
 import com.evgarct.form.data.models.WorkoutDraft
+import com.evgarct.form.data.models.WorkoutFeedback
 import com.evgarct.form.data.models.WorkoutTemplateRequest
 import kotlinx.serialization.json.Json
 import org.junit.Test
@@ -38,7 +39,10 @@ class ContractRequestsTest {
             )
         )
         File(dir, "workout-request.json").writeText(
-            requestJson.encodeToString(com.evgarct.form.data.models.WorkoutSessionRequest.serializer(), draft.toRequest()!!)
+            requestJson.encodeToString(
+                com.evgarct.form.data.models.WorkoutSessionRequest.serializer(),
+                draft.toRequest(WorkoutFeedback(exertion = 4, mood = "good", note = "Контракт: плечо немного тянуло"))!!
+            )
         )
 
         val template = WorkoutTemplateRequest(
@@ -46,7 +50,7 @@ class ContractRequestsTest {
             exercises = listOf(
                 TemplateExerciseDto(
                     exerciseId = "__SQUAT__", sets = 3, weightKg = 100.0, repMin = 6, repMax = 8, targetRir = 2,
-                    restSeconds = 120, progression = ProgressionRule("double", 2.5)
+                    progression = ProgressionRule("double", 2.5)
                 )
             )
         )
