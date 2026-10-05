@@ -5,6 +5,9 @@ import { normalizeProductText } from "./nutrition";
 // reuse it directly rather than duplicating.
 export const normalizeExerciseText = normalizeProductText;
 
+export const movementPatterns = ["squat", "hinge", "push", "pull", "lunge", "carry", "core", "other"] as const;
+export const setTypes = ["working", "warmup", "drop"] as const;
+
 export const externalRefSchema = z.object({
   source: z.string().trim().min(1).max(60),
   id: z.string().trim().min(1).max(200)
@@ -14,6 +17,11 @@ export const exerciseInputSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(200),
   muscleGroups: z.array(z.string().trim().min(1)).max(8).optional(),
+  primaryMuscles: z.array(z.string().trim().min(1)).max(8).optional(),
+  secondaryMuscles: z.array(z.string().trim().min(1)).max(12).optional(),
+  movementPattern: z.enum(movementPatterns).optional(),
+  equipment: z.string().trim().min(1).max(60).optional(),
+  isArchived: z.boolean().default(false),
   searchAliases: z.array(z.string().trim().min(1).max(120)).max(20).default([]),
   externalRef: externalRefSchema.optional()
 });
@@ -32,7 +40,11 @@ export const setInputSchema = z.object({
   setIndex: z.number().int().min(1),
   reps: z.number().int().min(0).optional(),
   weightKg: z.number().min(0).optional(),
-  completed: z.boolean().default(true)
+  completed: z.boolean().default(true),
+  rir: z.number().int().min(0).max(5).optional(),
+  setType: z.enum(setTypes).default("working"),
+  groupId: z.string().trim().min(1).max(60).optional(),
+  note: z.string().max(500).optional()
 });
 
 export type SetInput = z.infer<typeof setInputSchema>;
@@ -47,7 +59,7 @@ export const recordWorkoutSessionInputSchema = z.object({
   idempotencyKey: z.string().min(1).max(200).optional()
 });
 
-export type RecordWorkoutSessionInput = z.infer<typeof recordWorkoutSessionInputSchema>;
+export type RecordWorkoutSessionInput = z.input<typeof recordWorkoutSessionInputSchema>;
 
 export interface WorkoutSet {
   id: string;
@@ -56,7 +68,17 @@ export interface WorkoutSet {
   reps?: number;
   weightKg?: number;
   completed: boolean;
+  rir?: number;
+  setType: (typeof setTypes)[number];
+  groupId?: string;
+  note?: string;
   createdAt: Date;
+}
+
+// Epley estimated one-rep max; only meaningful for 1..12 reps with a positive load.
+export function estimateOneRepMaxKg(weightKg: number, reps: number) {
+  if (!(weightKg > 0) || reps < 1 || reps > 12) return undefined;
+  return Math.round(weightKg * (1 + reps / 30) * 10) / 10;
 }
 
 export interface WorkoutSession {

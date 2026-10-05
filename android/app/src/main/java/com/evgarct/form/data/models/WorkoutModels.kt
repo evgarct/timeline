@@ -1,0 +1,137 @@
+package com.evgarct.form.data.models
+
+import kotlinx.serialization.Serializable
+
+/** An entry of the personal exercise catalog (`/api/exercises`). */
+@Serializable
+data class Exercise(
+    val id: String,
+    val name: String,
+    val primaryMuscles: List<String> = emptyList(),
+    val secondaryMuscles: List<String> = emptyList(),
+    val movementPattern: String? = null,
+    val equipment: String? = null,
+    val isArchived: Boolean = false
+)
+
+@Serializable
+data class ExercisePage(
+    val items: List<Exercise> = emptyList(),
+    val page: Int = 1,
+    val pageSize: Int = 30,
+    val hasMore: Boolean = false
+)
+
+@Serializable
+data class BestSet(val date: String, val reps: Int? = null, val weightKg: Double? = null)
+
+@Serializable
+data class HistoryEntry(
+    val eventId: String,
+    val date: String,
+    val topWeightKg: Double? = null,
+    val totalReps: Int = 0,
+    val bestE1rmKg: Double? = null
+)
+
+@Serializable
+data class ExerciseHistory(
+    val windowSessions: Int = 0,
+    val bestSet: BestSet? = null,
+    val bestE1rmKg: Double? = null,
+    val recentSessions: List<HistoryEntry> = emptyList()
+)
+
+/** One set as sent to and returned by `/api/workouts`. */
+@Serializable
+data class WorkoutSetDto(
+    val exerciseId: String? = null,
+    val setIndex: Int,
+    val reps: Int? = null,
+    val weightKg: Double? = null,
+    val completed: Boolean = true,
+    val rir: Int? = null,
+    val setType: String = "working",
+    val groupId: String? = null,
+    val note: String? = null
+)
+
+@Serializable
+data class WorkoutSessionRequest(
+    val occurredAt: String,
+    val timezone: String,
+    val muscleGroups: List<String>,
+    val note: String? = null,
+    val sets: List<WorkoutSetDto>,
+    val idempotencyKey: String
+)
+
+@Serializable
+data class SessionSummary(
+    val setCount: Int = 0,
+    val exerciseCount: Int = 0,
+    val tonnageKg: Double = 0.0
+)
+
+@Serializable
+data class RecentExercise(
+    val exerciseId: String,
+    val name: String,
+    val sets: List<WorkoutSetDto> = emptyList()
+)
+
+@Serializable
+data class RecentWorkoutSession(
+    val eventId: String,
+    val occurredAt: String,
+    val timezone: String,
+    val muscleGroups: List<String> = emptyList(),
+    val note: String? = null,
+    val exercises: List<RecentExercise> = emptyList(),
+    val summary: SessionSummary = SessionSummary()
+)
+
+@Serializable
+data class RecentWorkoutsResponse(val sessions: List<RecentWorkoutSession> = emptyList())
+
+/** Response of POST/PUT `/api/workouts`. */
+@Serializable
+data class WorkoutSessionResult(
+    val eventId: String,
+    val occurredAt: String,
+    val timezone: String,
+    val muscleGroups: List<String> = emptyList(),
+    val sets: List<WorkoutSetDto> = emptyList(),
+    val summary: SessionSummary = SessionSummary()
+)
+
+// --- Active-workout draft (persisted locally until the session is finished and acknowledged) ---
+
+@Serializable
+data class DraftSet(
+    val id: String,
+    val reps: Int? = null,
+    val weightKg: Double? = null,
+    val rir: Int? = null,
+    val setType: String = "working",
+    val done: Boolean = false,
+    val groupId: String? = null
+)
+
+@Serializable
+data class DraftExercise(
+    val exerciseId: String,
+    val name: String,
+    val primaryMuscles: List<String> = emptyList(),
+    val sets: List<DraftSet> = emptyList(),
+    val lastTopWeightKg: Double? = null,
+    val bestE1rmKg: Double? = null
+)
+
+@Serializable
+data class WorkoutDraft(
+    val id: String,
+    val startedAtMillis: Long,
+    val timezone: String,
+    val exercises: List<DraftExercise> = emptyList()
+)

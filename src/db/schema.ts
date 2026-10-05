@@ -1,4 +1,4 @@
-import { boolean, index, integer, jsonb, numeric, pgEnum, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
+import { boolean, index, integer, jsonb, numeric, pgEnum, pgTable, smallint, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 
 export const eventType = pgEnum("event_type", ["progress_photo", "workout", "measurements", "inbody", "nutrition_entry"]);
 export const mediaKind = pgEnum("media_kind", ["progress_photo", "inbody"]);
@@ -53,6 +53,11 @@ export const exercises = pgTable("exercises", {
   name: text("name").notNull(),
   normalizedName: text("normalized_name").notNull(),
   muscleGroups: jsonb("muscle_groups").$type<string[]>(),
+  primaryMuscles: jsonb("primary_muscles").$type<string[]>(),
+  secondaryMuscles: jsonb("secondary_muscles").$type<string[]>(),
+  movementPattern: text("movement_pattern"),
+  equipment: text("equipment"),
+  isArchived: boolean("is_archived").default(false).notNull(),
   searchAliases: jsonb("search_aliases").notNull().default([]),
   normalizedSearchAliases: text("normalized_search_aliases"),
   externalSource: text("external_source"),
@@ -67,12 +72,17 @@ export const exercises = pgTable("exercises", {
 export const workoutSets = pgTable("workout_sets", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull(),
-  eventId: uuid("event_id").notNull(),
+  eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
   exerciseId: uuid("exercise_id").notNull(),
   setIndex: integer("set_index").notNull(),
   reps: integer("reps"),
   weightKg: numeric("weight_kg"),
   completed: boolean("completed").default(true).notNull(),
+  rir: smallint("rir"),
+  setType: text("set_type").default("working").notNull(),
+  groupId: text("group_id"),
+  note: text("note"),
+  performedAt: timestamp("performed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull()
 }, (table) => [
   index("workout_sets_user_exercise_idx").on(table.userId, table.exerciseId, table.createdAt),

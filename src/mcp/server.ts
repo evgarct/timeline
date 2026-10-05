@@ -522,7 +522,7 @@ export function createTimelineMcpServer(userId: string) {
 
   server.registerTool("upsert_exercise", {
     title: "Create or update a personal exercise",
-    description: "Save an exercise to the user's personal catalog, avoiding duplicates: an explicit id updates that exercise; otherwise an exact externalRef match (a stable id from a source like \"trainero\") is reused if present, else an exact normalized-name match is reused, else a new exercise is created. An ambiguous_exercise error means more than one existing exercise matched by exact name — resolve it with search_exercises and pass an explicit id instead of retrying blindly.",
+    description: "Save an exercise to the user's personal catalog, avoiding duplicates: an explicit id updates that exercise; otherwise an exact externalRef match (a stable id from a source like \"trainero\") is reused if present, else an exact normalized-name match is reused, else a new exercise is created. An ambiguous_exercise error means more than one existing exercise matched by exact name — resolve it with search_exercises and pass an explicit id instead of retrying blindly. Fill primaryMuscles/secondaryMuscles with lowercase canonical muscle names (e.g. chest, back, quads, hamstrings, glutes, shoulders, biceps, triceps, calves, abs), movementPattern (squat|hinge|push|pull|lunge|carry|core|other) and equipment when known — weekly per-muscle volume is computed from them (primary sets count 1, secondary 0.5). Set isArchived: true to hide an exercise from search instead of deleting it (history is kept).",
     inputSchema: { exercise: exerciseInputSchema }
   }, async ({ exercise }) => {
     try {
@@ -535,7 +535,7 @@ export function createTimelineMcpServer(userId: string) {
 
   server.registerTool("record_workout_session", {
     title: "Record a workout session",
-    description: "Record one completed workout: creates a \"workout\" timeline event plus its per-set detail rows (exercise, set index, reps, weight in kg) in one call. Every set's exerciseId must already exist — call search_exercises/upsert_exercise first for each exercise. Reuse the same idempotencyKey when retrying to avoid double-recording.",
+    description: "Record one completed workout: creates a \"workout\" timeline event plus its per-set detail rows (exercise, set index, reps, weight in kg) in one call. Every set's exerciseId must already exist (otherwise unknown_exercise) — call search_exercises/upsert_exercise first for each exercise. Per set you can also record rir (reps in reserve, 0-5), setType (working|warmup|drop; warm-ups are excluded from tonnage and bests), groupId (same value on sets of one superset) and a short note. Reuse the same idempotencyKey when retrying to avoid double-recording; a retry returns the originally stored session.",
     inputSchema: {
       occurredAt: z.string().describe("ISO 8601 date-time, e.g. 2026-09-19T18:00:00Z"),
       timezone: z.string().min(1),
@@ -563,7 +563,7 @@ export function createTimelineMcpServer(userId: string) {
 
   server.registerTool("get_exercise_history", {
     title: "Get exercise history",
-    description: "Read recent session history for one exercise: the best set ever logged and the last N sessions' top weight and total reps.",
+    description: "Read recent session history for one exercise: the heaviest set ever logged, the best estimated 1RM (Epley, working sets of 1-12 reps) and the last N sessions' top weight, total reps and best e1RM. Warm-up sets are excluded.",
     inputSchema: {
       exerciseId: z.string().uuid(),
       limit: z.number().int().min(1).max(50).default(8)
@@ -573,7 +573,8 @@ export function createTimelineMcpServer(userId: string) {
     if (!exercise) return { content: [{ type: "text" as const, text: "exercise_not_found" }], isError: true };
     const history = await getExerciseHistory(userId, exerciseId, limit);
     const text = history.bestSet
-      ? `${exercise.name}: best ${history.bestSet.weightKg}kg x${history.bestSet.reps} (${history.bestSet.date}), ${history.windowSessions} recent sessions`
+      ? `${exercise.name}: best ${history.bestSet.weightKg}kg x${history.bestSet.reps} (${history.bestSet.date})`
+        + `${history.bestE1rmKg ? `, e1RM ${history.bestE1rmKg}kg` : ""}, ${history.windowSessions} recent sessions`
       : `${exercise.name}: no logged sets yet`;
     return result("Exercise history", exercise.name, history, [], { text });
   });
