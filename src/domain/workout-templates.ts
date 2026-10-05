@@ -13,6 +13,8 @@ export const progressionRuleSchema = z.object({
 export const templateExerciseSchema = z.object({
   exerciseId: z.string().uuid(),
   sets: z.number().int().min(1).max(20).default(3),
+  // Planned working weight (kg). Used as the starting load; a progression rule with history takes over later.
+  weightKg: z.number().min(0).max(1000).optional(),
   repMin: z.number().int().min(1).max(100).optional(),
   repMax: z.number().int().min(1).max(100).optional(),
   targetRir: z.number().int().min(0).max(5).optional(),
@@ -50,7 +52,7 @@ export interface LastSet {
 
 export interface LoadSuggestion {
   weightKg?: number;
-  reason: "no_history" | "increase" | "hold";
+  reason: "no_history" | "increase" | "hold" | "planned";
 }
 
 /**

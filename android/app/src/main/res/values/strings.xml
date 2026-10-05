@@ -290,4 +290,5 @@
     <string name="workout_template_name">Template name</string>
     <string name="workout_target_rir">RIR %1$d</string>
     <string name="workout_suggested">Suggested %1$s kg</string>
+    <string name="workout_start_empty">Start an empty workout</string>
 </resources>

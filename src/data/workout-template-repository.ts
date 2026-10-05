@@ -120,6 +120,15 @@ export async function deleteTemplate(userId: string, id: string): Promise<boolea
   return true;
 }
 
+// With a progression rule and history, the rule decides. Otherwise an explicit planned weight wins
+// (the lifter wrote it into the template on purpose); history only fills in when nothing is planned.
+function chooseLoad(entry: TemplateExercise, lastSets: Array<{ reps?: number; weightKg?: number }>): LoadSuggestion {
+  const fromHistory = suggestNextLoad(entry, lastSets);
+  if (entry.progression && fromHistory.reason !== "no_history") return fromHistory;
+  if (entry.weightKg !== undefined) return { weightKg: entry.weightKg, reason: "planned" };
+  return fromHistory;
+}
+
 export interface PlannedExercise extends TemplateExercise {
   name: string;
   primaryMuscles: string[];
@@ -141,7 +150,7 @@ export async function planTemplate(userId: string, id: string) {
       name: exercise?.name ?? "Unknown exercise",
       primaryMuscles: exercise?.primaryMuscles ?? exercise?.muscleGroups ?? [],
       lastSets,
-      suggestion: suggestNextLoad(entry, lastSets)
+      suggestion: chooseLoad(entry, lastSets)
     });
   }
   return { id: template.id, name: template.name, note: template.note, exercises };

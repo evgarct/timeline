@@ -593,7 +593,7 @@ export function createTimelineMcpServer(userId: string) {
 
   server.registerTool("upsert_workout_template", {
     title: "Create or update a workout template",
-    description: "Save a reusable workout template. An explicit id updates that template, otherwise an exact normalized-name match is updated, else a new one is created; the exercises list is replaced as a whole. Every exerciseId must already exist (unknown_exercise otherwise) — use search_exercises/upsert_exercise first. Prescription per exercise: sets, repMin/repMax (rep range), targetRir (0-5), restSeconds, groupId for supersets, and progression {type: \"double\", incrementKg} = keep the weight until every top set reaches repMax, then add incrementKg. Example: 3 x 6-10 at RIR 2 with +2.5 kg. Set isArchived: true to retire a template without deleting it.",
+    description: "Save a reusable workout template. An explicit id updates that template, otherwise an exact normalized-name match is updated, else a new one is created; the exercises list is replaced as a whole. Every exerciseId must already exist (unknown_exercise otherwise) — use search_exercises/upsert_exercise first. Prescription per exercise: sets, weightKg (planned working weight; it is what the app prefills for the first session, and with a progression rule the weight is advanced from history afterwards), repMin/repMax (rep range), targetRir (0-5), restSeconds, groupId for supersets, and progression {type: \"double\", incrementKg} = keep the weight until every top set reaches repMax, then add incrementKg. Example: 3 x 6-10 at RIR 2 with +2.5 kg. Set isArchived: true to retire a template without deleting it.",
     inputSchema: { template: workoutTemplateInputSchema }
   }, async ({ template }) => {
     try {
@@ -616,7 +616,7 @@ export function createTimelineMcpServer(userId: string) {
 
   server.registerTool("plan_workout_from_template", {
     title: "Plan the next workout from a template",
-    description: "Read-only preview of the next session for a template: the prescription per exercise plus, from the last logged session, the previous sets and a suggested working weight under the progression rule (reason: increase = every top set reached repMax, hold = keep the weight, no_history = nothing logged yet). Nothing is recorded; log the real session with record_workout_session afterwards.",
+    description: "Read-only preview of the next session for a template: the prescription per exercise plus, from the last logged session, the previous sets and a suggested working weight under the progression rule (reason: increase = every top set reached repMax, hold = keep the weight, planned = the template's own weightKg, no_history = nothing logged and nothing planned). Nothing is recorded; log the real session with record_workout_session afterwards.",
     inputSchema: { id: z.string().uuid() }
   }, async ({ id }) => {
     const plan = await planTemplate(userId, id);

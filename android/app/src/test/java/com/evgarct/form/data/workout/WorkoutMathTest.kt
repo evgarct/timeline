@@ -27,7 +27,7 @@ class WorkoutMathTest {
     }
 
     @Test
-    fun requestKeepsOnlyDoneSetsWithRepsAndNumbersThemAcrossExercises() {
+    fun requestKeepsEverythingMarkedDoneEvenWithoutRepsAndNumbersItAcrossExercises() {
         val request = draft(
             DraftExercise(
                 "squat", "Squat", listOf("quads"),
@@ -44,16 +44,19 @@ class WorkoutMathTest {
         ).toRequest()
 
         assertNotNull(request)
-        assertEquals(listOf(1, 2), request!!.sets.map { it.setIndex })
-        assertEquals(listOf("squat", "row"), request.sets.map { it.exerciseId })
-        assertEquals(2, request.sets[1].rir)
-        assertEquals("ss1", request.sets[1].groupId)
+        assertEquals(listOf(1, 2, 3), request!!.sets.map { it.setIndex })
+        assertEquals(listOf("squat", "squat", "row"), request.sets.map { it.exerciseId })
+        // The set marked done without typed reps is still recorded (reps unknown, not dropped).
+        assertNull(request.sets[1].reps)
+        assertEquals(100.0, request.sets[1].weightKg!!, 0.001)
+        assertEquals(2, request.sets[2].rir)
+        assertEquals("ss1", request.sets[2].groupId)
         assertEquals(listOf("quads", "lats"), request.muscleGroups)
         assertEquals("android-workout:d1", request.idempotencyKey)
     }
 
     @Test
-    fun emptyDraftProducesNoRequestAndWarmupsAreExcludedFromTonnage() {
+    fun draftWithNothingMarkedDoneProducesNoRequestAndWarmupsAreExcludedFromTonnage() {
         assertNull(draft(DraftExercise("squat", "Squat", sets = listOf(DraftSet("a", reps = 5, weightKg = 100.0)))).toRequest())
 
         val withWarmup = draft(
@@ -151,5 +154,37 @@ class WorkoutMathTest {
     fun savingATemplateNeedsANameAndAtLeastOneExercise() {
         assertNull(draft().toTemplateRequest("Push"))
         assertNull(draft(DraftExercise("x", "X")).toTemplateRequest("   "))
+    }
+
+    @Test
+    fun repsHintPrefersLastSessionsSetThenTheBottomOfTheRange() {
+        val exercise = DraftExercise("bench", "Bench", repMin = 6, repMax = 10, lastReps = listOf(9, 8))
+        assertEquals(9, repsHint(exercise, 0))
+        assertEquals(8, repsHint(exercise, 1))
+        assertEquals(6, repsHint(exercise, 2))
+        assertNull(repsHint(DraftExercise("x", "X"), 0))
+    }
+
+    @Test
+    fun planKeepsLastSessionsRepsAndSavedTemplateKeepsTheWorkingWeight() {
+        val plan = TemplatePlan(
+            id = "t", name = "Push",
+            exercises = listOf(
+                PlannedExerciseDto(
+                    exerciseId = "bench", name = "Bench", sets = 2, weightKg = 80.0,
+                    lastSets = listOf(LastSetDto(9, 77.5), LastSetDto(8, 77.5)),
+                    suggestion = LoadSuggestion(80.0, "planned")
+                )
+            )
+        )
+        var n = 0
+        val draft = plan.toDraft("d", 0L, "UTC") { "s${n++}" }
+        assertEquals(listOf(9, 8), draft.exercises[0].lastReps)
+        assertEquals(80.0, draft.exercises[0].sets[0].weightKg!!, 0.001)
+
+        val withDone = draft.copy(exercises = draft.exercises.map { exercise ->
+            exercise.copy(sets = exercise.sets.map { it.copy(reps = 8, done = true) })
+        })
+        assertEquals(80.0, withDone.toTemplateRequest("Push")!!.exercises[0].weightKg!!, 0.001)
     }
 }

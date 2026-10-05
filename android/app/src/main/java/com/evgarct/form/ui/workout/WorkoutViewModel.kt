@@ -14,6 +14,7 @@ import com.evgarct.form.data.models.RecentWorkoutSession
 import com.evgarct.form.data.models.WorkoutTemplate
 import com.evgarct.form.data.models.WorkoutDraft
 import com.evgarct.form.data.repository.WorkoutRepository
+import com.evgarct.form.data.workout.repsHint
 import com.evgarct.form.data.workout.toDraft
 import com.evgarct.form.data.workout.toRequest
 import com.evgarct.form.data.workout.toTemplateRequest
@@ -186,9 +187,13 @@ class WorkoutViewModel : ViewModel() {
 
     fun toggleDone(exerciseId: String, setId: String) {
         var becameDone = false
+        val hint = draft?.exercises?.firstOrNull { it.exerciseId == exerciseId }?.let { entry ->
+            repsHint(entry, entry.sets.indexOfFirst { it.id == setId })
+        }
         updateSet(exerciseId, setId) { set ->
             becameDone = !set.done
-            set.copy(done = !set.done)
+            // Marking a set done without typing reps records the visible hint (last time / bottom of the range).
+            set.copy(done = !set.done, reps = if (becameDone) set.reps ?: hint else set.reps)
         }
         // Resting after a warm-up is not what the timer is for; a template can prescribe its own rest.
         val exercise = draft?.exercises?.firstOrNull { it.exerciseId == exerciseId }
