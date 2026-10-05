@@ -105,6 +105,17 @@ data class WorkoutSessionResult(
     val summary: SessionSummary = SessionSummary()
 )
 
+/** Hard sets per muscle for one calendar week (Monday start); secondary muscles count 0.5. */
+@Serializable
+data class MuscleVolumeWeek(
+    val weekStart: String,
+    val sets: Map<String, Double> = emptyMap(),
+    val totalSets: Double = 0.0
+)
+
+@Serializable
+data class MuscleVolumeResponse(val weeks: List<MuscleVolumeWeek> = emptyList())
+
 // --- Active-workout draft (persisted locally until the session is finished and acknowledged) ---
 
 @Serializable

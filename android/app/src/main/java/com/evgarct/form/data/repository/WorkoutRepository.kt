@@ -6,6 +6,8 @@ import com.evgarct.form.core.network.SessionExpiredException
 import com.evgarct.form.data.models.Exercise
 import com.evgarct.form.data.models.ExerciseHistory
 import com.evgarct.form.data.models.ExercisePage
+import com.evgarct.form.data.models.MuscleVolumeResponse
+import com.evgarct.form.data.models.MuscleVolumeWeek
 import com.evgarct.form.data.models.RecentWorkoutSession
 import com.evgarct.form.data.models.RecentWorkoutsResponse
 import com.evgarct.form.data.models.WorkoutSessionRequest
@@ -48,6 +50,11 @@ class WorkoutRepository(
     suspend fun recentSessions(limit: Int = 20): Result<List<RecentWorkoutSession>> = runCatching {
         val body = apiClient.get("api/workouts", mapOf("limit" to limit.toString()))
         apiClient.json.decodeFromString(RecentWorkoutsResponse.serializer(), body).sessions
+    }
+
+    suspend fun muscleVolume(weeks: Int = 2, timezoneId: String): Result<List<MuscleVolumeWeek>> = runCatching {
+        val body = apiClient.get("api/workouts/volume", mapOf("weeks" to weeks.toString(), "timezone" to timezoneId))
+        apiClient.json.decodeFromString(MuscleVolumeResponse.serializer(), body).weeks
     }
 
     suspend fun submit(request: WorkoutSessionRequest): Result<WorkoutSessionResult> = runCatching {

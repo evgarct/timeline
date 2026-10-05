@@ -150,7 +150,7 @@ fun ExercisePickerSheet(
                         ) {
                             Text(exercise.name, color = colorScheme.onSurface, fontSize = 16.sp)
                             val meta = listOfNotNull(
-                                exercise.primaryMuscles.joinToString(", ").ifBlank { null },
+                                exercise.primaryMuscles.map { muscleLabel(it) }.joinToString(", ").ifBlank { null },
                                 exercise.equipment
                             ).joinToString(" · ")
                             if (meta.isNotEmpty()) {

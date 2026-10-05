@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -60,6 +61,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.evgarct.form.R
 import com.evgarct.form.data.models.DraftExercise
 import com.evgarct.form.data.models.DraftSet
+import com.evgarct.form.data.models.MuscleVolumeWeek
 import com.evgarct.form.data.models.RecentWorkoutSession
 import com.evgarct.form.data.models.WorkoutDraft
 import com.evgarct.form.data.workout.recordableSetCount
@@ -187,6 +189,8 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
             }
         }
 
+        if (viewModel.volume.isNotEmpty()) VolumeSection(viewModel.volume)
+
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Eyebrow(stringResource(R.string.workout_recent))
             Spacer(Modifier.height(8.dp))
@@ -232,7 +236,80 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
 }
 
 @Composable
-private fun RecentSessionRow(session: RecentWorkoutSession, onDelete: () -> Unit) {
+internal fun VolumeSection(weeks: List<MuscleVolumeWeek>) {
+    val colorScheme = MaterialTheme.colorScheme
+    val current = weeks.firstOrNull() ?: return
+    val previous = weeks.getOrNull(1)
+    val rows = current.sets.entries.sortedByDescending { it.value }
+    // One shared scale for both weeks so the last-week tick is comparable with the bar.
+    val scale = maxOf(1.0, current.sets.values.maxOrNull() ?: 0.0, previous?.sets?.values?.maxOrNull() ?: 0.0)
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Eyebrow(stringResource(R.string.workout_volume_title))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(R.string.workout_volume_this_week),
+                fontSize = 17.sp,
+                color = colorScheme.onBackground,
+                modifier = Modifier.weight(1f)
+            )
+            if (previous != null && previous.totalSets > 0) {
+                Text(
+                    stringResource(R.string.workout_volume_last_week, formatNumber(previous.totalSets)),
+                    fontSize = 13.sp,
+                    color = colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        if (rows.isEmpty()) {
+            Text(stringResource(R.string.workout_volume_empty), fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
+        } else {
+            rows.forEach { (muscle, value) ->
+                key(muscle) {
+                    val before = previous?.sets?.get(muscle) ?: 0.0
+                    Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(muscleLabel(muscle), fontSize = 15.sp, color = colorScheme.onBackground, modifier = Modifier.weight(1f))
+                            Text(
+                                formatNumber(value),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                style = TextStyle(fontFeatureSettings = "tnum"),
+                                color = colorScheme.onBackground
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(colorScheme.surfaceContainerHighest)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth((value / scale).toFloat().coerceIn(0.02f, 1f))
+                                    .fillMaxHeight()
+                                    .background(colorScheme.primary)
+                            )
+                            if (before > 0) {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth((before / scale).toFloat().coerceIn(0.02f, 1f)).fillMaxHeight(),
+                                    contentAlignment = Alignment.CenterEnd
+                                ) {
+                                    Box(modifier = Modifier.width(2.dp).fillMaxHeight().background(colorScheme.onSurfaceVariant))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Text(stringResource(R.string.workout_volume_caption), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+internal fun RecentSessionRow(session: RecentWorkoutSession, onDelete: () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
     var expanded by remember { mutableStateOf(false) }
     val date = remember(session.occurredAt) { formatSessionDate(session.occurredAt, session.timezone) }
@@ -249,7 +326,7 @@ private fun RecentSessionRow(session: RecentWorkoutSession, onDelete: () -> Unit
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(date, fontSize = 17.sp, color = colorScheme.onBackground)
                 Text(
-                    session.muscleGroups.joinToString(" · "),
+                    session.muscleGroups.map { muscleLabel(it) }.joinToString(" · "),
                     fontSize = 13.sp,
                     color = colorScheme.onSurfaceVariant
                 )

@@ -21,6 +21,11 @@ Source of truth for the strength-training model. Product intent comes from the A
 ## MCP
 `search_exercises`, `upsert_exercise`, `record_workout_session`, `get_exercise_history` expose the same fields. Tool descriptions in `src/mcp/server.ts` are the steering lever. The telegram-bot repo keeps a hand-maintained copy of the tool list and must be updated separately.
 
+## Volume analytics
+- `GET /api/workouts/volume?weeks=4&timezone=` and MCP `get_muscle_volume`: hard sets per muscle per calendar week (Monday start in the given timezone), newest first. Primary muscle = 1 set, secondary = 0.5, warm-ups excluded; legacy exercises fall back to `muscleGroups`; exercises with no muscle data count under `other`.
+- The Train tab shows this week's sets per muscle with a tick for last week. It is a neutral fact display (no goals, colours or streaks, per `docs/DESIGN.md`); the 10–20 sets/week reference lives only in the MCP tool description for planning.
+- UI languages: Android ships `values` (en), `values-ru` and `values-cs`; new strings are written in en + ru only (Russian is enough, Czech falls back to en).
+
 ## Android (Train tab)
 - `ui/workout/`: `WorkoutScreen` (start + recent history + active session), `ExercisePickerSheet` (debounced catalog search, create on the fly), `WorkoutViewModel`.
 - Active session: weight, reps, RIR (tap cycles –,4,3,2,1,0), set type via the set number (working, warm-up, drop, remove), superset link from the exercise menu, rest timer (90 s, ±15 s) started when a working set is marked done. Last top weight and best e1RM are prefilled from `/api/exercises/{id}/history`.

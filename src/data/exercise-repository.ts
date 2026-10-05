@@ -638,3 +638,86 @@ export async function listRecentWorkoutSessions(userId: string, limit = 20): Pro
     }];
   });
 }
+
+export interface MuscleVolumeWeek {
+  weekStart: string;
+  sets: Record<string, number>;
+  totalSets: number;
+}
+
+function mondayOf(dateKeyValue: string) {
+  const date = new Date(`${dateKeyValue}T00:00:00Z`);
+  const offset = (date.getUTCDay() + 6) % 7;
+  date.setUTCDate(date.getUTCDate() - offset);
+  return date.toISOString().slice(0, 10);
+}
+
+// Hard sets per muscle per calendar week (Monday start in `timezone`), newest week first. Working and
+// drop sets that were completed count; warm-ups do not. A primary muscle gets 1 set, a secondary
+// muscle 0.5 (so bench press = 1 chest + 0.5 triceps + 0.5 shoulders). Legacy exercises without the
+// canonical muscle lists fall back to muscleGroups as primary. Exercises with no muscle data at all
+// are counted under "other" so no logged work silently disappears.
+export async function getMuscleVolume(
+  userId: string, weeks = 4, timezone = "UTC", now = new Date()
+): Promise<MuscleVolumeWeek[]> {
+  const zone = isValidTimeZone(timezone) ? timezone : "UTC";
+  const currentMonday = mondayOf(dateKey(now, zone));
+  const weekStarts = Array.from({ length: weeks }, (_, index) => {
+    const date = new Date(`${currentMonday}T00:00:00Z`);
+    date.setUTCDate(date.getUTCDate() - index * 7);
+    return date.toISOString().slice(0, 10);
+  });
+  const oldest = new Date(`${weekStarts[weekStarts.length - 1]}T00:00:00Z`);
+  const windowStart = new Date(oldest.getTime() - 36 * 3600 * 1000);
+
+  interface VolumeRow {
+    occurredAt: Date; timezone: string; setType: string; completed: boolean;
+    primary: string[]; secondary: string[];
+  }
+  let rows: VolumeRow[];
+  if (useMemory || !database) {
+    rows = memorySets.filter((set) => set.userId === userId).flatMap((set) => {
+      const event = memoryWorkoutEvents.find((candidate) => candidate.userId === userId && candidate.id === set.eventId);
+      const exercise = memoryExercises.find((candidate) => candidate.userId === userId && candidate.id === set.exerciseId);
+      if (!event || event.occurredAt < windowStart) return [];
+      return [{
+        occurredAt: event.occurredAt, timezone: event.timezone, setType: set.setType, completed: set.completed,
+        primary: exercise?.primaryMuscles ?? exercise?.muscleGroups ?? [], secondary: exercise?.secondaryMuscles ?? []
+      }];
+    });
+  } else {
+    const result = await database.select({
+      occurredAt: events.occurredAt, timezone: events.timezone, setType: workoutSets.setType,
+      completed: workoutSets.completed, primaryMuscles: exercises.primaryMuscles,
+      muscleGroups: exercises.muscleGroups, secondaryMuscles: exercises.secondaryMuscles
+    }).from(workoutSets)
+      .innerJoin(events, eq(events.id, workoutSets.eventId))
+      .innerJoin(exercises, eq(exercises.id, workoutSets.exerciseId))
+      .where(and(eq(workoutSets.userId, userId), gte(events.occurredAt, windowStart)));
+    rows = result.map((row) => ({
+      occurredAt: row.occurredAt, timezone: row.timezone, setType: row.setType, completed: row.completed,
+      primary: row.primaryMuscles ?? row.muscleGroups ?? [], secondary: row.secondaryMuscles ?? []
+    }));
+  }
+
+  const byWeek = new Map(weekStarts.map((start) => [start, {} as Record<string, number>]));
+  for (const row of rows) {
+    if (!row.completed || row.setType === "warmup") continue;
+    const bucket = byWeek.get(mondayOf(dateKey(row.occurredAt, row.timezone)));
+    if (!bucket) continue;
+    const primary = row.primary.length ? row.primary : ["other"];
+    for (const muscle of primary) bucket[muscle] = (bucket[muscle] ?? 0) + 1;
+    for (const muscle of row.secondary) {
+      if (!primary.includes(muscle)) bucket[muscle] = (bucket[muscle] ?? 0) + 0.5;
+    }
+  }
+
+  return weekStarts.map((weekStart) => {
+    const sets = byWeek.get(weekStart)!;
+    return {
+      weekStart,
+      sets,
+      totalSets: Object.values(sets).reduce((total, value) => total + value, 0)
+    };
+  });
+}

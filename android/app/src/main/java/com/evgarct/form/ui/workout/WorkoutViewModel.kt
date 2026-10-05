@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.evgarct.form.FormApp
 import com.evgarct.form.data.models.DraftExercise
 import com.evgarct.form.data.models.DraftSet
+import com.evgarct.form.data.models.MuscleVolumeWeek
 import com.evgarct.form.data.models.Exercise
 import com.evgarct.form.data.models.RecentWorkoutSession
 import com.evgarct.form.data.models.WorkoutDraft
@@ -37,6 +38,9 @@ class WorkoutViewModel : ViewModel() {
     var recent by mutableStateOf<List<RecentWorkoutSession>>(emptyList())
         private set
 
+    var volume by mutableStateOf<List<MuscleVolumeWeek>>(emptyList())
+        private set
+
     var isLoading by mutableStateOf(false)
         private set
 
@@ -62,6 +66,7 @@ class WorkoutViewModel : ViewModel() {
             isLoading = true
             if (store.pending().isNotEmpty()) repository.flushPending()
             pendingCount = store.pending().size
+            repository.muscleVolume(2, TimeZone.getDefault().id).onSuccess { volume = it }
             repository.recentSessions()
                 .onSuccess { recent = it; loadFailed = false }
                 .onFailure { loadFailed = true }

@@ -40,11 +40,12 @@ import {
 import {
   getExercise,
   getExerciseHistory,
+  getMuscleVolume,
   recordWorkoutSession,
   searchExercises,
   upsertExercise
 } from "@/data/exercise-repository";
-import { exerciseInputSchema, setInputSchema } from "@/domain/exercises";
+import { exerciseInputSchema, isValidTimeZone, setInputSchema } from "@/domain/exercises";
 import { isTaskCompleted, latestEvent } from "@/domain/timeline";
 import { resolveMcpUser } from "@/data/repository";
 
@@ -559,6 +560,23 @@ export function createTimelineMcpServer(userId: string) {
     } catch (error) {
       return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "workout_save_failed" }], isError: true };
     }
+  });
+
+  server.registerTool("get_muscle_volume", {
+    title: "Get weekly sets per muscle",
+    description: "Hard sets per muscle per calendar week (Monday start in the given timezone), newest week first: a primary muscle counts 1 set per completed working/drop set, a secondary muscle 0.5; warm-ups are excluded. Use it to judge training balance and plan volume — a common reference is roughly 10-20 hard sets per muscle per week, trained about twice a week, but treat it as a guide, not a target to push. Muscles come from the exercises' primaryMuscles/secondaryMuscles (see upsert_exercise); sets of exercises without muscle data are counted under \"other\".",
+    inputSchema: {
+      weeks: z.number().int().min(1).max(12).default(4),
+      timezone: z.string().min(1).default("UTC").describe("IANA timezone that defines the week boundaries, e.g. Europe/Prague")
+    }
+  }, async ({ weeks, timezone }) => {
+    if (!isValidTimeZone(timezone)) return { content: [{ type: "text" as const, text: "invalid_timezone" }], isError: true };
+    const volume = await getMuscleVolume(userId, weeks, timezone);
+    const text = volume.map((week) => {
+      const muscles = Object.entries(week.sets).sort((a, b) => b[1] - a[1]).map(([muscle, sets]) => `${muscle} ${sets}`);
+      return `${week.weekStart}: ${muscles.length ? muscles.join(", ") : "no sets"}`;
+    }).join("\n");
+    return result("Muscle volume", `Weekly sets per muscle (${weeks} weeks)`, { weeks: volume }, [], { text });
   });
 
   server.registerTool("get_exercise_history", {

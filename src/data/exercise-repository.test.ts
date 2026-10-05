@@ -211,6 +211,39 @@ describe("memory exercise repository", () => {
     })).rejects.toThrow();
   });
 
+  it("counts weekly hard sets per muscle: primary 1, secondary 0.5, no warm-ups, Monday weeks", async () => {
+    const owner = "volume-owner";
+    const bench = await repository.upsertExercise(owner, {
+      name: "Volume Bench", primaryMuscles: ["chest"], secondaryMuscles: ["triceps", "shoulders"]
+    });
+    const legacy = await repository.upsertExercise(owner, { name: "Volume Legacy", muscleGroups: ["calves"] });
+    const unknown = await repository.upsertExercise(owner, { name: "Volume Mystery" });
+    // Wed 2026-09-30 (week of Mon 09-28) and Tue 2026-10-06 (week of Mon 10-05); "now" is Wed 10-07.
+    await repository.recordWorkoutSession(owner, {
+      occurredAt: new Date("2026-09-30T10:00:00.000Z"), timezone: "Europe/Prague", muscleGroups: ["chest"],
+      sets: [
+        { exerciseId: bench.id, setIndex: 1, reps: 10, weightKg: 40, setType: "warmup" },
+        { exerciseId: bench.id, setIndex: 2, reps: 8, weightKg: 80 },
+        { exerciseId: bench.id, setIndex: 3, reps: 8, weightKg: 80 }
+      ]
+    });
+    await repository.recordWorkoutSession(owner, {
+      occurredAt: new Date("2026-10-06T10:00:00.000Z"), timezone: "Europe/Prague", muscleGroups: ["calves"],
+      sets: [
+        { exerciseId: legacy.id, setIndex: 1, reps: 15, weightKg: 60 },
+        { exerciseId: unknown.id, setIndex: 2, reps: 10, weightKg: 20 }
+      ]
+    });
+
+    const weeks = await repository.getMuscleVolume(owner, 3, "Europe/Prague", new Date("2026-10-07T09:00:00.000Z"));
+    expect(weeks.map((week) => week.weekStart)).toEqual(["2026-10-05", "2026-09-28", "2026-09-21"]);
+    expect(weeks[0].sets).toEqual({ calves: 1, other: 1 });
+    expect(weeks[1].sets).toEqual({ chest: 2, triceps: 1, shoulders: 1 });
+    expect(weeks[1].totalSets).toBe(4);
+    expect(weeks[2].sets).toEqual({});
+    expect((await repository.getMuscleVolume("nobody", 1))[0].sets).toEqual({});
+  });
+
   it("archives exercises out of search by default", async () => {
     const exercise = await repository.upsertExercise(userId, { name: "Zercher Squat" });
     await repository.upsertExercise(userId, { id: exercise.id, name: "Zercher Squat", isArchived: true });
