@@ -243,8 +243,6 @@
     <string name="workout_set_working">Рабочий подход</string>
     <string name="workout_set_warmup">Разминочный</string>
     <string name="workout_set_drop">Дропсет</string>
-    <string name="workout_rest">Отдых</string>
-    <string name="workout_rest_skip">Пропустить</string>
     <string name="workout_last">В прошлый раз %1$s кг</string>
     <string name="workout_e1rm">e1RM %1$s кг</string>
     <string name="workout_search_hint">Поиск упражнений</string>
@@ -292,4 +290,12 @@
     <string name="workout_target_rir">RIR %1$d</string>
     <string name="workout_suggested">Предложено %1$s кг</string>
     <string name="workout_start_empty">Пустая тренировка</string>
+    <string name="workout_feedback_title">Как прошла тренировка?</string>
+    <string name="workout_feedback_exertion">Тяжесть тренировки</string>
+    <string name="workout_feedback_easy">1 · очень легко</string>
+    <string name="workout_feedback_hard">5 · очень тяжело</string>
+    <string name="workout_feedback_mood">Самочувствие</string>
+    <string name="workout_feedback_note">Заметка (необязательно)</string>
+    <string name="workout_feedback_finish">Завершить тренировку</string>
+    <string name="workout_feedback_exertion_value">Тяжесть %1$d/5</string>
 </resources>

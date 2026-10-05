@@ -37,6 +37,7 @@ import coil.compose.AsyncImage
 import com.evgarct.form.R
 import com.evgarct.form.data.models.TimelineEvent
 import java.text.SimpleDateFormat
+import com.evgarct.form.ui.workout.feedbackLine
 import com.evgarct.form.ui.workout.muscleLabel
 import java.util.Locale
 
@@ -386,6 +387,9 @@ fun TimelineWorkoutItem(event: TimelineEvent.Workout) {
         }
         if (muscles.isNotEmpty()) {
             Text(text = muscles, fontSize = 14.sp, color = Color.White.copy(alpha = 0.7f))
+        }
+        feedbackLine(event.exertion, event.mood)?.let {
+            Text(text = it, fontSize = 14.sp, color = Color.White.copy(alpha = 0.5f))
         }
         Box(
             modifier = Modifier

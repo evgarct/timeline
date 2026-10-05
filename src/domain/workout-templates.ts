@@ -18,7 +18,6 @@ export const templateExerciseSchema = z.object({
   repMin: z.number().int().min(1).max(100).optional(),
   repMax: z.number().int().min(1).max(100).optional(),
   targetRir: z.number().int().min(0).max(5).optional(),
-  restSeconds: z.number().int().min(15).max(600).optional(),
   groupId: z.string().trim().min(1).max(60).optional(),
   progression: progressionRuleSchema.optional(),
   note: z.string().max(500).optional()

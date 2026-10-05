@@ -87,6 +87,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel = viewModel()) {
     var showPicker by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
     var showSaveTemplate by remember { mutableStateOf(false) }
+    var showFeedback by remember { mutableStateOf(false) }
     var nothingLogged by remember { mutableStateOf(false) }
 
     val draft = viewModel.draft
@@ -99,7 +100,11 @@ fun WorkoutScreen(viewModel: WorkoutViewModel = viewModel()) {
                 viewModel = viewModel,
                 nothingLogged = nothingLogged,
                 onAddExercise = { showPicker = true },
-                onFinish = { nothingLogged = viewModel.finish() == FinishOutcome.NOTHING_LOGGED },
+                onFinish = {
+                    // Nothing marked done: say so; otherwise ask for feedback first, then upload.
+                    nothingLogged = draft.recordableSetCount() == 0
+                    showFeedback = !nothingLogged
+                },
                 onSaveTemplate = { showSaveTemplate = true },
                 templateMessage = viewModel.templateMessage,
                 onMessageShown = viewModel::dismissTemplateMessage,
@@ -114,6 +119,16 @@ fun WorkoutScreen(viewModel: WorkoutViewModel = viewModel()) {
             onSelect = { exercise ->
                 viewModel.addExercise(exercise)
                 showPicker = false
+            }
+        )
+    }
+
+    if (showFeedback) {
+        FinishFeedbackSheet(
+            onDismiss = { showFeedback = false },
+            onConfirm = { feedback ->
+                showFeedback = false
+                viewModel.finish(feedback)
             }
         )
     }
@@ -424,6 +439,9 @@ internal fun RecentSessionRow(session: RecentWorkoutSession, onDelete: () -> Uni
         ) {
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(date, fontSize = 17.sp, color = colorScheme.onBackground)
+                feedbackLine(session.exertion, session.mood)?.let {
+                    Text(it, fontSize = 13.sp, color = colorScheme.onSurfaceVariant)
+                }
                 Text(
                     session.muscleGroups.map { muscleLabel(it) }.joinToString(" · "),
                     fontSize = 13.sp,
@@ -453,6 +471,9 @@ internal fun RecentSessionRow(session: RecentWorkoutSession, onDelete: () -> Uni
                 modifier = Modifier.padding(bottom = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                session.note?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, fontSize = 14.sp, color = colorScheme.onBackground)
+                }
                 session.exercises.forEach { exercise ->
                     key(exercise.exerciseId) {
                         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -543,20 +564,6 @@ private fun ActiveContent(
             Text(stringResource(R.string.workout_nothing_logged), fontSize = 13.sp, color = colorScheme.error)
         }
 
-        val restEnds = viewModel.restEndsAtMillis
-        if (restEnds != null) {
-            val remaining = (restEnds - now) / 1000
-            if (remaining > 0) {
-                RestBar(
-                    remainingSeconds = remaining,
-                    onSkip = viewModel::skipRest,
-                    onAdjust = viewModel::adjustRest
-                )
-            } else {
-                LaunchedEffect(restEnds) { viewModel.skipRest() }
-            }
-        }
-
         draft.exercises.forEachIndexed { index, exercise ->
             key(exercise.exerciseId) {
                 ExerciseBlock(
@@ -603,40 +610,6 @@ private fun ActiveContent(
             Text(stringResource(R.string.workout_discard), color = colorScheme.error, fontSize = 14.sp)
         }
         Spacer(Modifier.height(16.dp))
-    }
-}
-
-@Composable
-private fun RestBar(remainingSeconds: Long, onSkip: () -> Unit, onAdjust: (Int) -> Unit) {
-    val colorScheme = MaterialTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(colorScheme.secondaryContainer)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                stringResource(R.string.workout_rest).uppercase(),
-                fontSize = 11.sp,
-                letterSpacing = 1.2.sp,
-                color = colorScheme.onSecondaryContainer.copy(alpha = 0.7f)
-            )
-            Text(
-                formatDuration(remainingSeconds),
-                fontSize = 24.sp,
-                style = TextStyle(fontFeatureSettings = "tnum"),
-                color = colorScheme.onSecondaryContainer
-            )
-        }
-        TextButton(onClick = { onAdjust(-15) }) { Text("−15", color = colorScheme.onSecondaryContainer) }
-        TextButton(onClick = { onAdjust(15) }) { Text("+15", color = colorScheme.onSecondaryContainer) }
-        TextButton(onClick = onSkip) {
-            Text(stringResource(R.string.workout_rest_skip), color = colorScheme.onSecondaryContainer, fontWeight = FontWeight.SemiBold)
-        }
     }
 }
 

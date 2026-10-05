@@ -543,18 +543,20 @@ export function createTimelineMcpServer(userId: string) {
       occurredAt: z.string().describe("ISO 8601 date-time, e.g. 2026-09-19T18:00:00Z"),
       timezone: z.string().min(1),
       muscleGroups: z.array(z.string().min(1)).min(1).max(8),
-      note: z.string().max(2000).optional(),
+      note: z.string().max(2000).optional().describe("Free-text feedback on how the session went"),
+      exertion: z.number().int().min(1).max(5).optional().describe("Perceived difficulty of the whole session, 1 (very easy) to 5 (very hard)"),
+      mood: z.enum(["bad", "ok", "good"]).optional().describe("How the owner felt: bad, ok or good (shown as three emoji in the app)"),
       sets: z.array(setInputSchema).min(1),
       idempotencyKey: z.string().min(1).max(200).optional()
     }
-  }, async ({ occurredAt, timezone, muscleGroups, note, sets, idempotencyKey }) => {
+  }, async ({ occurredAt, timezone, muscleGroups, note, exertion, mood, sets, idempotencyKey }) => {
     const parsedOccurredAt = new Date(occurredAt);
     if (Number.isNaN(parsedOccurredAt.getTime())) {
       return { content: [{ type: "text" as const, text: "Provide a valid occurredAt." }], isError: true };
     }
     try {
       const session = await recordWorkoutSession(userId, {
-        occurredAt: parsedOccurredAt, timezone, muscleGroups, note, sets, idempotencyKey
+        occurredAt: parsedOccurredAt, timezone, muscleGroups, note, exertion, mood, sets, idempotencyKey
       });
       const text = `Workout recorded (id: ${session.eventId}) — ${session.summary.exerciseCount} exercises, `
         + `${session.summary.setCount} sets, ${session.summary.tonnageKg}kg tonnage`;
@@ -583,7 +585,7 @@ export function createTimelineMcpServer(userId: string) {
 
   server.registerTool("list_workout_templates", {
     title: "List workout templates",
-    description: "List the user's reusable workout templates (routines). Each has exercises with a prescription: sets, repMin-repMax, targetRir (reps in reserve), restSeconds, groupId (same value = superset) and an optional progression rule. Archived templates are hidden unless includeArchived is true.",
+    description: "List the user's reusable workout templates (routines). Each has exercises with a prescription: sets, repMin-repMax, targetRir (reps in reserve), groupId (same value = superset) and an optional progression rule. Archived templates are hidden unless includeArchived is true.",
     inputSchema: { includeArchived: z.boolean().default(false) }
   }, async ({ includeArchived }) => {
     const items = await listTemplates(userId, includeArchived);
@@ -593,7 +595,7 @@ export function createTimelineMcpServer(userId: string) {
 
   server.registerTool("upsert_workout_template", {
     title: "Create or update a workout template",
-    description: "Save a reusable workout template. An explicit id updates that template, otherwise an exact normalized-name match is updated, else a new one is created; the exercises list is replaced as a whole. Every exerciseId must already exist (unknown_exercise otherwise) — use search_exercises/upsert_exercise first. Prescription per exercise: sets, weightKg (planned working weight; it is what the app prefills for the first session, and with a progression rule the weight is advanced from history afterwards), repMin/repMax (rep range), targetRir (0-5), restSeconds, groupId for supersets, and progression {type: \"double\", incrementKg} = keep the weight until every top set reaches repMax, then add incrementKg. Example: 3 x 6-10 at RIR 2 with +2.5 kg. Set isArchived: true to retire a template without deleting it.",
+    description: "Save a reusable workout template. An explicit id updates that template, otherwise an exact normalized-name match is updated, else a new one is created; the exercises list is replaced as a whole. Every exerciseId must already exist (unknown_exercise otherwise) — use search_exercises/upsert_exercise first. Prescription per exercise: sets, weightKg (planned working weight; it is what the app prefills for the first session, and with a progression rule the weight is advanced from history afterwards), repMin/repMax (rep range), targetRir (0-5), groupId for supersets, and progression {type: \"double\", incrementKg} = keep the weight until every top set reaches repMax, then add incrementKg. Example: 3 x 6-10 at RIR 2 with +2.5 kg. Set isArchived: true to retire a template without deleting it.",
     inputSchema: { template: workoutTemplateInputSchema }
   }, async ({ template }) => {
     try {

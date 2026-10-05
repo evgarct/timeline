@@ -62,9 +62,14 @@ data class WorkoutSessionRequest(
     val timezone: String,
     val muscleGroups: List<String>,
     val note: String? = null,
+    val exertion: Int? = null,
+    val mood: String? = null,
     val sets: List<WorkoutSetDto>,
     val idempotencyKey: String
 )
+
+/** End-of-workout feedback: effort 1–5, mood ("bad" | "ok" | "good"), free text. Every part is optional. */
+data class WorkoutFeedback(val exertion: Int? = null, val mood: String? = null, val note: String? = null)
 
 @Serializable
 data class SessionSummary(
@@ -87,6 +92,8 @@ data class RecentWorkoutSession(
     val timezone: String,
     val muscleGroups: List<String> = emptyList(),
     val note: String? = null,
+    val exertion: Int? = null,
+    val mood: String? = null,
     val exercises: List<RecentExercise> = emptyList(),
     val summary: SessionSummary = SessionSummary()
 )
@@ -130,7 +137,6 @@ data class TemplateExerciseDto(
     val repMin: Int? = null,
     val repMax: Int? = null,
     val targetRir: Int? = null,
-    val restSeconds: Int? = null,
     val groupId: String? = null,
     val progression: ProgressionRule? = null,
     val note: String? = null
@@ -171,7 +177,6 @@ data class PlannedExerciseDto(
     val repMin: Int? = null,
     val repMax: Int? = null,
     val targetRir: Int? = null,
-    val restSeconds: Int? = null,
     val groupId: String? = null,
     val progression: ProgressionRule? = null,
     val lastSets: List<LastSetDto> = emptyList(),
@@ -213,7 +218,6 @@ data class DraftExercise(
     val repMin: Int? = null,
     val repMax: Int? = null,
     val targetRir: Int? = null,
-    val restSeconds: Int? = null,
     val suggestedWeightKg: Double? = null,
     val progression: ProgressionRule? = null
 )

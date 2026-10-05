@@ -63,7 +63,10 @@ export const recordWorkoutSessionInputSchema = z.object({
   occurredAt: z.coerce.date(),
   timezone: z.string().min(1).refine(isValidTimeZone, "invalid_timezone"),
   muscleGroups: z.array(z.string().trim().min(1)).min(1).max(8),
+  // Free-text feedback on the session; stored as the workout event's note.
   note: z.string().max(2000).optional(),
+  exertion: z.number().int().min(1).max(5).optional(),
+  mood: z.enum(["bad", "ok", "good"]).optional(),
   sets: z.array(setInputSchema).min(1),
   idempotencyKey: z.string().min(1).max(200).optional()
 });

@@ -54,7 +54,6 @@ class ContractResponsesTest {
         assertEquals(6, entry.repMin)
         assertEquals(8, entry.repMax)
         assertEquals(2, entry.targetRir)
-        assertEquals(120, entry.restSeconds)
         assertEquals(2.5, entry.progression!!.incrementKg, 0.001)
 
         val list = json.decodeFromString(WorkoutTemplatesResponse.serializer(), fixture("templates.json"))
@@ -81,6 +80,9 @@ class ContractResponsesTest {
 
         val recent = json.decodeFromString(RecentWorkoutsResponse.serializer(), fixture("recent.json")).sessions
         assertEquals(result.eventId, recent[0].eventId)
+        assertEquals(4, recent[0].exertion)
+        assertEquals("good", recent[0].mood)
+        assertEquals("Контракт: плечо немного тянуло", recent[0].note)
         assertEquals("Contract Squat", recent[0].exercises.single().name)
         assertEquals(2, recent[0].exercises.single().sets.size)
     }

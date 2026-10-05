@@ -242,8 +242,6 @@
     <string name="workout_set_working">Pracovní série</string>
     <string name="workout_set_warmup">Zahřívací</string>
     <string name="workout_set_drop">Dropset</string>
-    <string name="workout_rest">Pauza</string>
-    <string name="workout_rest_skip">Přeskočit</string>
     <string name="workout_last">Naposledy %1$s kg</string>
     <string name="workout_e1rm">e1RM %1$s kg</string>
     <string name="workout_search_hint">Hledat cviky</string>

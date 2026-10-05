@@ -13,6 +13,7 @@ import com.evgarct.form.data.models.Exercise
 import com.evgarct.form.data.models.RecentWorkoutSession
 import com.evgarct.form.data.models.WorkoutTemplate
 import com.evgarct.form.data.models.WorkoutDraft
+import com.evgarct.form.data.models.WorkoutFeedback
 import com.evgarct.form.data.repository.WorkoutRepository
 import com.evgarct.form.data.workout.repsHint
 import com.evgarct.form.data.workout.toDraft
@@ -66,13 +67,6 @@ class WorkoutViewModel : ViewModel() {
         private set
 
     var isFinishing by mutableStateOf(false)
-        private set
-
-    /** Wall-clock end of the current rest countdown, or null when no rest is running. */
-    var restEndsAtMillis by mutableStateOf<Long?>(null)
-        private set
-
-    var restSeconds by mutableStateOf(DEFAULT_REST_SECONDS)
         private set
 
     fun refresh() {
@@ -135,7 +129,6 @@ class WorkoutViewModel : ViewModel() {
     }
 
     fun discardDraft() {
-        restEndsAtMillis = null
         commit(null)
     }
 
@@ -195,20 +188,6 @@ class WorkoutViewModel : ViewModel() {
             // Marking a set done without typing reps records the visible hint (last time / bottom of the range).
             set.copy(done = !set.done, reps = if (becameDone) set.reps ?: hint else set.reps)
         }
-        // Resting after a warm-up is not what the timer is for; a template can prescribe its own rest.
-        val exercise = draft?.exercises?.firstOrNull { it.exerciseId == exerciseId }
-        val set = exercise?.sets?.firstOrNull { it.id == setId }
-        val rest = exercise?.restSeconds ?: restSeconds
-        restEndsAtMillis = if (becameDone && set?.setType != "warmup") System.currentTimeMillis() + rest * 1000L else null
-    }
-
-    fun adjustRest(deltaSeconds: Int) {
-        restSeconds = (restSeconds + deltaSeconds).coerceIn(15, 600)
-        restEndsAtMillis?.let { restEndsAtMillis = System.currentTimeMillis() + restSeconds * 1000L }
-    }
-
-    fun skipRest() {
-        restEndsAtMillis = null
     }
 
     /** Links the exercise at [index] with the next one as a superset, or unlinks them if already linked. */
@@ -229,13 +208,12 @@ class WorkoutViewModel : ViewModel() {
         }))
     }
 
-    fun finish(): FinishOutcome {
+    fun finish(feedback: WorkoutFeedback = WorkoutFeedback()): FinishOutcome {
         val current = draft ?: return FinishOutcome.NOTHING_LOGGED
-        val request = current.toRequest() ?: return FinishOutcome.NOTHING_LOGGED
+        val request = current.toRequest(feedback) ?: return FinishOutcome.NOTHING_LOGGED
         // Durable first: from here on a crash or a dead connection cannot lose the session.
         store.enqueue(request)
         pendingCount = store.pending().size
-        restEndsAtMillis = null
         commit(null)
         isFinishing = true
         viewModelScope.launch {
@@ -272,7 +250,4 @@ class WorkoutViewModel : ViewModel() {
         store.saveDraft(next)
     }
 
-    private companion object {
-        const val DEFAULT_REST_SECONDS = 90
-    }
 }
