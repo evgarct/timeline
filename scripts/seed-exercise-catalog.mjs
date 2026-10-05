@@ -84,6 +84,9 @@ if (!apply) {
   process.exit(0);
 }
 
+// The picker lists exercises by updated_at (newest first). Seeded rows get an old timestamp so the
+// thousand dataset entries never push the user's own exercises out of the first page.
+const stale = "'2000-01-01T00:00:00Z'::timestamptz";
 const chunkSize = 200;
 let inserted = 0;
 for (let start = 0; start < toInsert.length; start += chunkSize) {
@@ -100,11 +103,12 @@ for (let start = 0; start < toInsert.length; start += chunkSize) {
       exerciseDatasetSource, item.externalRef.id
     );
     const p = (offset) => `$${base + offset}`;
-    return `(${p(1)}, ${p(2)}, ${p(3)}, ${p(4)}, ${p(5)}::jsonb, ${p(6)}::jsonb, ${p(7)}::jsonb, ${p(8)}, ${p(9)}, ${p(10)}::jsonb, ${p(11)}, ${p(12)}, ${p(13)})`;
+    return `(${p(1)}, ${p(2)}, ${p(3)}, ${p(4)}, ${p(5)}::jsonb, ${p(6)}::jsonb, ${p(7)}::jsonb, ${p(8)}, ${p(9)}, ${p(10)}::jsonb, ${p(11)}, ${p(12)}, ${p(13)}, ${stale}, ${stale})`;
   });
   const result = await sql.query(
     `insert into exercises (id, user_id, name, normalized_name, muscle_groups, primary_muscles, secondary_muscles,
-       movement_pattern, equipment, search_aliases, normalized_search_aliases, external_source, external_id)
+       movement_pattern, equipment, search_aliases, normalized_search_aliases, external_source, external_id,
+       created_at, updated_at)
      values ${rows.join(", ")}
      on conflict (user_id, external_source, external_id) do nothing
      returning id`,
