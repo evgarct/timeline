@@ -162,7 +162,7 @@ class WorkoutScreenshotTest {
                 exercises = listOf(
                     DraftExercise(
                         exerciseId = "ex-bench", name = "Barbell Bench Press", primaryMuscles = listOf("chest"),
-                        lastTopWeightKg = 80.0, bestE1rmKg = 107.0, repMin = 6, repMax = 10, targetRir = 2,
+                        lastTopWeightKg = 80.0, bestE1rmKg = 107.0, lastReps = listOf(9, 8), repMin = 6, repMax = 10, targetRir = 2,
                         restSeconds = 150, suggestedWeightKg = 82.5,
                         sets = List(3) { DraftSet("b$it", weightKg = 82.5, groupId = "g1") }
                     ),

@@ -62,6 +62,36 @@ describe("memory workout template repository", () => {
     expect((await exercises.getExerciseHistory(userId, squat.id)).bestSet?.weightKg).toBe(100);
   });
 
+  it("uses the planned weight when there is no history, and lets the progression rule take over once there is", async () => {
+    const curl = await exercises.upsertExercise(userId, { name: "Planned Curl" });
+    const template = await templates.upsertTemplate(userId, {
+      name: "Arms",
+      exercises: [{ exerciseId: curl.id, sets: 3, repMin: 8, repMax: 12, weightKg: 20, progression: { type: "double", incrementKg: 1 } }]
+    });
+
+    const first = await templates.planTemplate(userId, template.id);
+    expect(first?.exercises[0].suggestion).toEqual({ weightKg: 20, reason: "planned" });
+
+    await exercises.recordWorkoutSession(userId, {
+      occurredAt: new Date("2026-09-24T09:00:00.000Z"), timezone: "Europe/Prague", muscleGroups: ["biceps"],
+      sets: [1, 2, 3].map((index) => ({ exerciseId: curl.id, setIndex: index, reps: 12, weightKg: 20 }))
+    });
+    const second = await templates.planTemplate(userId, template.id);
+    expect(second?.exercises[0].suggestion).toEqual({ weightKg: 21, reason: "increase" });
+  });
+
+  it("prefers an explicit planned weight over history when there is no progression rule", async () => {
+    const row = await exercises.upsertExercise(userId, { name: "Planned Row" });
+    await exercises.recordWorkoutSession(userId, {
+      occurredAt: new Date("2026-09-25T09:00:00.000Z"), timezone: "Europe/Prague", muscleGroups: ["lats"],
+      sets: [{ exerciseId: row.id, setIndex: 1, reps: 10, weightKg: 50 }]
+    });
+    const template = await templates.upsertTemplate(userId, {
+      name: "Back", exercises: [{ exerciseId: row.id, weightKg: 55 }]
+    });
+    expect((await templates.planTemplate(userId, template.id))?.exercises[0].suggestion).toEqual({ weightKg: 55, reason: "planned" });
+  });
+
   it("hides archived templates by default and deletes", async () => {
     const lift = await exercises.upsertExercise(userId, { name: "Template Row" });
     const template = await templates.upsertTemplate(userId, { name: "Pull B", exercises: [{ exerciseId: lift.id }] });

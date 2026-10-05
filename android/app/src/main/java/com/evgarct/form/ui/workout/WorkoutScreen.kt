@@ -69,6 +69,7 @@ import com.evgarct.form.data.models.RecentWorkoutSession
 import com.evgarct.form.data.models.WorkoutTemplate
 import com.evgarct.form.data.models.WorkoutDraft
 import com.evgarct.form.data.workout.recordableSetCount
+import com.evgarct.form.data.workout.repsHint
 import com.evgarct.form.data.workout.tonnageKg
 import com.evgarct.form.ui.nutrition.components.SelectAllOnFocusTextField
 import kotlinx.coroutines.delay
@@ -198,23 +199,39 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
             )
         }
 
+        if (viewModel.templates.isNotEmpty()) {
+            TemplatesSection(
+                templates = viewModel.templates,
+                startingId = viewModel.startingTemplateId,
+                startFailed = viewModel.templateMessage == TemplateMessage.START_FAILED,
+                onStart = viewModel::startFromTemplate
+            )
+        }
+
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            val hasTemplates = viewModel.templates.isNotEmpty()
             Button(
                 onClick = viewModel::startWorkout,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape = RoundedCornerShape(18.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = colorScheme.primaryContainer,
-                    contentColor = colorScheme.onPrimaryContainer
+                    containerColor = if (hasTemplates) colorScheme.surfaceContainerHigh else colorScheme.primaryContainer,
+                    contentColor = if (hasTemplates) colorScheme.onSurface else colorScheme.onPrimaryContainer
                 )
             ) {
-                Text(stringResource(R.string.workout_start), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    stringResource(if (hasTemplates) R.string.workout_start_empty else R.string.workout_start),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
-            Text(
-                text = stringResource(R.string.workout_start_caption),
-                fontSize = 13.sp,
-                color = colorScheme.onSurfaceVariant
-            )
+            if (!hasTemplates) {
+                Text(
+                    text = stringResource(R.string.workout_start_caption),
+                    fontSize = 13.sp,
+                    color = colorScheme.onSurfaceVariant
+                )
+            }
             if (viewModel.pendingCount > 0) {
                 Text(
                     text = stringResource(R.string.workout_pending, viewModel.pendingCount),
@@ -223,15 +240,6 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
                     color = colorScheme.tertiary
                 )
             }
-        }
-
-        if (viewModel.templates.isNotEmpty()) {
-            TemplatesSection(
-                templates = viewModel.templates,
-                startingId = viewModel.startingTemplateId,
-                startFailed = viewModel.templateMessage == TemplateMessage.START_FAILED,
-                onStart = viewModel::startFromTemplate
-            )
         }
 
         if (viewModel.volume.isNotEmpty()) VolumeSection(viewModel.volume)
@@ -288,9 +296,8 @@ internal fun TemplatesSection(
     onStart: (String) -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Eyebrow(stringResource(R.string.workout_templates_title))
-        Spacer(Modifier.height(8.dp))
         if (startFailed) {
             Text(stringResource(R.string.workout_template_start_error), fontSize = 13.sp, color = colorScheme.error)
         }
@@ -300,26 +307,27 @@ internal fun TemplatesSection(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(colorScheme.primaryContainer)
                             .clickable(enabled = startingId == null) { onStart(template.id) }
-                            .padding(vertical = 14.dp),
+                            .padding(horizontal = 18.dp, vertical = 18.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                            Text(template.name, fontSize = 17.sp, color = colorScheme.onBackground)
+                            Text(template.name, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, color = colorScheme.onPrimaryContainer)
                             Text(
                                 stringResource(R.string.workout_template_exercises, template.exercises.size),
                                 fontSize = 13.sp,
-                                color = colorScheme.onSurfaceVariant
+                                color = colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
                             )
                         }
                         if (startingId == template.id) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = colorScheme.primary)
+                            Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = colorScheme.onPrimaryContainer)
                         }
                     }
-                    Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(colorScheme.outlineVariant.copy(alpha = 0.5f)))
                 }
             }
         }
@@ -714,6 +722,7 @@ private fun ExerciseBlock(
                 SetRow(
                     number = index + 1,
                     set = set,
+                    repsHint = repsHint(exercise, index),
                     onChange = { change -> viewModel.updateSet(exercise.exerciseId, set.id, change) },
                     onToggleDone = { viewModel.toggleDone(exercise.exerciseId, set.id) },
                     onRemove = { viewModel.removeSet(exercise.exerciseId, set.id) }
@@ -760,6 +769,7 @@ private fun SetHeader() {
 private fun SetRow(
     number: Int,
     set: DraftSet,
+    repsHint: Int?,
     onChange: ((DraftSet) -> DraftSet) -> Unit,
     onToggleDone: () -> Unit,
     onRemove: () -> Unit
@@ -772,6 +782,11 @@ private fun SetRow(
     var typeMenu by remember { mutableStateOf(false) }
 
     // A weight prefilled from history arrives after the row was first composed.
+    // The done-tap can fill reps from the hint; show what will be recorded.
+    LaunchedEffect(set.reps) {
+        if (set.reps != null && set.reps.toString() != repsText) repsText = set.reps.toString()
+    }
+
     LaunchedEffect(set.weightKg) {
         val current = weightText.replace(',', '.').toDoubleOrNull()
         if (current != set.weightKg && !(weightText.isBlank() && set.weightKg == null)) {
@@ -860,6 +875,7 @@ private fun SetRow(
             },
             keyboardType = KeyboardType.Number,
             textStyle = fieldStyle,
+            placeholder = repsHint?.toString(),
             modifier = Modifier.weight(1f)
         )
 
@@ -904,7 +920,8 @@ private fun NumberField(
     onValueChange: (String) -> Unit,
     keyboardType: KeyboardType,
     textStyle: TextStyle,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    placeholder: String? = null
 ) {
     Box(
         modifier = modifier
@@ -913,6 +930,13 @@ private fun NumberField(
             .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         contentAlignment = Alignment.Center
     ) {
+        if (value.isEmpty() && placeholder != null) {
+            Text(
+                text = placeholder,
+                style = textStyle.copy(color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f)),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
         SelectAllOnFocusTextField(
             value = value,
             onValueChange = onValueChange,

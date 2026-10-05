@@ -126,6 +126,7 @@ data class ProgressionRule(val type: String = "double", val incrementKg: Double)
 data class TemplateExerciseDto(
     val exerciseId: String,
     val sets: Int = 3,
+    val weightKg: Double? = null,
     val repMin: Int? = null,
     val repMax: Int? = null,
     val targetRir: Int? = null,
@@ -166,6 +167,7 @@ data class PlannedExerciseDto(
     val name: String,
     val primaryMuscles: List<String> = emptyList(),
     val sets: Int = 3,
+    val weightKg: Double? = null,
     val repMin: Int? = null,
     val repMax: Int? = null,
     val targetRir: Int? = null,
@@ -206,6 +208,7 @@ data class DraftExercise(
     val sets: List<DraftSet> = emptyList(),
     val lastTopWeightKg: Double? = null,
     val bestE1rmKg: Double? = null,
+    val lastReps: List<Int> = emptyList(),
     // Prescription copied from a template (all optional; absent for ad-hoc exercises).
     val repMin: Int? = null,
     val repMax: Int? = null,

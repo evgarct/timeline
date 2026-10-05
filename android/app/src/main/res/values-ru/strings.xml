@@ -290,4 +290,5 @@
     <string name="workout_template_name">Название шаблона</string>
     <string name="workout_target_rir">RIR %1$d</string>
     <string name="workout_suggested">Предложено %1$s кг</string>
+    <string name="workout_start_empty">Пустая тренировка</string>
 </resources>

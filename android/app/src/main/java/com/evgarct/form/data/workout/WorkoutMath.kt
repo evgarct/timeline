@@ -17,8 +17,12 @@ fun estimateOneRepMaxKg(weightKg: Double, reps: Int): Double? {
     return round(weightKg * (1 + reps / 30.0) * 10) / 10
 }
 
-/** A set that should be sent: marked done and carrying at least reps. */
-private fun DraftSet.isRecordable() = done && (reps ?: 0) > 0
+/** Everything the lifter marked as done goes to the database, even if reps/weight were left blank. */
+private fun DraftSet.isRecordable() = done
+
+/** Reps shown greyed-out in an empty field: what was done at this set number last time, else the bottom of the range. */
+fun repsHint(exercise: DraftExercise, setIndex: Int): Int? =
+    exercise.lastReps.getOrNull(setIndex) ?: exercise.repMin
 
 fun DraftSet.e1rmKg(): Double? =
     if (setType == "warmup" || weightKg == null || reps == null) null else estimateOneRepMaxKg(weightKg, reps)
@@ -94,6 +98,7 @@ fun TemplatePlan.toDraft(
                 DraftSet(id = newId(), weightKg = planned.suggestion.weightKg, groupId = planned.groupId)
             },
             lastTopWeightKg = planned.lastSets.mapNotNull { it.weightKg }.maxOrNull(),
+            lastReps = planned.lastSets.mapNotNull { it.reps },
             repMin = planned.repMin,
             repMax = planned.repMax,
             targetRir = planned.targetRir,
@@ -121,6 +126,7 @@ fun WorkoutDraft.toTemplateRequest(name: String): WorkoutTemplateRequest? {
             TemplateExerciseDto(
                 exerciseId = exercise.exerciseId,
                 sets = counted.size.coerceIn(1, 20),
+                weightKg = counted.mapNotNull { it.weightKg }.maxOrNull() ?: exercise.suggestedWeightKg,
                 repMin = exercise.repMin ?: reps.minOrNull(),
                 repMax = exercise.repMax ?: reps.maxOrNull(),
                 targetRir = exercise.targetRir,
