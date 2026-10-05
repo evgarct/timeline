@@ -23,3 +23,4 @@ Source of truth for the strength-training model. Product intent comes from the A
 
 ## Open decisions / not yet built
 Catalog seed from the MIT `hasaneyldrm/exercises-dataset` (metadata and text only, no images), templates and prescriptions, progression rules and mesocycles, analytics, Android UI.
+- Catalog seed: `node scripts/seed-exercise-catalog.mjs --file <exercises.json> --user <id> [--staging-host <host>] [--apply]` (dry run by default, idempotent; mapping in `src/domain/exercise-catalog.ts`). Source is the MIT data of hasaneyldrm/exercises-dataset; its media belongs to Gym visual and is never imported. Seeded on staging branch `staging-workouts-0011`; production seed is deliberately not run yet (dataset names are English while the owner's own catalog is Russian).
