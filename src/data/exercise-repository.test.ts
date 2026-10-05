@@ -160,6 +160,31 @@ describe("memory exercise repository", () => {
     expect((await repository.getExerciseHistory(userId, exercise.id)).windowSessions).toBe(0);
   });
 
+  it("lists recent sessions newest-first with exercise names, owner-scoped", async () => {
+    const owner = "recent-owner";
+    const squat = await repository.upsertExercise(owner, { name: "Front Squat" });
+    const press = await repository.upsertExercise(owner, { name: "Strict Press" });
+    await repository.recordWorkoutSession(owner, {
+      occurredAt: new Date("2026-10-01T09:00:00.000Z"), timezone: "Europe/Prague", muscleGroups: ["quads"],
+      sets: [{ exerciseId: squat.id, setIndex: 1, reps: 5, weightKg: 100 }]
+    });
+    await repository.recordWorkoutSession(owner, {
+      occurredAt: new Date("2026-10-03T09:00:00.000Z"), timezone: "Europe/Prague", muscleGroups: ["shoulders"],
+      sets: [
+        { exerciseId: press.id, setIndex: 1, reps: 5, weightKg: 40, rir: 1 },
+        { exerciseId: squat.id, setIndex: 2, reps: 3, weightKg: 110 }
+      ]
+    });
+
+    const recent = await repository.listRecentWorkoutSessions(owner, 10);
+    expect(recent.map((session) => session.occurredAt.toISOString().slice(0, 10))).toEqual(["2026-10-03", "2026-10-01"]);
+    expect(recent[0].exercises.map((exercise) => exercise.name)).toEqual(["Strict Press", "Front Squat"]);
+    expect(recent[0].exercises[0].sets[0]).toMatchObject({ rir: 1, setType: "working" });
+    expect(recent[0].summary).toEqual({ setCount: 2, exerciseCount: 2, tonnageKg: 530 });
+    expect(await repository.listRecentWorkoutSessions(owner, 1)).toHaveLength(1);
+    expect(await repository.listRecentWorkoutSessions("nobody")).toEqual([]);
+  });
+
   it("archives exercises out of search by default", async () => {
     const exercise = await repository.upsertExercise(userId, { name: "Zercher Squat" });
     await repository.upsertExercise(userId, { id: exercise.id, name: "Zercher Squat", isArchived: true });

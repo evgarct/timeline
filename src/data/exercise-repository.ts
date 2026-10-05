@@ -559,3 +559,77 @@ export async function getWorkoutsForDate(userId: string, date: string, timezone:
   }
   return sessions;
 }
+
+export interface RecentWorkoutSession {
+  eventId: string;
+  occurredAt: Date;
+  timezone: string;
+  muscleGroups: string[];
+  note?: string;
+  exercises: Array<{ exerciseId: string; name: string; sets: WorkoutForDateExercise["sets"] }>;
+  summary: { setCount: number; exerciseCount: number; tonnageKg: number };
+}
+
+// Newest-first session list for the clients' history view. Three queries total regardless of limit.
+export async function listRecentWorkoutSessions(userId: string, limit = 20): Promise<RecentWorkoutSession[]> {
+  let eventList: Array<ReturnType<typeof eventFromRow>>;
+  let setList: WorkoutSet[] & Array<{ eventId?: string }>;
+  const names = new Map<string, string>();
+
+  if (useMemory || !database) {
+    eventList = memoryWorkoutEvents
+      .filter((event) => event.userId === userId && event.type === "workout")
+      .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
+      .slice(0, limit) as typeof eventList;
+    const ids = new Set(eventList.map((event) => event.id));
+    setList = memorySets.filter((set) => set.userId === userId && ids.has(set.eventId)) as typeof setList;
+    for (const exercise of memoryExercises) if (exercise.userId === userId) names.set(exercise.id, exercise.name);
+  } else {
+    const rows = await database.select().from(events).where(and(
+      eq(events.userId, userId), eq(events.type, "workout")
+    )).orderBy(desc(events.occurredAt)).limit(limit);
+    eventList = rows.map(eventFromRow);
+    if (!eventList.length) return [];
+    const setRows = await database.select().from(workoutSets).where(and(
+      eq(workoutSets.userId, userId), inArray(workoutSets.eventId, eventList.map((event) => event.id))
+    )).orderBy(workoutSets.setIndex);
+    setList = setRows.map((row) => ({ ...setFromRow(row), eventId: row.eventId })) as typeof setList;
+    const exerciseIds = [...new Set(setRows.map((row) => row.exerciseId))];
+    if (exerciseIds.length) {
+      const exerciseRows = await database.select({ id: exercises.id, name: exercises.name }).from(exercises).where(and(
+        eq(exercises.userId, userId), inArray(exercises.id, exerciseIds)
+      ));
+      for (const row of exerciseRows) names.set(row.id, row.name);
+    }
+  }
+
+  return eventList.flatMap((event) => {
+    if (event.type !== "workout") return [];
+    const sets = setList
+      .filter((set) => (set as unknown as { eventId: string }).eventId === event.id)
+      .sort((a, b) => a.setIndex - b.setIndex);
+    const byExercise = new Map<string, WorkoutSet[]>();
+    for (const set of sets) {
+      const bucket = byExercise.get(set.exerciseId) ?? [];
+      bucket.push(set);
+      byExercise.set(set.exerciseId, bucket);
+    }
+    const summary = summarizeSession(event.id, event.occurredAt, event.timezone, event.muscleGroups, sets).summary;
+    return [{
+      eventId: event.id,
+      occurredAt: event.occurredAt,
+      timezone: event.timezone,
+      muscleGroups: event.muscleGroups,
+      note: event.note,
+      exercises: [...byExercise.entries()].map(([exerciseId, exerciseSets]) => ({
+        exerciseId,
+        name: names.get(exerciseId) ?? "Unknown exercise",
+        sets: exerciseSets.map((set) => ({
+          setIndex: set.setIndex, reps: set.reps, weightKg: set.weightKg, rir: set.rir,
+          setType: set.setType, groupId: set.groupId, note: set.note, completed: set.completed
+        }))
+      })),
+      summary
+    }];
+  });
+}

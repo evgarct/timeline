@@ -1,5 +1,5 @@
 import { getCurrentUserId } from "@/lib/current-user";
-import { getWorkoutsForDate, recordWorkoutSession } from "@/data/exercise-repository";
+import { getWorkoutsForDate, listRecentWorkoutSessions, recordWorkoutSession } from "@/data/exercise-repository";
 import { recordWorkoutSessionInputSchema } from "@/domain/exercises";
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
@@ -11,6 +11,10 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const date = url.searchParams.get("date");
   const timezone = url.searchParams.get("timezone");
+  if (!date && !timezone) {
+    const limit = Math.min(50, Math.max(1, Number.parseInt(url.searchParams.get("limit") ?? "20", 10) || 20));
+    return Response.json({ sessions: await listRecentWorkoutSessions(userId, limit) });
+  }
   if (!date || !dateRegex.test(date) || !timezone) {
     return Response.json({ error: "date_and_timezone_required" }, { status: 400 });
   }
