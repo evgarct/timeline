@@ -23,7 +23,9 @@ import com.evgarct.form.data.models.MuscleVolumeWeek
 import com.evgarct.form.data.models.RecentExercise
 import com.evgarct.form.data.models.RecentWorkoutSession
 import com.evgarct.form.data.models.SessionSummary
+import com.evgarct.form.data.models.TemplateExerciseDto
 import com.evgarct.form.data.models.WorkoutDraft
+import com.evgarct.form.data.models.WorkoutTemplate
 import com.evgarct.form.data.models.WorkoutSetDto
 import com.evgarct.form.ui.shell.RootScreen
 import org.junit.Rule
@@ -133,5 +135,46 @@ class WorkoutScreenshotTest {
             }
         }
         save("volume")
+    }
+
+    @Test
+    fun templatesList() {
+        val templates = listOf(
+            WorkoutTemplate("t1", "Push A", exercises = List(5) { TemplateExerciseDto("e$it") }),
+            WorkoutTemplate("t2", "Pull B", exercises = List(6) { TemplateExerciseDto("f$it") }),
+            WorkoutTemplate("t3", "Legs", exercises = List(4) { TemplateExerciseDto("g$it") })
+        )
+        rule.setContent {
+            FormTheme {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    TemplatesSection(templates = templates, startingId = "t2", startFailed = false, onStart = {})
+                }
+            }
+        }
+        save("templates")
+    }
+
+    @Test
+    fun activeFromTemplate() {
+        store.saveDraft(
+            WorkoutDraft(
+                id = "qa-template", startedAtMillis = System.currentTimeMillis() - 4 * 60_000, timezone = "Europe/Prague",
+                exercises = listOf(
+                    DraftExercise(
+                        exerciseId = "ex-bench", name = "Barbell Bench Press", primaryMuscles = listOf("chest"),
+                        lastTopWeightKg = 80.0, bestE1rmKg = 107.0, repMin = 6, repMax = 10, targetRir = 2,
+                        restSeconds = 150, suggestedWeightKg = 82.5,
+                        sets = List(3) { DraftSet("b$it", weightKg = 82.5, groupId = "g1") }
+                    ),
+                    DraftExercise(
+                        exerciseId = "ex-fly", name = "Cable Fly", primaryMuscles = listOf("chest"),
+                        repMin = 12, repMax = 12,
+                        sets = List(2) { DraftSet("f$it", groupId = "g1") }
+                    )
+                )
+            )
+        )
+        rule.setContent { FormTheme { WorkoutScreen() } }
+        save("active-template")
     }
 }

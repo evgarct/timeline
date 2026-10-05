@@ -9,6 +9,10 @@ import com.evgarct.form.data.models.ExercisePage
 import com.evgarct.form.data.models.MuscleVolumeResponse
 import com.evgarct.form.data.models.MuscleVolumeWeek
 import com.evgarct.form.data.models.RecentWorkoutSession
+import com.evgarct.form.data.models.TemplatePlan
+import com.evgarct.form.data.models.WorkoutTemplate
+import com.evgarct.form.data.models.WorkoutTemplateRequest
+import com.evgarct.form.data.models.WorkoutTemplatesResponse
 import com.evgarct.form.data.models.RecentWorkoutsResponse
 import com.evgarct.form.data.models.WorkoutSessionRequest
 import com.evgarct.form.data.models.WorkoutSessionResult
@@ -55,6 +59,19 @@ class WorkoutRepository(
     suspend fun muscleVolume(weeks: Int = 2, timezoneId: String): Result<List<MuscleVolumeWeek>> = runCatching {
         val body = apiClient.get("api/workouts/volume", mapOf("weeks" to weeks.toString(), "timezone" to timezoneId))
         apiClient.json.decodeFromString(MuscleVolumeResponse.serializer(), body).weeks
+    }
+
+    suspend fun templates(): Result<List<WorkoutTemplate>> = runCatching {
+        apiClient.json.decodeFromString(WorkoutTemplatesResponse.serializer(), apiClient.get("api/templates")).items
+    }
+
+    suspend fun templatePlan(id: String): Result<TemplatePlan> = runCatching {
+        apiClient.json.decodeFromString(TemplatePlan.serializer(), apiClient.get("api/templates/$id/plan"))
+    }
+
+    suspend fun saveTemplate(request: WorkoutTemplateRequest): Result<WorkoutTemplate> = runCatching {
+        val body = requestJson.encodeToString(WorkoutTemplateRequest.serializer(), request)
+        apiClient.json.decodeFromString(WorkoutTemplate.serializer(), apiClient.postJson("api/templates", body))
     }
 
     suspend fun submit(request: WorkoutSessionRequest): Result<WorkoutSessionResult> = runCatching {
