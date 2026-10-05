@@ -1,6 +1,6 @@
 import { getCurrentUserId } from "@/lib/current-user";
 import { getWorkoutsForDate, listRecentWorkoutSessions, recordWorkoutSession } from "@/data/exercise-repository";
-import { recordWorkoutSessionInputSchema } from "@/domain/exercises";
+import { isValidTimeZone, recordWorkoutSessionInputSchema } from "@/domain/exercises";
 
 const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -17,6 +17,11 @@ export async function GET(request: Request) {
   }
   if (!date || !dateRegex.test(date) || !timezone) {
     return Response.json({ error: "date_and_timezone_required" }, { status: 400 });
+  }
+  // The regex accepts shapes like 2026-99-01; require a real calendar date and a real IANA zone.
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date || !isValidTimeZone(timezone)) {
+    return Response.json({ error: "invalid_date_or_timezone" }, { status: 400 });
   }
 
   const sessions = await getWorkoutsForDate(userId, date, timezone);

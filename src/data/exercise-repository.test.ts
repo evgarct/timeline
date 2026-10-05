@@ -185,6 +185,32 @@ describe("memory exercise repository", () => {
     expect(await repository.listRecentWorkoutSessions("nobody")).toEqual([]);
   });
 
+  it("reuses an archived exercise on re-submit instead of forking its history", async () => {
+    const owner = "archive-owner";
+    const first = await repository.upsertExercise(owner, { name: "Pendlay Row" });
+    await repository.upsertExercise(owner, { id: first.id, name: "Pendlay Row", isArchived: true });
+    const again = await repository.upsertExercise(owner, { name: "pendlay row" });
+    expect(again.id).toBe(first.id);
+    expect(again.isArchived).toBe(false);
+  });
+
+  it("derives primaryMuscles from legacy muscleGroups when the canonical field is absent", async () => {
+    const legacy = await repository.upsertExercise(userId, { name: "Legacy Curl", muscleGroups: ["biceps"] });
+    expect(legacy.primaryMuscles).toEqual(["biceps"]);
+    const explicit = await repository.upsertExercise(userId, {
+      name: "Explicit Curl", muscleGroups: ["biceps"], primaryMuscles: ["biceps", "forearms"]
+    });
+    expect(explicit.primaryMuscles).toEqual(["biceps", "forearms"]);
+  });
+
+  it("rejects sessions with an invalid timezone", async () => {
+    const exercise = await repository.upsertExercise(userId, { name: "Tz Check Lift" });
+    await expect(repository.recordWorkoutSession(userId, {
+      occurredAt: new Date("2026-09-28T09:00:00.000Z"), timezone: "Mars/Olympus", muscleGroups: ["legs"],
+      sets: [{ exerciseId: exercise.id, setIndex: 1, reps: 5, weightKg: 50 }]
+    })).rejects.toThrow();
+  });
+
   it("archives exercises out of search by default", async () => {
     const exercise = await repository.upsertExercise(userId, { name: "Zercher Squat" });
     await repository.upsertExercise(userId, { id: exercise.id, name: "Zercher Squat", isArchived: true });
