@@ -18,6 +18,7 @@ export interface CatalogExercise {
   movementPattern: "squat" | "hinge" | "push" | "pull" | "lunge" | "carry" | "core" | "other";
   equipment?: string;
   images?: string[];
+  instructions?: string[];
   externalRef: { source: string; id: string };
 }
 
@@ -109,6 +110,7 @@ export interface FreeExerciseRow {
   primaryMuscles: string[];
   secondaryMuscles: string[];
   images?: string[];
+  instructions?: string[];
 }
 
 const freeEquipment: Record<string, string | undefined> = {
@@ -140,6 +142,7 @@ export function mapFreeExercise(row: FreeExerciseRow, commitSha: string): Catalo
     movementPattern: inferMovementPattern(row.name, primaryMuscles),
     equipment,
     images: (row.images ?? []).slice(0, 4).map((path) => `${base}${path}`),
+    instructions: (row.instructions ?? []).map((step) => step.trim()).filter(Boolean).slice(0, 20),
     externalRef: { source: freeExerciseSource, id: row.id }
   };
 }

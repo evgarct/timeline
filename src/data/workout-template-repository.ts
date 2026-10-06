@@ -135,6 +135,7 @@ export interface PlannedExercise extends TemplateExercise {
   secondaryMuscles: string[];
   equipment?: string;
   images: string[];
+  instructions: string[];
   lastDate?: string;
   lastSets: Array<{ reps?: number; weightKg?: number }>;
   suggestion: LoadSuggestion;
@@ -157,6 +158,7 @@ export async function planTemplate(userId: string, id: string) {
       secondaryMuscles: exercise?.secondaryMuscles ?? [],
       equipment: exercise?.equipment,
       images: exercise?.images ?? [],
+      instructions: exercise?.instructions ?? [],
       lastDate: last?.date,
       lastSets,
       suggestion: chooseLoad(entry, lastSets)

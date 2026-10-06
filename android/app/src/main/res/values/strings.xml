@@ -291,6 +291,8 @@
     <string name="workout_suggested">Suggested %1$s kg</string>
     <string name="workout_last_time">Before</string>
     <string name="workout_exercise_done">Exercise done</string>
+    <string name="workout_more">More</string>
+    <string name="workout_technique">Technique</string>
     <string name="workout_note_menu">Add a note</string>
     <string name="workout_note_hint">Note for this exercise</string>
     <string name="workout_superset_tab">Superset</string>

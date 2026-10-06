@@ -35,6 +35,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -49,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -244,7 +246,7 @@ private fun WorkoutHeader(
                 modifier = Modifier.size(48.dp).clip(CircleShape).clickable { menuOpen = true },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Rounded.MoreVert, contentDescription = null, tint = colorScheme.onSurfaceVariant)
+                Icon(Icons.Rounded.MoreVert, contentDescription = stringResource(R.string.workout_more), tint = colorScheme.onSurfaceVariant)
             }
             DropdownMenu(
                 expanded = menuOpen,
@@ -252,6 +254,7 @@ private fun WorkoutHeader(
                 containerColor = colorScheme.surfaceContainerHighest
             ) {
                 DropdownMenuItem(
+                    colors = com.evgarct.form.core.theme.formMenuItemColors(),
                     text = { Text(stringResource(R.string.workout_save_template)) },
                     onClick = {
                         menuOpen = false
@@ -259,6 +262,7 @@ private fun WorkoutHeader(
                     }
                 )
                 DropdownMenuItem(
+                    colors = com.evgarct.form.core.theme.formMenuItemColors(),
                     text = { Text(stringResource(R.string.workout_discard), color = colorScheme.error) },
                     onClick = {
                         menuOpen = false
@@ -370,7 +374,12 @@ private fun ExerciseCard(
                     modifier = Modifier.size(40.dp).clip(CircleShape).clickable { menuOpen = true },
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(Icons.Rounded.MoreVert, contentDescription = null, tint = colorScheme.onSurfaceVariant, modifier = Modifier.size(22.dp))
+                    Icon(
+                        Icons.Rounded.MoreVert,
+                        contentDescription = stringResource(R.string.workout_more),
+                        tint = colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
                 DropdownMenu(
                     expanded = menuOpen,
@@ -379,6 +388,7 @@ private fun ExerciseCard(
                 ) {
                     if (index < count - 1) {
                         DropdownMenuItem(
+                    colors = com.evgarct.form.core.theme.formMenuItemColors(),
                             text = { Text(stringResource(if (isLinkedToNext) R.string.workout_unlink else R.string.workout_superset)) },
                             onClick = {
                                 menuOpen = false
@@ -387,6 +397,7 @@ private fun ExerciseCard(
                         )
                     }
                     DropdownMenuItem(
+                    colors = com.evgarct.form.core.theme.formMenuItemColors(),
                         text = { Text(stringResource(R.string.workout_note_menu)) },
                         onClick = {
                             menuOpen = false
@@ -394,6 +405,7 @@ private fun ExerciseCard(
                         }
                     )
                     DropdownMenuItem(
+                    colors = com.evgarct.form.core.theme.formMenuItemColors(),
                         text = { Text(stringResource(R.string.workout_remove_exercise), color = colorScheme.error) },
                         onClick = {
                             menuOpen = false
@@ -460,6 +472,7 @@ private fun ExerciseMedia(exercise: DraftExercise, modifier: Modifier = Modifier
     val photo = exercise.images.firstOrNull()
     Row(
         modifier = modifier
+            .testTag("exercise-media")
             .height(height)
             .clip(RoundedCornerShape(18.dp))
             .background(colorScheme.surfaceContainerHighest)
@@ -600,6 +613,7 @@ private fun SetRow(
                     "drop" to R.string.workout_set_drop
                 ).forEach { (type, label) ->
                     DropdownMenuItem(
+                    colors = com.evgarct.form.core.theme.formMenuItemColors(),
                         text = { Text(stringResource(label)) },
                         onClick = {
                             typeMenu = false
@@ -609,6 +623,7 @@ private fun SetRow(
                 }
                 // RIR is not on the screen, but stays recordable (and visible to the AI) from here.
                 DropdownMenuItem(
+                    colors = com.evgarct.form.core.theme.formMenuItemColors(),
                     text = { Text(stringResource(R.string.workout_rir_value, set.rir?.toString() ?: "–")) },
                     onClick = {
                         val next = rirCycle[(rirCycle.indexOf(set.rir) + 1) % rirCycle.size]
@@ -616,6 +631,7 @@ private fun SetRow(
                     }
                 )
                 DropdownMenuItem(
+                    colors = com.evgarct.form.core.theme.formMenuItemColors(),
                     text = { Text(stringResource(R.string.workout_remove_set), color = colorScheme.error) },
                     onClick = {
                         typeMenu = false
@@ -698,7 +714,12 @@ private fun NumberField(
 @Composable
 private fun ExerciseDetailSheet(exercise: DraftExercise, onDismiss: () -> Unit) {
     val colorScheme = MaterialTheme.colorScheme
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = colorScheme.surfaceContainer) {
+    // Technique text is the point of opening this: start fully expanded instead of half-height.
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = colorScheme.surfaceContainer
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -727,10 +748,27 @@ private fun ExerciseDetailSheet(exercise: DraftExercise, onDismiss: () -> Unit) 
                     }
                 }
             }
+            if (exercise.instructions.isNotEmpty()) {
+                Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Eyebrow(stringResource(R.string.workout_technique))
+                    exercise.instructions.forEachIndexed { index, step ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                text = "${index + 1}",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = colorScheme.primary,
+                                modifier = Modifier.width(18.dp)
+                            )
+                            Text(text = step, fontSize = 15.sp, lineHeight = 21.sp, color = colorScheme.onSurface)
+                        }
+                    }
+                }
+            }
             MuscleMap(
                 primary = exercise.primaryMuscles,
                 secondary = exercise.secondaryMuscles,
-                modifier = Modifier.height(260.dp)
+                modifier = Modifier.height(180.dp)
             )
         }
     }

@@ -12,6 +12,7 @@ data class Exercise(
     val movementPattern: String? = null,
     val equipment: String? = null,
     val images: List<String> = emptyList(),
+    val instructions: List<String> = emptyList(),
     val isArchived: Boolean = false
 )
 
@@ -182,6 +183,7 @@ data class PlannedExerciseDto(
     val secondaryMuscles: List<String> = emptyList(),
     val equipment: String? = null,
     val images: List<String> = emptyList(),
+    val instructions: List<String> = emptyList(),
     val sets: Int = 3,
     val weightKg: Double? = null,
     val repMin: Int? = null,
@@ -230,6 +232,7 @@ data class DraftExercise(
     val secondaryMuscles: List<String> = emptyList(),
     val equipment: String? = null,
     val images: List<String> = emptyList(),
+    val instructions: List<String> = emptyList(),
     val lastDate: String? = null,
     val lastSets: List<LastSetDto> = emptyList(),
     // Free-text note for this exercise ("Заметки +"); uploaded as the note of its first recorded set.

@@ -12,7 +12,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.evgarct.form.FormApp
@@ -93,6 +95,85 @@ class WorkoutScreenshotTest {
         // Completing a working set only marks it done (there is no rest timer).
         rule.onAllNodesWithContentDescription(string(R.string.workout_set_done))[2].performClick()
         save("active-done")
+    }
+
+    /** Dark theme: menus, dialogs and text fields must keep readable text (regression: dark-on-dark). */
+    private fun darkWorkout(draft: WorkoutDraft = fixtureDraft(), block: () -> Unit) {
+        val prefs = FormApp.instance.appPreferences
+        prefs.updateThemeMode(com.evgarct.form.core.theme.ThemeMode.DARK)
+        try {
+            store.saveDraft(draft)
+            rule.setContent { FormTheme { WorkoutScreen() } }
+            block()
+            // Popups and dialogs are separate windows the compose capture does not see: leave them
+            // open long enough for `adb exec-out screencap -p`.
+            Thread.sleep(12_000)
+        } finally {
+            prefs.updateThemeMode(com.evgarct.form.core.theme.ThemeMode.SYSTEM)
+        }
+    }
+
+    private fun setText(text: String) {
+        rule.onNode(androidx.compose.ui.test.hasSetTextAction()).performSemanticsAction(
+            androidx.compose.ui.semantics.SemanticsActions.SetText
+        ) { it(androidx.compose.ui.text.AnnotatedString(text)) }
+    }
+
+    @Test
+    fun darkTechniqueSheet() = darkWorkout(
+        fixtureDraft().let { d ->
+            d.copy(exercises = d.exercises.mapIndexed { i, e ->
+                if (i == 0) e.copy(
+                    secondaryMuscles = listOf("glutes", "hamstrings"),
+                    images = listOf(
+                        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Split_Squat_with_Dumbbells/0.jpg",
+                        "https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Split_Squat_with_Dumbbells/1.jpg"
+                    ),
+                    instructions = listOf(
+                        "Встаньте спиной к скамье, заведите одну ногу назад на опору, гантели в руках.",
+                        "Опускайтесь вниз, пока бедро передней ноги не станет параллельно полу.",
+                        "Оттолкнитесь передней ногой и вернитесь в исходное положение."
+                    )
+                ) else e
+            })
+        }
+    ) {
+        rule.onAllNodesWithTag("exercise-media")[0].performClick()
+        rule.waitForIdle()
+        // The sheet is a popup window: its content must exist in the semantics tree after the tap.
+        rule.onNodeWithText(string(R.string.workout_technique).uppercase()).assertExists()
+    }
+
+    @Test
+    fun darkHeaderMenu() = darkWorkout {
+        rule.onAllNodesWithContentDescription(string(R.string.workout_more))[0].performClick()
+        save("dark-header-menu")
+    }
+
+    @Test
+    fun darkExerciseMenu() = darkWorkout {
+        rule.onAllNodesWithContentDescription(string(R.string.workout_more))[1].performClick()
+        save("dark-exercise-menu")
+    }
+
+    @Test
+    fun darkSetMenu() = darkWorkout {
+        rule.onNodeWithText("W").performClick()
+        save("dark-set-menu")
+    }
+
+    @Test
+    fun darkSaveTemplateDialog() = darkWorkout {
+        rule.onAllNodesWithContentDescription(string(R.string.workout_more))[0].performClick()
+        rule.onNodeWithText(string(R.string.workout_save_template)).performClick()
+        save("dark-template-dialog")
+    }
+
+    @Test
+    fun darkNoteField() = darkWorkout(
+        fixtureDraft().let { d -> d.copy(exercises = d.exercises.mapIndexed { i, e -> if (i == 0) e.copy(note = "Лопатки сведены") else e }) }
+    ) {
+        save("dark-note")
     }
 
     @Test

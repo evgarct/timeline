@@ -115,6 +115,7 @@ fun TemplatePlan.toDraft(
             secondaryMuscles = planned.secondaryMuscles,
             equipment = planned.equipment,
             images = planned.images,
+            instructions = planned.instructions,
             lastDate = planned.lastDate,
             lastSets = planned.lastSets,
             groupLabel = planned.groupLabel,

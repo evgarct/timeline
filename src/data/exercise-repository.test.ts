@@ -279,6 +279,14 @@ describe("memory exercise repository", () => {
     await expect(repository.recordWorkoutSession(userId, { ...base, mood: "great" as never })).rejects.toThrow();
   });
 
+  it("stores technique steps in order, returns them from search and caps them at 20", async () => {
+    const owner = "instructions-owner";
+    const saved = await repository.upsertExercise(owner, { name: "Steps Lift", instructions: ["Brace the core.", "Lower slowly."] });
+    expect(saved.instructions).toEqual(["Brace the core.", "Lower slowly."]);
+    expect((await repository.searchExercises(owner, "steps lift")).items[0].instructions).toHaveLength(2);
+    await expect(repository.upsertExercise(owner, { name: "Too many steps", instructions: Array.from({ length: 21 }, () => "step") })).rejects.toThrow();
+  });
+
   it("stores exercise images (https only, max 4) and returns them from search", async () => {
     const owner = "images-owner";
     const saved = await repository.upsertExercise(owner, {

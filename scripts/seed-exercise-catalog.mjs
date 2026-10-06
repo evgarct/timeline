@@ -155,15 +155,16 @@ for (let start = 0; start < toInsert.length; start += chunkSize) {
       JSON.stringify(item.searchAliases),
       item.searchAliases.length ? item.searchAliases.map(normalize).join(" | ") : null,
       source, item.externalRef.id,
-      item.images?.length ? JSON.stringify(item.images) : null
+      item.images?.length ? JSON.stringify(item.images) : null,
+      item.instructions?.length ? JSON.stringify(item.instructions) : null
     );
     const p = (offset) => `$${base + offset}`;
-    return `(${p(1)}, ${p(2)}, ${p(3)}, ${p(4)}, ${p(5)}::jsonb, ${p(6)}::jsonb, ${p(7)}::jsonb, ${p(8)}, ${p(9)}, ${p(10)}::jsonb, ${p(11)}, ${p(12)}, ${p(13)}, ${p(14)}::jsonb, ${stale}, ${stale})`;
+    return `(${p(1)}, ${p(2)}, ${p(3)}, ${p(4)}, ${p(5)}::jsonb, ${p(6)}::jsonb, ${p(7)}::jsonb, ${p(8)}, ${p(9)}, ${p(10)}::jsonb, ${p(11)}, ${p(12)}, ${p(13)}, ${p(14)}::jsonb, ${p(15)}::jsonb, ${stale}, ${stale})`;
   });
   const result = await sql.query(
     `insert into exercises (id, user_id, name, normalized_name, muscle_groups, primary_muscles, secondary_muscles,
        movement_pattern, equipment, search_aliases, normalized_search_aliases, external_source, external_id,
-       images, created_at, updated_at)
+       images, instructions, created_at, updated_at)
      values ${rows.join(", ")}
      on conflict (user_id, external_source, external_id) do nothing
      returning id`,
@@ -172,3 +173,18 @@ for (let start = 0; start < toInsert.length; start += chunkSize) {
   inserted += result.length;
 }
 console.log(`inserted: ${inserted}`);
+
+// Rows seeded before technique steps existed: fill instructions where still empty (never overwrites
+// text the owner wrote or translated).
+let backfilled = 0;
+for (const item of unique.values()) {
+  if (!item.instructions?.length) continue;
+  const updated = await sql.query(
+    `update exercises set instructions = $1::jsonb
+     where user_id = $2 and external_source = $3 and external_id = $4 and instructions is null
+     returning id`,
+    [JSON.stringify(item.instructions), userId, source, item.externalRef.id]
+  );
+  backfilled += updated.length;
+}
+console.log(`instructions backfilled: ${backfilled}`);
