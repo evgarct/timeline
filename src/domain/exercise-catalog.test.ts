@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canonicalMuscle, inferMovementPattern, mapDatasetExercise } from "./exercise-catalog";
+import { canonicalMuscle, inferMovementPattern, mapDatasetExercise, mapFreeExercise } from "./exercise-catalog";
 
 describe("exercise catalog mapping", () => {
   it("maps dataset muscle names onto the canonical vocabulary and drops non-muscles", () => {
@@ -24,6 +24,30 @@ describe("exercise catalog mapping", () => {
       equipment: "barbell",
       externalRef: { source: "exercises-dataset", id: "0025" }
     });
+  });
+
+  it("maps free-exercise-db rows: canonical muscles, equipment and commit-pinned photo URLs", () => {
+    const sha = "f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5";
+    const mapped = mapFreeExercise({
+      id: "Barbell_Bent_Over_Row", name: "bent over barbell row", force: "pull", equipment: "body only",
+      primaryMuscles: ["middle back", "lats"], secondaryMuscles: ["biceps", "abdominals", "lats"],
+      images: ["Barbell_Bent_Over_Row/0.jpg", "Barbell_Bent_Over_Row/1.jpg"]
+    }, sha);
+
+    expect(mapped).toMatchObject({
+      name: "Bent Over Barbell Row",
+      primaryMuscles: ["upper back", "lats"],
+      secondaryMuscles: ["biceps", "abs"],
+      movementPattern: "pull",
+      equipment: "body weight",
+      externalRef: { source: "free-exercise-db", id: "Barbell_Bent_Over_Row" }
+    });
+    expect(mapped?.images).toEqual([
+      `https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@${sha}/exercises/Barbell_Bent_Over_Row/0.jpg`,
+      `https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@${sha}/exercises/Barbell_Bent_Over_Row/1.jpg`
+    ]);
+    expect(mapFreeExercise({ id: "x", name: "Plank", primaryMuscles: ["abdominals"], secondaryMuscles: [], equipment: null }, sha)?.images).toEqual([]);
+    expect(mapFreeExercise({ id: "y", name: "Kettlebell Swing", primaryMuscles: ["glutes"], secondaryMuscles: [], equipment: "kettlebells" }, sha)?.equipment).toBe("kettlebell");
   });
 
   it("infers movement patterns from the name, then from the target muscle", () => {

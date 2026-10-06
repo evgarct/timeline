@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { and, desc, eq } from "drizzle-orm";
 import { database } from "@/db/client";
 import { workoutTemplates } from "@/db/schema";
-import { getExercise, getLastSessionSets } from "@/data/exercise-repository";
+import { getExercise, getLastSession } from "@/data/exercise-repository";
 import {
   normalizeTemplateName,
   suggestNextLoad,
@@ -132,6 +132,10 @@ function chooseLoad(entry: TemplateExercise, lastSets: Array<{ reps?: number; we
 export interface PlannedExercise extends TemplateExercise {
   name: string;
   primaryMuscles: string[];
+  secondaryMuscles: string[];
+  equipment?: string;
+  images: string[];
+  lastDate?: string;
   lastSets: Array<{ reps?: number; weightKg?: number }>;
   suggestion: LoadSuggestion;
 }
@@ -144,11 +148,16 @@ export async function planTemplate(userId: string, id: string) {
   const exercises: PlannedExercise[] = [];
   for (const entry of template.exercises) {
     const exercise = await getExercise(userId, entry.exerciseId);
-    const lastSets = await getLastSessionSets(userId, entry.exerciseId);
+    const last = await getLastSession(userId, entry.exerciseId);
+    const lastSets = last?.sets ?? [];
     exercises.push({
       ...entry,
       name: exercise?.name ?? "Unknown exercise",
       primaryMuscles: exercise?.primaryMuscles ?? exercise?.muscleGroups ?? [],
+      secondaryMuscles: exercise?.secondaryMuscles ?? [],
+      equipment: exercise?.equipment,
+      images: exercise?.images ?? [],
+      lastDate: last?.date,
       lastSets,
       suggestion: chooseLoad(entry, lastSets)
     });

@@ -1,17 +1,24 @@
-// Seeds a user's personal exercise catalog from the MIT-licensed hasaneyldrm/exercises-dataset
-// (data/exercises.json — metadata and text only; never copy its images/GIFs, they belong to Gym visual).
+// Seeds a user's personal exercise catalog from an open dataset. Two sources:
+//   --source exercises-dataset  hasaneyldrm/exercises-dataset (MIT) metadata only; its images/GIFs belong to Gym visual
+//                               and are never used. Default for backwards compatibility.
+//   --source free-exercise-db   yuhonas/free-exercise-db (Unlicense / public domain): metadata plus two photo frames per
+//                               exercise, served from jsDelivr pinned to --sha (the dataset commit).
 //
-//   node scripts/seed-exercise-catalog.mjs --file <exercises.json> --user <userId>            # dry run
-//   node scripts/seed-exercise-catalog.mjs --file ... --user ... --staging-host <host> --apply # staging
-//   node scripts/seed-exercise-catalog.mjs --file ... --user ... --apply                      # DATABASE_URL as is
+//   node scripts/seed-exercise-catalog.mjs --file <json> --user <userId>                          # dry run
+//   node scripts/seed-exercise-catalog.mjs --source free-exercise-db --sha <commit> --file <dist/exercises.json> --user <id> --apply
+//   add --staging-host <host> to target a Neon branch endpoint with the same credentials
+//   add --remove-unused-source exercises-dataset to also delete that source's rows that no logged set
+//   or template references (dry run prints how many would go)
 //
-// Idempotent: rows are keyed by (user, "exercises-dataset", dataset id) and existing rows are left
-// untouched, so user edits survive a re-run. Names that already exist for the user are skipped.
+// Idempotent: rows are keyed by (user, source, dataset id); existing rows are left untouched, so user edits
+// survive a re-run. Names that already exist for the user are skipped.
 import { randomUUID } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { neon } from "@neondatabase/serverless";
 import { loadEnvFile } from "./env.mjs";
-import { exerciseDatasetSource, mapDatasetExercise } from "../src/domain/exercise-catalog.ts";
+import {
+  exerciseDatasetSource, freeExerciseSource, mapDatasetExercise, mapFreeExercise
+} from "../src/domain/exercise-catalog.ts";
 
 loadEnvFile();
 
@@ -23,10 +30,21 @@ const option = (name) => {
 const file = option("file");
 const userId = option("user");
 const stagingHost = option("staging-host");
+const source = option("source") ?? exerciseDatasetSource;
+const sha = option("sha");
+const removeUnusedSource = option("remove-unused-source");
 const apply = args.includes("--apply");
 
 if (!file || !userId) {
-  console.error("Usage: --file <exercises.json> --user <userId> [--staging-host <host>] [--apply]");
+  console.error("Usage: --file <json> --user <userId> [--source exercises-dataset|free-exercise-db --sha <commit>] [--remove-unused-source <source>] [--staging-host <host>] [--apply]");
+  process.exit(1);
+}
+if (![exerciseDatasetSource, freeExerciseSource].includes(source)) {
+  console.error(`Unknown --source ${source}`);
+  process.exit(1);
+}
+if (source === freeExerciseSource && !/^[0-9a-f]{40}$/.test(sha ?? "")) {
+  console.error("--sha <40-char dataset commit> is required for free-exercise-db so image URLs stay pinned");
   process.exit(1);
 }
 if (!process.env.DATABASE_URL) {
@@ -39,12 +57,14 @@ if (stagingHost) {
   // Neon branches share roles, so the same credentials work on a staging branch's endpoint.
   url.hostname = stagingHost;
 }
-console.log(`Target host: ${url.hostname}  (${apply ? "APPLY" : "dry run"})`);
+console.log(`Target host: ${url.hostname}  source: ${source}  (${apply ? "APPLY" : "dry run"})`);
 
 const normalize = (value) => value.normalize("NFKC").trim().toLocaleLowerCase().replace(/\s+/g, " ");
 
 const dataset = JSON.parse(readFileSync(file, "utf8"));
-const mapped = dataset.map(mapDatasetExercise).filter(Boolean);
+const mapped = dataset
+  .map((row) => (source === freeExerciseSource ? mapFreeExercise(row, sha) : mapDatasetExercise(row)))
+  .filter(Boolean);
 
 // Disambiguate repeated names by equipment, then drop what is still ambiguous.
 const seen = new Map();
@@ -63,9 +83,43 @@ for (const item of mapped) {
 }
 
 const sql = neon(url.toString());
-const existing = await sql`select normalized_name, external_id from exercises where user_id = ${userId}`;
-const existingNames = new Set(existing.map((row) => row.normalized_name));
-const existingExternal = new Set(existing.filter((row) => row.external_id).map((row) => row.external_id));
+const userRows = [userId];
+
+// Rows of the old source that nothing references can be swapped out; referenced ones always stay.
+const referencedFilter = `
+  not exists (select 1 from workout_sets s where s.exercise_id = e.id)
+  and not exists (
+    select 1 from workout_templates t
+    where t.user_id = e.user_id
+      and t.exercises @> jsonb_build_array(jsonb_build_object('exerciseId', e.id::text))
+  )`;
+let removable = 0;
+if (removeUnusedSource) {
+  const [counts] = await sql.query(
+    `select count(*)::int as total,
+            count(*) filter (where ${referencedFilter})::int as removable
+     from exercises e where e.user_id = $1 and e.external_source = $2`,
+    [userId, removeUnusedSource]
+  );
+  removable = counts.removable;
+  console.log(`source ${removeUnusedSource}: ${counts.total} rows, ${counts.removable} unreferenced (removable), ${counts.total - counts.removable} referenced (kept)`);
+  if (apply && removable) {
+    const deleted = await sql.query(
+      `delete from exercises e where e.user_id = $1 and e.external_source = $2 and ${referencedFilter} returning e.id`,
+      [userId, removeUnusedSource]
+    );
+    console.log(`removed: ${deleted.length}`);
+  }
+}
+
+const existing = await sql.query("select normalized_name, external_source, external_id from exercises where user_id = $1", userRows);
+// In a dry run, names of rows that --apply would remove are treated as free.
+const existingNames = new Set(existing
+  .filter((row) => apply || !removeUnusedSource || row.external_source !== removeUnusedSource)
+  .map((row) => row.normalized_name));
+const existingExternal = new Set(existing
+  .filter((row) => row.external_source === source && row.external_id)
+  .map((row) => row.external_id));
 
 const toInsert = [...unique.entries()].filter(([key, item]) => (
   !existingNames.has(key) && !existingExternal.has(item.externalRef.id)
@@ -73,11 +127,11 @@ const toInsert = [...unique.entries()].filter(([key, item]) => (
 
 console.log(`dataset rows: ${dataset.length}, mapped: ${mapped.length}, unique names: ${unique.size}`);
 console.log(`already in catalog (name or dataset id): ${unique.size - toInsert.length}, skipped duplicate names: ${skippedDuplicateNames}`);
-console.log(`to insert: ${toInsert.length}`);
+console.log(`to insert: ${toInsert.length}, with images: ${toInsert.filter((item) => item.images?.length).length}`);
 const patterns = {};
 for (const item of toInsert) patterns[item.movementPattern] = (patterns[item.movementPattern] ?? 0) + 1;
 console.log("movement patterns:", JSON.stringify(patterns));
-console.log("sample:", JSON.stringify(toInsert.slice(0, 3), null, 1));
+console.log("sample:", JSON.stringify(toInsert.slice(0, 2), null, 1));
 
 if (!apply) {
   console.log("Dry run only. Pass --apply to write.");
@@ -100,15 +154,16 @@ for (let start = 0; start < toInsert.length; start += chunkSize) {
       item.movementPattern, item.equipment ?? null,
       JSON.stringify(item.searchAliases),
       item.searchAliases.length ? item.searchAliases.map(normalize).join(" | ") : null,
-      exerciseDatasetSource, item.externalRef.id
+      source, item.externalRef.id,
+      item.images?.length ? JSON.stringify(item.images) : null
     );
     const p = (offset) => `$${base + offset}`;
-    return `(${p(1)}, ${p(2)}, ${p(3)}, ${p(4)}, ${p(5)}::jsonb, ${p(6)}::jsonb, ${p(7)}::jsonb, ${p(8)}, ${p(9)}, ${p(10)}::jsonb, ${p(11)}, ${p(12)}, ${p(13)}, ${stale}, ${stale})`;
+    return `(${p(1)}, ${p(2)}, ${p(3)}, ${p(4)}, ${p(5)}::jsonb, ${p(6)}::jsonb, ${p(7)}::jsonb, ${p(8)}, ${p(9)}, ${p(10)}::jsonb, ${p(11)}, ${p(12)}, ${p(13)}, ${p(14)}::jsonb, ${stale}, ${stale})`;
   });
   const result = await sql.query(
     `insert into exercises (id, user_id, name, normalized_name, muscle_groups, primary_muscles, secondary_muscles,
        movement_pattern, equipment, search_aliases, normalized_search_aliases, external_source, external_id,
-       created_at, updated_at)
+       images, created_at, updated_at)
      values ${rows.join(", ")}
      on conflict (user_id, external_source, external_id) do nothing
      returning id`,

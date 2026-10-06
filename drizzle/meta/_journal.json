@@ -92,6 +92,13 @@
       "when": 1791223539442,
       "tag": "0012_gorgeous_dragon_lord",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791291986078,
+      "tag": "0013_abnormal_scalphunter",
+      "breakpoints": true
     }
   ]
 }

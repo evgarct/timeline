@@ -92,6 +92,37 @@ describe("memory workout template repository", () => {
     expect((await templates.planTemplate(userId, template.id))?.exercises[0].suggestion).toEqual({ weightKg: 55, reason: "planned" });
   });
 
+  it("plans with the picture, muscles, last session date and the superset label for the app", async () => {
+    const fly = await exercises.upsertExercise(userId, {
+      name: "Plan Media Fly", primaryMuscles: ["chest"], secondaryMuscles: ["shoulders"], equipment: "cable",
+      images: ["https://cdn.example.test/fly/0.jpg", "https://cdn.example.test/fly/1.jpg"]
+    });
+    await exercises.recordWorkoutSession(userId, {
+      occurredAt: new Date("2026-08-30T10:00:00.000Z"), timezone: "Europe/Prague", muscleGroups: ["chest"],
+      sets: [
+        { exerciseId: fly.id, setIndex: 2, reps: 10, weightKg: 15 },
+        { exerciseId: fly.id, setIndex: 1, reps: 12, weightKg: 12.5 }
+      ]
+    });
+    const template = await templates.upsertTemplate(userId, {
+      name: "Media day",
+      exercises: [{ exerciseId: fly.id, sets: 3, groupId: "ss1", groupLabel: "Суперсет на грудь" }]
+    });
+
+    const plan = await templates.planTemplate(userId, template.id);
+    expect(plan?.exercises[0]).toMatchObject({
+      images: ["https://cdn.example.test/fly/0.jpg", "https://cdn.example.test/fly/1.jpg"],
+      secondaryMuscles: ["shoulders"],
+      equipment: "cable",
+      lastDate: "2026-08-30",
+      groupLabel: "Суперсет на грудь",
+      lastSets: [{ reps: 12, weightKg: 12.5 }, { reps: 10, weightKg: 15 }]
+    });
+    expect(await exercises.getExerciseHistory(userId, fly.id)).toMatchObject({
+      lastSession: { date: "2026-08-30", sets: [{ reps: 12, weightKg: 12.5 }, { reps: 10, weightKg: 15 }] }
+    });
+  });
+
   it("hides archived templates by default and deletes", async () => {
     const lift = await exercises.upsertExercise(userId, { name: "Template Row" });
     const template = await templates.upsertTemplate(userId, { name: "Pull B", exercises: [{ exerciseId: lift.id }] });

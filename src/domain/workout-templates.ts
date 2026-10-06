@@ -19,6 +19,8 @@ export const templateExerciseSchema = z.object({
   repMax: z.number().int().min(1).max(100).optional(),
   targetRir: z.number().int().min(0).max(5).optional(),
   groupId: z.string().trim().min(1).max(60).optional(),
+  // Human label shown on the superset tab (e.g. "Суперсет на пресс"); falls back to a generic "Superset".
+  groupLabel: z.string().trim().min(1).max(80).optional(),
   progression: progressionRuleSchema.optional(),
   note: z.string().max(500).optional()
 }).refine((value) => value.repMin === undefined || value.repMax === undefined || value.repMin <= value.repMax, {
