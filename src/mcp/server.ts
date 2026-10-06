@@ -41,12 +41,13 @@ import {
   getExercise,
   getExerciseHistory,
   getMuscleVolume,
+  listRecentWorkoutSessions,
   recordWorkoutSession,
   searchExercises,
   upsertExercise
 } from "@/data/exercise-repository";
 import { exerciseInputSchema, isValidTimeZone, setInputSchema } from "@/domain/exercises";
-import { deleteTemplate, listTemplates, planTemplate, upsertTemplate } from "@/data/workout-template-repository";
+import { deleteTemplate, getTemplate, listTemplates, planTemplate, upsertTemplate } from "@/data/workout-template-repository";
 import { workoutTemplateInputSchema } from "@/domain/workout-templates";
 import { isTaskCompleted, latestEvent } from "@/domain/timeline";
 import { resolveMcpUser } from "@/data/repository";
@@ -71,13 +72,30 @@ function result(
   summary: string,
   data: unknown,
   items: Array<{ label: string; value: string }> = [],
-  opts: { id?: string; text?: string } = {}
+  opts: { id?: string; text?: string; withData?: boolean } = {}
 ) {
-  const text = opts.text ?? (opts.id ? `${summary} (id: ${opts.id})` : summary);
+  let text = opts.text ?? (opts.id ? `${summary} (id: ${opts.id})` : summary);
+  // Clients such as Claude read only the text content, never structuredContent: a bare summary
+  // like "10 events" leaves the model blind (no ids, no fields). Unless a tool wrote its own
+  // detailed text, append the data as compact JSON (bounded); tools that must be edited from the
+  // text (templates) opt in with withData.
+  if ((opts.text === undefined || opts.withData) && data !== undefined) {
+    text += `\n${dataAsText(data)}`;
+  }
   return {
     content: [{ type: "text" as const, text }],
     structuredContent: { title, summary, items, data, ...(opts.id ? { id: opts.id } : {}) }
   };
+}
+
+const MAX_DATA_TEXT_CHARS = 20000;
+
+function dataAsText(data: unknown) {
+  const json = JSON.stringify(data);
+  if (json === undefined) return "";
+  return json.length > MAX_DATA_TEXT_CHARS
+    ? `${json.slice(0, MAX_DATA_TEXT_CHARS)}... (truncated, ${json.length} characters in total; ask for fewer items)`
+    : json;
 }
 
 function itemizeText(count: number, noun: string, labels: string[], maxShown = 10) {
@@ -122,10 +140,24 @@ export function createTimelineMcpServer(userId: string) {
     inputSchema: { limit: z.number().int().min(1).max(100).default(20) }
   }, async ({ limit }) => {
     const events = (await listEvents(userId)).slice(0, limit);
+    const lines = events.map((event) => {
+      const parts = [event.id, event.type, event.occurredAt.toISOString().slice(0, 16)];
+      if (event.type === "workout") {
+        parts.push(event.muscleGroups.join("+"));
+        if (event.exertion) parts.push(`difficulty ${event.exertion}/5`);
+        if (event.mood) parts.push(`mood ${event.mood}`);
+      }
+      if (event.type === "measurements" && event.values.weightKg) parts.push(`${event.values.weightKg} kg`);
+      if (event.note) parts.push(`note: ${event.note}`);
+      return parts.join(" | ");
+    });
+    const text = events.length
+      ? `${events.length} events (id | type | time | details); use get_event for the full record:\n${lines.join("\n")}`
+      : "No events";
     return result("Timeline", `${events.length} events`, events, events.map((event) => ({
       label: event.type.replace("_", " "),
       value: event.occurredAt.toISOString().slice(0, 10)
-    })));
+    })), { text });
   });
 
   server.registerTool("get_event", {
@@ -566,6 +598,48 @@ export function createTimelineMcpServer(userId: string) {
     }
   });
 
+  server.registerTool("rename_workout_template", {
+    title: "Rename a workout template",
+    description: "Change only the name of an existing workout template (everything else, including all exercises, stays as it is). Get the id from list_workout_templates. Use this for requests like \"rename my workout to Full Body\"; use upsert_workout_template when the exercises change too.",
+    inputSchema: { id: z.string().uuid(), name: z.string().trim().min(1).max(120) }
+  }, async ({ id, name }) => {
+    const template = await getTemplate(userId, id);
+    if (!template) return { content: [{ type: "text" as const, text: "template_not_found" }], isError: true };
+    try {
+      const saved = await upsertTemplate(userId, { ...template, name });
+      return result("Template renamed", saved.name, saved, [], { id: saved.id, text: `Renamed to "${saved.name}" (id: ${saved.id})` });
+    } catch (error) {
+      return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "template_save_failed" }], isError: true };
+    }
+  });
+
+  server.registerTool("list_workout_sessions", {
+    title: "List logged workout sessions",
+    description: "List the user's most recent logged strength sessions (newest first): date, trained muscles, difficulty 1-5, mood (bad|ok|good), free-text notes, and per exercise the sets as reps x kg with RIR. Use it to discuss or review workouts that were already done; planned routines are in list_workout_templates.",
+    inputSchema: { limit: z.number().int().min(1).max(30).default(10) }
+  }, async ({ limit }) => {
+    const sessions = await listRecentWorkoutSessions(userId, limit);
+    const lines = sessions.map((session) => {
+      const head = [
+        `${session.occurredAt.toISOString().slice(0, 10)} (id: ${session.eventId})`,
+        session.muscleGroups.join("+"),
+        session.exertion ? `difficulty ${session.exertion}/5` : undefined,
+        session.mood ? `mood ${session.mood}` : undefined,
+        `${session.summary.setCount} sets, ${session.summary.tonnageKg} kg tonnage`
+      ].filter(Boolean).join(" | ");
+      const exercises = session.exercises.map((exercise) => {
+        const sets = exercise.sets.map((set) => (
+          `${set.reps ?? "?"}x${set.weightKg ?? "bw"}${set.rir !== undefined ? ` RIR${set.rir}` : ""}${set.setType !== "working" ? ` (${set.setType})` : ""}`
+        )).join(", ");
+        return `  ${exercise.name}: ${sets}`;
+      });
+      return [head, session.note ? `  note: ${session.note}` : undefined, ...exercises].filter(Boolean).join("\n");
+    });
+    return result("Workout sessions", `${sessions.length} sessions`, { sessions }, [], {
+      text: sessions.length ? lines.join("\n") : "No logged workouts yet"
+    });
+  });
+
   server.registerTool("get_muscle_volume", {
     title: "Get weekly sets per muscle",
     description: "Hard sets per muscle per calendar week (Monday start in the given timezone), newest week first: a primary muscle counts 1 set per completed working/drop set, a secondary muscle 0.5; warm-ups are excluded. Use it to judge training balance and plan volume — a common reference is roughly 10-20 hard sets per muscle per week, trained about twice a week, but treat it as a guide, not a target to push. Muscles come from the exercises' primaryMuscles/secondaryMuscles (see upsert_exercise); sets of exercises without muscle data are counted under \"other\".",
@@ -585,12 +659,12 @@ export function createTimelineMcpServer(userId: string) {
 
   server.registerTool("list_workout_templates", {
     title: "List workout templates",
-    description: "List the user's reusable workout templates (routines). Each has exercises with a prescription: sets, repMin-repMax, targetRir (reps in reserve), groupId (same value = superset) and an optional progression rule. Archived templates are hidden unless includeArchived is true.",
+    description: "List the user's reusable workout templates (routines) — this is where a named workout plan such as \"Mon 5.10\" or \"Full Body\" lives; logged past sessions are separate (see list_workout_sessions). The result includes every template's id and its full exercises as JSON, so a template can be edited afterwards. Each has exercises with a prescription: sets, repMin-repMax, targetRir (reps in reserve), groupId (same value = superset) and an optional progression rule. Archived templates are hidden unless includeArchived is true.",
     inputSchema: { includeArchived: z.boolean().default(false) }
   }, async ({ includeArchived }) => {
     const items = await listTemplates(userId, includeArchived);
     const text = itemizeText(items.length, "templates", items.map((template) => `${template.name} (id: ${template.id}, ${template.exercises.length} exercises)`));
-    return result("Workout templates", "Workout templates", { items }, [], { text });
+    return result("Workout templates", "Workout templates", { items }, [], { text, withData: true });
   });
 
   server.registerTool("upsert_workout_template", {
@@ -600,7 +674,7 @@ export function createTimelineMcpServer(userId: string) {
   }, async ({ template }) => {
     try {
       const saved = await upsertTemplate(userId, template);
-      return result("Template saved", saved.name, saved, [], { id: saved.id, text: `${saved.name} (id: ${saved.id}, ${saved.exercises.length} exercises)` });
+      return result("Template saved", saved.name, saved, [], { id: saved.id, text: `${saved.name} (id: ${saved.id}, ${saved.exercises.length} exercises)`, withData: true });
     } catch (error) {
       return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "template_save_failed" }], isError: true };
     }
@@ -628,7 +702,7 @@ export function createTimelineMcpServer(userId: string) {
       const load = exercise.suggestion.weightKg !== undefined ? `${exercise.suggestion.weightKg} kg (${exercise.suggestion.reason})` : "no history";
       return `${exercise.name}: ${exercise.sets} x ${range}${exercise.targetRir !== undefined ? ` @RIR ${exercise.targetRir}` : ""}, ${load}`;
     });
-    return result("Workout plan", plan.name, plan, [], { text: [plan.name, ...lines].join("\n") });
+    return result("Workout plan", plan.name, plan, [], { text: [plan.name, ...lines].join("\n"), withData: true });
   });
 
   server.registerTool("get_exercise_history", {

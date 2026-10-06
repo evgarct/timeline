@@ -27,6 +27,9 @@ Source of truth for the strength-training model. Product intent comes from the A
 - REST: `GET/POST /api/templates`, `GET/PUT/DELETE /api/templates/{id}`, `GET /api/templates/{id}/plan` (prescription + last session's sets + suggested load; read-only).
 - MCP: `list_workout_templates`, `upsert_workout_template`, `delete_workout_template`, `plan_workout_from_template`. Building a program in chat = `search_exercises`/`upsert_exercise` → `upsert_workout_template` → `plan_workout_from_template` → `record_workout_session`.
 
+## Talking to the AI (MCP)
+Beyond the tools above: `list_workout_sessions` (recent logged sessions with sets, difficulty, mood, notes) and `rename_workout_template` (name only). A named plan such as "Mon 5.10" lives in `list_workout_templates`; logged sessions are separate. Every tool answers with readable text that includes ids and data (Claude clients ignore `structuredContent`), and a client only sees new tools after it reconnects the Form connector or starts a new chat.
+
 ## Volume analytics
 - `GET /api/workouts/volume?weeks=4&timezone=` and MCP `get_muscle_volume`: hard sets per muscle per calendar week (Monday start in the given timezone), newest first. Primary muscle = 1 set, secondary = 0.5, warm-ups excluded; legacy exercises fall back to `muscleGroups`; exercises with no muscle data count under `other`.
 - The Train tab shows this week's sets per muscle with a tick for last week. It is a neutral fact display (no goals, colours or streaks, per `docs/DESIGN.md`); the 10–20 sets/week reference lives only in the MCP tool description for planning.
