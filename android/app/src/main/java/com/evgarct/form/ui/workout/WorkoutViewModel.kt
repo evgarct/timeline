@@ -100,6 +100,7 @@ class WorkoutViewModel : ViewModel() {
         viewModelScope.launch {
             repository.templatePlan(templateId)
                 .onSuccess { plan ->
+                    plan.exercises.forEach { preloadImages(it.images) }
                     commit(plan.toDraft(
                         draftId = UUID.randomUUID().toString(),
                         startedAtMillis = System.currentTimeMillis(),
@@ -139,8 +140,12 @@ class WorkoutViewModel : ViewModel() {
             exerciseId = exercise.id,
             name = exercise.name,
             primaryMuscles = exercise.primaryMuscles,
+            secondaryMuscles = exercise.secondaryMuscles,
+            equipment = exercise.equipment,
+            images = exercise.images,
             sets = listOf(newSet())
         )))
+        preloadImages(exercise.images)
         // Prefill from the last session without blocking the UI; a failure just leaves empty fields.
         viewModelScope.launch {
             repository.exerciseHistory(exercise.id).onSuccess { history ->
@@ -149,7 +154,15 @@ class WorkoutViewModel : ViewModel() {
                     entry.copy(
                         lastTopWeightKg = top,
                         bestE1rmKg = history.bestE1rmKg,
-                        sets = entry.sets.map { set -> if (set.weightKg == null && !set.done) set.copy(weightKg = top) else set }
+                        lastDate = history.lastSession?.date,
+                        lastSets = history.lastSession?.sets.orEmpty(),
+                        lastReps = history.lastSession?.sets.orEmpty().mapNotNull { it.reps },
+                        sets = entry.sets.mapIndexed { index, set ->
+                            if (set.done) set else set.copy(
+                                weightKg = set.weightKg ?: top,
+                                reps = set.reps ?: history.lastSession?.sets?.getOrNull(index)?.reps
+                            )
+                        }
                     )
                 }
             }
@@ -187,6 +200,25 @@ class WorkoutViewModel : ViewModel() {
             becameDone = !set.done
             // Marking a set done without typing reps records the visible hint (last time / bottom of the range).
             set.copy(done = !set.done, reps = if (becameDone) set.reps ?: hint else set.reps)
+        }
+    }
+
+    /** The exercise's check circle: marks every set done (filling reps from the hint), or clears them all if already complete. */
+    fun toggleExerciseDone(exerciseId: String) = updateExercise(exerciseId) { entry ->
+        val allDone = entry.sets.isNotEmpty() && entry.sets.all { it.done }
+        entry.copy(sets = entry.sets.mapIndexed { index, set ->
+            if (allDone) set.copy(done = false)
+            else set.copy(done = true, reps = set.reps ?: repsHint(entry, index))
+        })
+    }
+
+    fun updateNote(exerciseId: String, note: String) = updateExercise(exerciseId) { it.copy(note = note.ifEmpty { null }) }
+
+    /** Warms Coil's cache when a workout starts, so photos are already there in a gym with bad reception. */
+    private fun preloadImages(urls: List<String>) {
+        val loader = coil.Coil.imageLoader(app)
+        urls.forEach { url ->
+            loader.enqueue(coil.request.ImageRequest.Builder(app).data(url).build())
         }
     }
 

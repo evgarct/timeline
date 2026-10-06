@@ -9,6 +9,9 @@ import com.evgarct.form.data.models.ProgressionRule
 import com.evgarct.form.data.models.TemplatePlan
 import com.evgarct.form.data.models.WorkoutDraft
 import com.evgarct.form.data.models.WorkoutFeedback
+import com.evgarct.form.ui.workout.formatShortDate
+import com.evgarct.form.ui.workout.groupedForDisplay
+import com.evgarct.form.ui.workout.lastLabel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -54,6 +57,64 @@ class WorkoutMathTest {
         assertEquals("ss1", request.sets[2].groupId)
         assertEquals(listOf("quads", "lats"), request.muscleGroups)
         assertEquals("android-workout:d1", request.idempotencyKey)
+    }
+
+    @Test
+    fun exerciseNoteGoesOnlyIntoTheFirstRecordedSetOfThatExercise() {
+        val request = draft(
+            DraftExercise(
+                "bench", "Bench", listOf("chest"),
+                listOf(DraftSet("a", done = false), DraftSet("b", reps = 8, done = true), DraftSet("c", reps = 8, done = true)),
+                note = " Лопатки сведены "
+            ),
+            DraftExercise("row", "Row", listOf("lats"), listOf(DraftSet("d", reps = 8, done = true)), note = "  ")
+        ).toRequest()!!
+
+        assertEquals(listOf("Лопатки сведены", null, null), request.sets.map { it.note })
+    }
+
+    @Test
+    fun planPrefillsEverySetSoTickingThemIsEnoughToRecordTheWorkout() {
+        val plan = TemplatePlan(
+            "t", "Full Body",
+            exercises = listOf(
+                PlannedExerciseDto(
+                    "bench", "Bench", sets = 3, repMin = 6, repMax = 10,
+                    lastSets = listOf(LastSetDto(9, 80.0), LastSetDto(8, 80.0)),
+                    suggestion = LoadSuggestion(82.5, "progression")
+                )
+            )
+        )
+        var n = 0
+        val workout = plan.toDraft("d", 1_760_000_000_000, "Europe/Prague") { "s${n++}" }
+        // Last time's reps where there was a set, the bottom of the range otherwise; weight on every set.
+        assertEquals(listOf(9, 8, 6), workout.exercises[0].sets.map { it.reps })
+        assertEquals(listOf(82.5, 82.5, 82.5), workout.exercises[0].sets.map { it.weightKg })
+        assertEquals("Full Body", workout.title)
+
+        val ticked = workout.copy(exercises = workout.exercises.map { e -> e.copy(sets = e.sets.map { it.copy(done = true) }) })
+        assertEquals(listOf(9, 8, 6), ticked.toRequest()!!.sets.map { it.reps })
+    }
+
+    @Test
+    fun consecutiveExercisesWithTheSameGroupAreDisplayedTogether() {
+        fun ex(id: String, group: String?) =
+            DraftExercise(id, id, emptyList(), listOf(DraftSet("s$id", groupId = group)))
+        val grouped = listOf(ex("a", null), ex("b", "g"), ex("c", "g"), ex("d", null), ex("e", "g")).groupedForDisplay()
+        assertEquals(listOf(listOf("a"), listOf("b", "c"), listOf("d"), listOf("e")), grouped.map { g -> g.map { it.exerciseId } })
+    }
+
+    @Test
+    fun lastTimeCellShowsWeightTimesRepsAndTheDateIsShortened() {
+        val exercise = DraftExercise(
+            "e", "E", emptyList(), emptyList(),
+            lastSets = listOf(LastSetDto(10, 62.5), LastSetDto(null, 60.0), LastSetDto(12, null))
+        )
+        assertEquals("62.5×10", lastLabel(exercise, 0))
+        assertEquals("60", lastLabel(exercise, 1))
+        assertEquals("×12", lastLabel(exercise, 2))
+        assertNull(lastLabel(exercise, 3))
+        assertEquals("5.10", formatShortDate("2026-10-05"))
     }
 
     @Test

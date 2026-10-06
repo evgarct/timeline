@@ -11,6 +11,7 @@ data class Exercise(
     val secondaryMuscles: List<String> = emptyList(),
     val movementPattern: String? = null,
     val equipment: String? = null,
+    val images: List<String> = emptyList(),
     val isArchived: Boolean = false
 )
 
@@ -39,8 +40,13 @@ data class ExerciseHistory(
     val windowSessions: Int = 0,
     val bestSet: BestSet? = null,
     val bestE1rmKg: Double? = null,
-    val recentSessions: List<HistoryEntry> = emptyList()
+    val recentSessions: List<HistoryEntry> = emptyList(),
+    val lastSession: LastSession? = null
 )
+
+/** The newest logged session of an exercise: its local date (yyyy-MM-dd) and working sets in order. */
+@Serializable
+data class LastSession(val date: String, val sets: List<LastSetDto> = emptyList())
 
 /** One set as sent to and returned by `/api/workouts`. */
 @Serializable
@@ -138,6 +144,7 @@ data class TemplateExerciseDto(
     val repMax: Int? = null,
     val targetRir: Int? = null,
     val groupId: String? = null,
+    val groupLabel: String? = null,
     val progression: ProgressionRule? = null,
     val note: String? = null
 )
@@ -172,13 +179,18 @@ data class PlannedExerciseDto(
     val exerciseId: String,
     val name: String,
     val primaryMuscles: List<String> = emptyList(),
+    val secondaryMuscles: List<String> = emptyList(),
+    val equipment: String? = null,
+    val images: List<String> = emptyList(),
     val sets: Int = 3,
     val weightKg: Double? = null,
     val repMin: Int? = null,
     val repMax: Int? = null,
     val targetRir: Int? = null,
     val groupId: String? = null,
+    val groupLabel: String? = null,
     val progression: ProgressionRule? = null,
+    val lastDate: String? = null,
     val lastSets: List<LastSetDto> = emptyList(),
     val suggestion: LoadSuggestion = LoadSuggestion()
 )
@@ -214,6 +226,16 @@ data class DraftExercise(
     val lastTopWeightKg: Double? = null,
     val bestE1rmKg: Double? = null,
     val lastReps: List<Int> = emptyList(),
+    // What the card shows next to the table (filled from the plan or the exercise's history).
+    val secondaryMuscles: List<String> = emptyList(),
+    val equipment: String? = null,
+    val images: List<String> = emptyList(),
+    val lastDate: String? = null,
+    val lastSets: List<LastSetDto> = emptyList(),
+    // Free-text note for this exercise ("Заметки +"); uploaded as the note of its first recorded set.
+    val note: String? = null,
+    // Superset tab text from the template (groups themselves are the sets' groupId).
+    val groupLabel: String? = null,
     // Prescription copied from a template (all optional; absent for ad-hoc exercises).
     val repMin: Int? = null,
     val repMax: Int? = null,
@@ -227,5 +249,7 @@ data class WorkoutDraft(
     val id: String,
     val startedAtMillis: Long,
     val timezone: String,
-    val exercises: List<DraftExercise> = emptyList()
+    val exercises: List<DraftExercise> = emptyList(),
+    // Shown in the screen header: the template's name when started from one.
+    val title: String? = null
 )

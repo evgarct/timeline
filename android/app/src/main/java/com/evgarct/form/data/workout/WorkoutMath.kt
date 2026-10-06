@@ -56,9 +56,10 @@ fun WorkoutDraft.muscleGroups(): List<String> {
 fun WorkoutDraft.toRequest(feedback: WorkoutFeedback = WorkoutFeedback()): WorkoutSessionRequest? {
     var index = 0
     val sets = exercises.flatMap { exercise: DraftExercise ->
-        exercise.sets.filter { it.isRecordable() }.map { set ->
+        exercise.sets.filter { it.isRecordable() }.mapIndexed { position, set ->
             index += 1
             WorkoutSetDto(
+                note = if (position == 0) exercise.note?.trim()?.ifEmpty { null } else null,
                 exerciseId = exercise.exerciseId,
                 setIndex = index,
                 reps = set.reps,
@@ -93,16 +94,30 @@ fun TemplatePlan.toDraft(
     id = draftId,
     startedAtMillis = startedAtMillis,
     timezone = timezone,
+    title = name,
     exercises = exercises.map { planned ->
+        val lastReps = planned.lastSets.mapNotNull { it.reps }
         DraftExercise(
             exerciseId = planned.exerciseId,
             name = planned.name,
             primaryMuscles = planned.primaryMuscles,
-            sets = List(planned.sets.coerceAtLeast(1)) {
-                DraftSet(id = newId(), weightKg = planned.suggestion.weightKg, groupId = planned.groupId)
+            // Everything is prefilled (weight and reps) so a lifter who did the plan only ticks the sets.
+            sets = List(planned.sets.coerceAtLeast(1)) { index ->
+                DraftSet(
+                    id = newId(),
+                    reps = lastReps.getOrNull(index) ?: planned.repMin,
+                    weightKg = planned.suggestion.weightKg,
+                    groupId = planned.groupId
+                )
             },
             lastTopWeightKg = planned.lastSets.mapNotNull { it.weightKg }.maxOrNull(),
-            lastReps = planned.lastSets.mapNotNull { it.reps },
+            lastReps = lastReps,
+            secondaryMuscles = planned.secondaryMuscles,
+            equipment = planned.equipment,
+            images = planned.images,
+            lastDate = planned.lastDate,
+            lastSets = planned.lastSets,
+            groupLabel = planned.groupLabel,
             repMin = planned.repMin,
             repMax = planned.repMax,
             targetRir = planned.targetRir,
@@ -134,6 +149,7 @@ fun WorkoutDraft.toTemplateRequest(name: String): WorkoutTemplateRequest? {
                 repMax = exercise.repMax ?: reps.maxOrNull(),
                 targetRir = exercise.targetRir,
                 groupId = exercise.sets.firstNotNullOfOrNull { it.groupId },
+                groupLabel = exercise.groupLabel,
                 progression = exercise.progression
             )
         }
