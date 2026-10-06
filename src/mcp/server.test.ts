@@ -71,6 +71,38 @@ describe("timeline MCP server", () => {
     expect(text(await client.callTool({ name: "get_task_schedules", arguments: {} }))).toMatch(/schedules\n\[/);
   });
 
+  it("lets an agent browse the exercise database by muscle and equipment and read the technique", async () => {
+    const client = await connectClient();
+    const text = (response: unknown) => (response as { content: Array<{ text: string }> }).content[0].text;
+    const add = async (exercise: Record<string, unknown>) => text(await client.callTool({ name: "upsert_exercise", arguments: { exercise } }));
+    await add({ name: "Incline Dumbbell Press", primaryMuscles: ["chest"], secondaryMuscles: ["triceps"], equipment: "dumbbell", movementPattern: "push", searchAliases: ["жим лёжа с гантелями под углом"] });
+    await add({ name: "Barbell Back Squat", primaryMuscles: ["quads"], equipment: "barbell", movementPattern: "squat" });
+    const detail = await add({
+      name: "Cable Fly", primaryMuscles: ["chest"], equipment: "cable", movementPattern: "push",
+      instructions: ["Stand between the pulleys.", "Bring the handles together."], images: ["https://cdn.example.test/fly/0.jpg"]
+    });
+    const flyId = /id: ([0-9a-f-]{36})/.exec(detail)![1];
+
+    const filters = text(await client.callTool({ name: "list_exercise_filters", arguments: {} }));
+    expect(filters).toContain("chest (2)");
+    expect(filters).toContain("dumbbell (1)");
+    expect(filters).toContain("push (2)");
+
+    // words in any order, narrowed by muscle; each line carries what an agent needs to choose
+    const found = text(await client.callTool({ name: "search_exercises", arguments: { query: "press incline", muscle: "chest" } }));
+    expect(found).toContain("Incline Dumbbell Press — chest (+triceps) | dumbbell | push | id: ");
+    expect(found).not.toContain("Squat");
+    expect(text(await client.callTool({ name: "search_exercises", arguments: { muscle: "quads" } }))).toContain("Barbell Back Squat");
+    expect(text(await client.callTool({ name: "search_exercises", arguments: { query: "жим гантелями" } }))).toContain("Incline Dumbbell Press");
+    expect(text(await client.callTool({ name: "search_exercises", arguments: { equipment: "cable", movementPattern: "push" } }))).toContain("Cable Fly");
+    expect(text(await client.callTool({ name: "search_exercises", arguments: { muscle: "calves" } }))).toContain("No exercises matched");
+
+    const full = text(await client.callTool({ name: "get_exercise", arguments: { exerciseId: flyId } }));
+    expect(full).toContain("1. Stand between the pulleys.");
+    expect(full).toContain("2. Bring the handles together.");
+    expect(full).toContain("https://cdn.example.test/fly/0.jpg");
+  });
+
   it("lets an agent find, rename and review workouts from text alone", async () => {
     const client = await connectClient();
     const text = (response: unknown) => (response as { content: Array<{ text: string }> }).content[0].text;

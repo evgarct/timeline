@@ -38,6 +38,7 @@ import {
   summarizeMacros
 } from "@/domain/nutrition";
 import {
+  exerciseFacets,
   getExercise,
   getExerciseHistory,
   getMuscleVolume,
@@ -46,7 +47,7 @@ import {
   searchExercises,
   upsertExercise
 } from "@/data/exercise-repository";
-import { exerciseInputSchema, isValidTimeZone, setInputSchema } from "@/domain/exercises";
+import { exerciseInputSchema, isValidTimeZone, movementPatterns, setInputSchema } from "@/domain/exercises";
 import { deleteTemplate, getTemplate, listTemplates, planTemplate, upsertTemplate } from "@/data/workout-template-repository";
 import { workoutTemplateInputSchema } from "@/domain/workout-templates";
 import { isTaskCompleted, latestEvent } from "@/domain/timeline";
@@ -542,22 +543,65 @@ export function createTimelineMcpServer(userId: string) {
   });
 
   server.registerTool("search_exercises", {
-    title: "Search personal exercise catalog",
-    description: "Search the user's personal exercise catalog by name or searchAliases. Call this before upsert_exercise to check whether an exercise already exists — an exact normalized-name match is reused automatically by upsert_exercise, but this lets you inspect candidates yourself (e.g. to decide between two similarly-named exercises) before deciding whether to create a new one.",
+    title: "Search the exercise database",
+    description: "Search the ready exercise database (about 880 exercises from the open free-exercise-db, each with muscles, equipment, movement pattern, two photos and step-by-step technique) plus the user's own additions. THIS IS THE SOURCE FOR BUILDING WORKOUTS: pick exercises from here and use their ids in upsert_workout_template / record_workout_session; do not create new exercises (upsert_exercise) unless nothing fits. query is matched word by word in any order against names and aliases (English names, plus the owner's own wording such as Russian aliases), e.g. \"incline press\"; leave it empty to browse by filter. Filters (all optional, combined with AND): muscle = canonical PRIMARY muscle id, equipment, movementPattern — call list_exercise_filters for the valid values. Each result line shows primary/secondary muscles, equipment, pattern and the id; call get_exercise for the technique steps.",
     inputSchema: {
       query: z.string().default(""),
+      muscle: z.string().optional().describe("Primary muscle id, e.g. chest, quads, lats, shoulders, abs (see list_exercise_filters)"),
+      equipment: z.string().optional().describe("e.g. barbell, dumbbell, cable, machine, body weight (see list_exercise_filters)"),
+      movementPattern: z.enum(movementPatterns).optional(),
       page: z.number().int().min(1).default(1),
       pageSize: z.number().int().min(1).max(100).default(30)
     }
-  }, async ({ query, page, pageSize }) => {
-    const found = await searchExercises(userId, query, page, pageSize);
-    const text = itemizeText(found.items.length, "exercises", found.items.map((exercise) => `${exercise.name} (id: ${exercise.id})`));
-    return result("Exercises", `Personal exercise search: ${query || "all"}`, found, [], { text });
+  }, async ({ query, muscle, equipment, movementPattern, page, pageSize }) => {
+    const found = await searchExercises(userId, query, page, pageSize, false, { muscle, equipment, movementPattern });
+    const lines = found.items.map((exercise) => {
+      const primary = (exercise.primaryMuscles ?? exercise.muscleGroups ?? []).join(", ") || "-";
+      const secondary = exercise.secondaryMuscles?.length ? ` (+${exercise.secondaryMuscles.join(", ")})` : "";
+      return `${exercise.name} — ${primary}${secondary} | ${exercise.equipment ?? "-"} | ${exercise.movementPattern ?? "-"} | id: ${exercise.id}`;
+    });
+    const header = found.items.length
+      ? `${found.items.length} exercises${found.hasMore ? " (more on the next page)" : ""}`
+      : "No exercises matched; loosen the query or filters (list_exercise_filters shows valid values)";
+    return result("Exercises", `Exercise search: ${query || "all"}`, found, [], { text: [header, ...lines].join("\n") });
+  });
+
+  server.registerTool("get_exercise", {
+    title: "Get one exercise with technique",
+    description: "Full detail of one exercise from the database: muscles, equipment, movement pattern, numbered technique steps and photo URLs. Use it to explain how to perform an exercise or to choose between candidates from search_exercises.",
+    inputSchema: { exerciseId: z.string().uuid() }
+  }, async ({ exerciseId }) => {
+    const exercise = await getExercise(userId, exerciseId);
+    if (!exercise) return { content: [{ type: "text" as const, text: "exercise_not_found" }], isError: true };
+    const steps = exercise.instructions?.length
+      ? exercise.instructions.map((step, index) => `${index + 1}. ${step}`).join("\n")
+      : "No technique steps stored.";
+    const text = [
+      `${exercise.name} (id: ${exercise.id})`,
+      `Primary: ${(exercise.primaryMuscles ?? exercise.muscleGroups ?? []).join(", ") || "-"}; secondary: ${exercise.secondaryMuscles?.join(", ") || "-"}`,
+      `Equipment: ${exercise.equipment ?? "-"}; pattern: ${exercise.movementPattern ?? "-"}`,
+      exercise.searchAliases.length ? `Also known as: ${exercise.searchAliases.join(", ")}` : undefined,
+      "Technique:",
+      steps,
+      exercise.images?.length ? `Photos: ${exercise.images.join(" ")}` : undefined
+    ].filter(Boolean).join("\n");
+    return result("Exercise", exercise.name, exercise, [], { text });
+  });
+
+  server.registerTool("list_exercise_filters", {
+    title: "List exercise database filters",
+    description: "The vocabulary for search_exercises filters with counts: primary muscles, equipment types and movement patterns that exist in the exercise database. Call once before filtering so muscle/equipment values match exactly.",
+    inputSchema: {}
+  }, async () => {
+    const facets = await exerciseFacets(userId);
+    const line = (label: string, values: Array<{ value: string; count: number }>) => `${label}: ${values.map((item) => `${item.value} (${item.count})`).join(", ") || "-"}`;
+    const text = [`${facets.total} exercises`, line("Muscles", facets.muscles), line("Equipment", facets.equipment), line("Movement patterns", facets.movementPatterns)].join("\n");
+    return result("Exercise filters", `${facets.total} exercises`, facets, [], { text });
   });
 
   server.registerTool("upsert_exercise", {
     title: "Create or update a personal exercise",
-    description: "Save an exercise to the user's personal catalog, avoiding duplicates: an explicit id updates that exercise; otherwise an exact externalRef match (a stable id from a source like \"trainero\") is reused if present, else an exact normalized-name match is reused, else a new exercise is created. An ambiguous_exercise error means more than one existing exercise matched by exact name — resolve it with search_exercises and pass an explicit id instead of retrying blindly. Fill primaryMuscles/secondaryMuscles with lowercase canonical muscle names (e.g. chest, back, quads, hamstrings, glutes, shoulders, biceps, triceps, calves, abs), movementPattern (squat|hinge|push|pull|lunge|carry|core|other) and equipment when known — weekly per-muscle volume is computed from them (primary sets count 1, secondary 0.5). Set isArchived: true to hide an exercise from search instead of deleting it (history is kept). Pass images (up to 4 absolute https URLs, e.g. the two frames of an exercise photo) to show a picture of the exercise in the app.",
+    description: "Last resort: only use this when search_exercises found nothing suitable in the ready exercise database (the owner does not want exercises hand-created each time). Save an exercise to the user's personal catalog, avoiding duplicates: an explicit id updates that exercise; otherwise an exact externalRef match (a stable id from a source like \"trainero\") is reused if present, else an exact normalized-name match is reused, else a new exercise is created. An ambiguous_exercise error means more than one existing exercise matched by exact name — resolve it with search_exercises and pass an explicit id instead of retrying blindly. Fill primaryMuscles/secondaryMuscles with lowercase canonical muscle names (e.g. chest, back, quads, hamstrings, glutes, shoulders, biceps, triceps, calves, abs), movementPattern (squat|hinge|push|pull|lunge|carry|core|other) and equipment when known — weekly per-muscle volume is computed from them (primary sets count 1, secondary 0.5). Set isArchived: true to hide an exercise from search instead of deleting it (history is kept). Pass images (up to 4 absolute https URLs, e.g. the two frames of an exercise photo) to show a picture of the exercise in the app.",
     inputSchema: { exercise: exerciseInputSchema }
   }, async ({ exercise }) => {
     try {
@@ -669,7 +713,7 @@ export function createTimelineMcpServer(userId: string) {
 
   server.registerTool("upsert_workout_template", {
     title: "Create or update a workout template",
-    description: "Save a reusable workout template. An explicit id updates that template, otherwise an exact normalized-name match is updated, else a new one is created; the exercises list is replaced as a whole. Every exerciseId must already exist (unknown_exercise otherwise) — use search_exercises/upsert_exercise first. Prescription per exercise: sets, weightKg (planned working weight; it is what the app prefills for the first session, and with a progression rule the weight is advanced from history afterwards), repMin/repMax (rep range), targetRir (0-5), groupId for supersets (with an optional groupLabel shown on the superset tab in the app, e.g. \"Superset for abs\"), and progression {type: \"double\", incrementKg} = keep the weight until every top set reaches repMax, then add incrementKg. Example: 3 x 6-10 at RIR 2 with +2.5 kg. Set isArchived: true to retire a template without deleting it.",
+    description: "Save a reusable workout template. An explicit id updates that template, otherwise an exact normalized-name match is updated, else a new one is created; the exercises list is replaced as a whole. Every exerciseId must already exist (unknown_exercise otherwise) — pick them from the exercise database with search_exercises (filter by muscle/equipment/movementPattern; list_exercise_filters shows the values) rather than creating new exercises. Prescription per exercise: sets, weightKg (planned working weight; it is what the app prefills for the first session, and with a progression rule the weight is advanced from history afterwards), repMin/repMax (rep range), targetRir (0-5), groupId for supersets (with an optional groupLabel shown on the superset tab in the app, e.g. \"Superset for abs\"), and progression {type: \"double\", incrementKg} = keep the weight until every top set reaches repMax, then add incrementKg. Example: 3 x 6-10 at RIR 2 with +2.5 kg. Set isArchived: true to retire a template without deleting it.",
     inputSchema: { template: workoutTemplateInputSchema }
   }, async ({ template }) => {
     try {
