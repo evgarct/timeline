@@ -143,6 +143,7 @@ class WorkoutViewModel : ViewModel() {
             secondaryMuscles = exercise.secondaryMuscles,
             equipment = exercise.equipment,
             images = exercise.images,
+            instructions = exercise.instructions,
             sets = listOf(newSet())
         )))
         preloadImages(exercise.images)

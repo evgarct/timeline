@@ -46,6 +46,11 @@ describe("exercise catalog mapping", () => {
       `https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@${sha}/exercises/Barbell_Bent_Over_Row/0.jpg`,
       `https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@${sha}/exercises/Barbell_Bent_Over_Row/1.jpg`
     ]);
+    const withSteps = mapFreeExercise({
+      id: "z", name: "Plank", primaryMuscles: ["abdominals"], secondaryMuscles: [],
+      instructions: [" Lie face down. ", "", "Hold the position."]
+    }, sha);
+    expect(withSteps?.instructions).toEqual(["Lie face down.", "Hold the position."]);
     expect(mapFreeExercise({ id: "x", name: "Plank", primaryMuscles: ["abdominals"], secondaryMuscles: [], equipment: null }, sha)?.images).toEqual([]);
     expect(mapFreeExercise({ id: "y", name: "Kettlebell Swing", primaryMuscles: ["glutes"], secondaryMuscles: [], equipment: "kettlebells" }, sha)?.equipment).toBe("kettlebell");
   });

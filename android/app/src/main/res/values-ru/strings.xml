@@ -291,6 +291,8 @@
     <string name="workout_suggested">Предложено %1$s кг</string>
     <string name="workout_last_time">Раньше</string>
     <string name="workout_exercise_done">Упражнение выполнено</string>
+    <string name="workout_more">Ещё</string>
+    <string name="workout_technique">Техника</string>
     <string name="workout_note_menu">Добавить заметку</string>
     <string name="workout_note_hint">Заметка к упражнению</string>
     <string name="workout_superset_tab">Суперсет</string>

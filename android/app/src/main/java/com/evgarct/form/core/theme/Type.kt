@@ -1,19 +1,32 @@
 package com.evgarct.form.core.theme
 
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Typography
-import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
 /**
- * Built inside a composable (not a plain top-level val) because each style's baked-in `color`
- * now resolves through the active MaterialTheme.colorScheme (see Color.kt) so typography tracks
- * light/dark mode and dynamic color like everything else.
+ * Takes the scheme explicitly: this is evaluated while building the theme itself, i.e. OUTSIDE
+ * `MaterialTheme`, where `MaterialTheme.colorScheme` is still the default light scheme. Reading it
+ * there baked dark text colors into every style, unreadable in the dark theme (menus, text fields).
  */
-@Composable
-fun formTypography(): Typography = Typography(
+fun formTypography(colorScheme: ColorScheme): Typography {
+    val LightInk = colorScheme.onBackground
+    val TextPrimary = colorScheme.onBackground
+    val TextSecondary = colorScheme.onSurfaceVariant
+    val TextMuted = colorScheme.outline
+    return buildTypography(LightInk, TextPrimary, TextSecondary, TextMuted)
+}
+
+private fun buildTypography(
+    LightInk: Color,
+    TextPrimary: Color,
+    TextSecondary: Color,
+    TextMuted: Color
+): Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = FontFamily.Serif,
         fontWeight = FontWeight.Normal,

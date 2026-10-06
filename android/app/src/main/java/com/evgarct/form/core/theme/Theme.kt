@@ -12,7 +12,9 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
@@ -108,8 +110,12 @@ fun FormTheme(
 
     MaterialExpressiveTheme(
         colorScheme = colorScheme,
-        typography = formTypography(),
+        typography = formTypography(colorScheme),
         motionScheme = MotionScheme.expressive(),
-        content = content
+        // Text without an explicit color (menu items, popups, plain fields) falls back to
+        // LocalContentColor, which defaults to black: unreadable on the dark scheme.
+        content = {
+            CompositionLocalProvider(LocalContentColor provides colorScheme.onBackground, content = content)
+        }
     )
 }

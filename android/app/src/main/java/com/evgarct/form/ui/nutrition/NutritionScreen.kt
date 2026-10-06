@@ -379,16 +379,19 @@ private fun FoodEntryRow(
                 containerColor = MaterialTheme.colorScheme.surfaceContainerHighest
             ) {
                 DropdownMenuItem(
+                    colors = com.evgarct.form.core.theme.formMenuItemColors(),
                     text = { Text(stringResource(R.string.nutrition_edit)) },
                     leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null) },
                     onClick = { showMenu = false; onOpen() }
                 )
                 DropdownMenuItem(
+                    colors = com.evgarct.form.core.theme.formMenuItemColors(),
                     text = { Text(stringResource(R.string.nutrition_repeat)) },
                     leadingIcon = { Icon(Icons.Default.Repeat, contentDescription = null) },
                     onClick = { showMenu = false; onRepeat() }
                 )
                 DropdownMenuItem(
+                    colors = com.evgarct.form.core.theme.formMenuItemColors(),
                     text = { Text(stringResource(R.string.nutrition_delete)) },
                     leadingIcon = { Icon(Icons.Default.Delete, contentDescription = null) },
                     onClick = { showMenu = false; onDelete() }

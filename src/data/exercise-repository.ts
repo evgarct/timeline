@@ -41,6 +41,7 @@ function exerciseFromRow(row: typeof exercises.$inferSelect): Exercise {
     movementPattern: row.movementPattern ?? undefined,
     equipment: row.equipment ?? undefined,
     images: row.images ?? undefined,
+    instructions: row.instructions ?? undefined,
     isArchived: row.isArchived,
     searchAliases: row.searchAliases,
     externalRef: row.externalSource && row.externalId
@@ -154,6 +155,7 @@ export async function upsertExercise(userId: string, rawInput: ExerciseInput) {
     movementPattern: exercise.movementPattern,
     equipment: exercise.equipment,
     images: exercise.images,
+    instructions: exercise.instructions,
     isArchived: exercise.isArchived,
     searchAliases: exercise.searchAliases,
     normalizedSearchAliases,
@@ -173,6 +175,7 @@ export async function upsertExercise(userId: string, rawInput: ExerciseInput) {
       movementPattern: values.movementPattern,
       equipment: values.equipment,
       images: values.images,
+      instructions: values.instructions,
       isArchived: values.isArchived,
       searchAliases: values.searchAliases,
       normalizedSearchAliases: values.normalizedSearchAliases,
