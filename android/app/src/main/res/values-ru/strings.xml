@@ -289,6 +289,13 @@
     <string name="workout_template_name">Название шаблона</string>
     <string name="workout_target_rir">RIR %1$d</string>
     <string name="workout_suggested">Предложено %1$s кг</string>
+    <string name="workout_last_time">Раньше</string>
+    <string name="workout_exercise_done">Упражнение выполнено</string>
+    <string name="workout_note_menu">Добавить заметку</string>
+    <string name="workout_note_hint">Заметка к упражнению</string>
+    <string name="workout_superset_tab">Суперсет</string>
+    <string name="workout_finish_workout">Завершить тренировку</string>
+    <string name="workout_rir_value">RIR: %1$s</string>
     <string name="workout_start_empty">Пустая тренировка</string>
     <string name="workout_feedback_title">Как прошла тренировка?</string>
     <string name="workout_feedback_exertion">Тяжесть тренировки</string>

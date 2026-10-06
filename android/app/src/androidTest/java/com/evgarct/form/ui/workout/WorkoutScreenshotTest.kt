@@ -16,9 +16,11 @@ import androidx.compose.ui.test.performClick
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.evgarct.form.FormApp
+import com.evgarct.form.R
 import com.evgarct.form.core.theme.FormTheme
 import com.evgarct.form.data.models.DraftExercise
 import com.evgarct.form.data.models.DraftSet
+import com.evgarct.form.data.models.LastSetDto
 import com.evgarct.form.data.models.MuscleVolumeWeek
 import com.evgarct.form.data.models.RecentExercise
 import com.evgarct.form.data.models.RecentWorkoutSession
@@ -47,6 +49,8 @@ class WorkoutScreenshotTest {
     val rule = createComposeRule()
 
     private val store get() = FormApp.instance.workoutRepository.draftStore
+
+    private fun string(id: Int) = InstrumentationRegistry.getInstrumentation().targetContext.getString(id)
 
     private fun save(name: String) {
         rule.waitForIdle()
@@ -87,7 +91,7 @@ class WorkoutScreenshotTest {
         save("active")
 
         // Completing a working set only marks it done (there is no rest timer).
-        rule.onAllNodesWithContentDescription("Set done")[2].performClick()
+        rule.onAllNodesWithContentDescription(string(R.string.workout_set_done))[2].performClick()
         save("active-done")
     }
 
@@ -102,7 +106,7 @@ class WorkoutScreenshotTest {
     fun navigationBar() {
         store.saveDraft(null)
         rule.setContent { FormTheme { RootScreen(onSignOut = {}) } }
-        rule.onNodeWithText("Train").performClick()
+        rule.onNodeWithText(string(R.string.nav_workout)).performClick()
         save("nav-workout-tab")
     }
 
@@ -160,17 +164,28 @@ class WorkoutScreenshotTest {
         store.saveDraft(
             WorkoutDraft(
                 id = "qa-template", startedAtMillis = System.currentTimeMillis() - 4 * 60_000, timezone = "Europe/Prague",
+                title = "Full Body",
                 exercises = listOf(
                     DraftExercise(
                         exerciseId = "ex-bench", name = "Barbell Bench Press", primaryMuscles = listOf("chest"),
-                        lastTopWeightKg = 80.0, bestE1rmKg = 107.0, lastReps = listOf(9, 8), repMin = 6, repMax = 10, targetRir = 2,
-                        suggestedWeightKg = 82.5,
-                        sets = List(3) { DraftSet("b$it", weightKg = 82.5, groupId = "g1") }
+                        secondaryMuscles = listOf("triceps", "shoulders"),
+                        // Needs network on the QA emulator; without it the tile falls back to the muscle map only.
+                        images = listOf("https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@f00c92c7dcf1216a928a52c3706c7ce8e2f71ed5/exercises/Incline_Dumbbell_Press/0.jpg"),
+                        lastTopWeightKg = 80.0, bestE1rmKg = 107.0, lastReps = listOf(9, 8), repMin = 6, repMax = 10,
+                        lastDate = "2026-09-30",
+                        lastSets = listOf(LastSetDto(9, 80.0), LastSetDto(8, 80.0)),
+                        suggestedWeightKg = 82.5, note = "Лопатки сведены",
+                        sets = listOf(9, 8, 6).mapIndexed { i, reps -> DraftSet("b$i", reps = reps, weightKg = 82.5) }
                     ),
                     DraftExercise(
-                        exerciseId = "ex-fly", name = "Cable Fly", primaryMuscles = listOf("chest"),
-                        repMin = 12, repMax = 12,
-                        sets = List(2) { DraftSet("f$it", groupId = "g1") }
+                        exerciseId = "ex-crunch", name = "Cable Crunch", primaryMuscles = listOf("abs"),
+                        repMin = 12, repMax = 12, groupLabel = "Суперсет на пресс",
+                        sets = List(2) { DraftSet("c$it", reps = 12, groupId = "g1") }
+                    ),
+                    DraftExercise(
+                        exerciseId = "ex-plank", name = "Side Bend", primaryMuscles = listOf("obliques"),
+                        repMin = 15, repMax = 15,
+                        sets = List(2) { DraftSet("p$it", reps = 15, weightKg = 20.0, groupId = "g1") }
                     )
                 )
             )

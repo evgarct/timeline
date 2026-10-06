@@ -289,6 +289,13 @@
     <string name="workout_template_name">Template name</string>
     <string name="workout_target_rir">RIR %1$d</string>
     <string name="workout_suggested">Suggested %1$s kg</string>
+    <string name="workout_last_time">Before</string>
+    <string name="workout_exercise_done">Exercise done</string>
+    <string name="workout_note_menu">Add a note</string>
+    <string name="workout_note_hint">Note for this exercise</string>
+    <string name="workout_superset_tab">Superset</string>
+    <string name="workout_finish_workout">Finish workout</string>
+    <string name="workout_rir_value">RIR: %1$s</string>
     <string name="workout_start_empty">Start an empty workout</string>
     <string name="workout_feedback_title">How did it go?</string>
     <string name="workout_feedback_exertion">Workout difficulty</string>
