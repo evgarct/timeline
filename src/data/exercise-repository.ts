@@ -1,7 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, gte, ilike, inArray, lte, or } from "drizzle-orm";
+import { and, desc, eq, gte, ilike, inArray, lte, or, sql } from "drizzle-orm";
 import { database } from "@/db/client";
 import { events, exercises, workoutSets } from "@/db/schema";
 import {
@@ -52,14 +52,30 @@ function exerciseFromRow(row: typeof exercises.$inferSelect): Exercise {
   });
 }
 
-export async function searchExercises(userId: string, query = "", page = 1, pageSize = 30, includeArchived = false) {
+/** Optional narrowing of a catalog search; every given filter must match. */
+export interface ExerciseFilters {
+  /** Canonical muscle id the exercise works as a PRIMARY muscle (e.g. "chest", "quads", "lats"). */
+  muscle?: string;
+  equipment?: string;
+  movementPattern?: string;
+}
+
+export async function searchExercises(
+  userId: string, query = "", page = 1, pageSize = 30, includeArchived = false, filters: ExerciseFilters = {}
+) {
   const normalizedQuery = normalizeExerciseText(query);
+  // Every word must appear (in the name or an alias), in any order: "incline press" finds "Incline Dumbbell Press".
+  const tokens = normalizedQuery.split(" ").filter(Boolean);
+  const muscle = filters.muscle?.trim().toLowerCase();
+  const equipment = filters.equipment?.trim().toLowerCase();
+  const movementPattern = filters.movementPattern?.trim().toLowerCase();
   if (useMemory || !database) {
-    const matches = memoryExercises.filter((exercise) => exercise.userId === userId && (includeArchived || !exercise.isArchived) && (
-      !normalizedQuery
-      || normalizeExerciseText(exercise.name).includes(normalizedQuery)
-      || exercise.searchAliases.some((alias) => normalizeExerciseText(alias).includes(normalizedQuery))
-    ));
+    const matches = memoryExercises.filter((exercise) => exercise.userId === userId && (includeArchived || !exercise.isArchived)
+      && tokens.every((token) => normalizeExerciseText(exercise.name).includes(token)
+        || exercise.searchAliases.some((alias) => normalizeExerciseText(alias).includes(token)))
+      && (!muscle || (exercise.primaryMuscles ?? exercise.muscleGroups ?? []).includes(muscle))
+      && (!equipment || exercise.equipment?.toLowerCase() === equipment)
+      && (!movementPattern || exercise.movementPattern === movementPattern));
     const offset = (page - 1) * pageSize;
     return { items: matches.slice(offset, offset + pageSize), page, pageSize, hasMore: offset + pageSize < matches.length };
   }
@@ -67,21 +83,45 @@ export async function searchExercises(userId: string, query = "", page = 1, page
   const scope = includeArchived
     ? eq(exercises.userId, userId)
     : and(eq(exercises.userId, userId), eq(exercises.isArchived, false));
-  const condition = normalizedQuery
-    ? and(
-        scope,
-        or(
-          ilike(exercises.normalizedName, `%${normalizedQuery}%`),
-          ilike(exercises.normalizedSearchAliases, `%${normalizedQuery}%`)
-        )
-      )
-    : scope;
+  const condition = and(
+    scope,
+    ...tokens.map((token) => or(
+      ilike(exercises.normalizedName, `%${token}%`),
+      ilike(exercises.normalizedSearchAliases, `%${token}%`)
+    )),
+    muscle ? sql`${exercises.primaryMuscles} @> ${JSON.stringify([muscle])}::jsonb` : undefined,
+    equipment ? eq(exercises.equipment, equipment) : undefined,
+    movementPattern ? eq(exercises.movementPattern, movementPattern) : undefined
+  );
   const rows = await database.select().from(exercises).where(condition).orderBy(desc(exercises.updatedAt)).limit(pageSize + 1).offset(offset);
   return {
     items: rows.slice(0, pageSize).map(exerciseFromRow),
     page,
     pageSize,
     hasMore: rows.length > pageSize
+  };
+}
+
+export interface ExerciseFacet {
+  value: string;
+  count: number;
+}
+
+/** The vocabulary an agent can filter the catalog by, with how many exercises each value has. */
+export async function exerciseFacets(userId: string) {
+  const tally = (values: Array<string | null | undefined>): ExerciseFacet[] => {
+    const counts = new Map<string, number>();
+    for (const value of values) if (value) counts.set(value, (counts.get(value) ?? 0) + 1);
+    return [...counts.entries()].map(([value, count]) => ({ value, count })).sort((a, b) => b.count - a.count || a.value.localeCompare(b.value));
+  };
+  const rows = useMemory || !database
+    ? memoryExercises.filter((exercise) => exercise.userId === userId && !exercise.isArchived)
+    : (await database.select().from(exercises).where(and(eq(exercises.userId, userId), eq(exercises.isArchived, false)))).map(exerciseFromRow);
+  return {
+    total: rows.length,
+    muscles: tally(rows.flatMap((exercise) => exercise.primaryMuscles ?? exercise.muscleGroups ?? [])),
+    equipment: tally(rows.map((exercise) => exercise.equipment)),
+    movementPatterns: tally(rows.map((exercise) => exercise.movementPattern))
   };
 }
 

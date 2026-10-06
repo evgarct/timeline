@@ -10,7 +10,12 @@ export async function GET(request: Request) {
   const page = Math.max(1, Number.parseInt(params.get("page") ?? "1", 10) || 1);
   const pageSize = Math.min(100, Math.max(1, Number.parseInt(params.get("pageSize") ?? "30", 10) || 30));
   return Response.json(await searchExercises(
-    userId, params.get("query") ?? "", page, pageSize, params.get("includeArchived") === "true"
+    userId, params.get("query") ?? "", page, pageSize, params.get("includeArchived") === "true",
+    {
+      muscle: params.get("muscle") ?? undefined,
+      equipment: params.get("equipment") ?? undefined,
+      movementPattern: params.get("movementPattern") ?? undefined
+    }
   ));
 }
 
