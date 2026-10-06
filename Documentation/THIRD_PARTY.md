@@ -8,3 +8,7 @@
 
 ## hasaneyldrm/exercises-dataset (retired)
 - Metadata and text only (MIT). Its images, GIFs and videos belong to Gym visual and were never imported. The catalog rows seeded from it were replaced by free-exercise-db on 2026-10-06.
+
+## react-native-body-highlighter (muscle map outline)
+- Source: https://github.com/HichamELBSI/react-native-body-highlighter (male body, `assets/bodyFront.ts` / `bodyBack.ts`). License: MIT; the full notice and pinned commit are in the header of `android/.../ui/workout/BodyMapData.kt`.
+- Use: `scripts/generate-body-map.mjs` converts the SVG paths once into the generated Kotlin file; `MuscleMap.kt` draws them and highlights the worked muscles. Nothing is fetched at runtime.
