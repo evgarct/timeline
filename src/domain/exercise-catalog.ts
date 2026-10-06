@@ -17,16 +17,18 @@ export interface CatalogExercise {
   secondaryMuscles: string[];
   movementPattern: "squat" | "hinge" | "push" | "pull" | "lunge" | "carry" | "core" | "other";
   equipment?: string;
+  images?: string[];
   externalRef: { source: string; id: string };
 }
 
 export const exerciseDatasetSource = "exercises-dataset";
+export const freeExerciseSource = "free-exercise-db";
 
 // Canonical muscle vocabulary used everywhere in Form (lowercase English ids; the UI localizes them).
 const muscleMap: Record<string, string | null> = {
   pectorals: "chest", chest: "chest", "upper chest": "chest",
   lats: "lats", "latissimus dorsi": "lats",
-  "upper back": "upper back", rhomboids: "upper back", back: "upper back",
+  "upper back": "upper back", "middle back": "upper back", rhomboids: "upper back", back: "upper back",
   traps: "traps", trapezius: "traps",
   delts: "shoulders", deltoids: "shoulders", "rear deltoids": "shoulders", shoulders: "shoulders", "rotator cuff": "shoulders",
   biceps: "biceps", brachialis: "biceps",
@@ -94,5 +96,50 @@ export function mapDatasetExercise(row: DatasetExercise): CatalogExercise | null
     movementPattern: inferMovementPattern(row.name, primaryMuscles),
     equipment: row.equipment?.trim().toLowerCase() || undefined,
     externalRef: { source: exerciseDatasetSource, id: row.id }
+  };
+}
+
+// --- yuhonas/free-exercise-db (Unlicense / public domain): metadata plus two photo frames per exercise.
+
+export interface FreeExerciseRow {
+  id: string;
+  name: string;
+  force?: string | null;
+  equipment?: string | null;
+  primaryMuscles: string[];
+  secondaryMuscles: string[];
+  images?: string[];
+}
+
+const freeEquipment: Record<string, string | undefined> = {
+  "body only": "body weight",
+  "e-z curl bar": "ez barbell",
+  kettlebells: "kettlebell",
+  bands: "band",
+  other: undefined
+};
+
+/** CDN prefix for the dataset's photos, pinned to a commit so the files never change underneath us. */
+export function freeExerciseImageBase(commitSha: string) {
+  return `https://cdn.jsdelivr.net/gh/yuhonas/free-exercise-db@${commitSha}/exercises/`;
+}
+
+export function mapFreeExercise(row: FreeExerciseRow, commitSha: string): CatalogExercise | null {
+  const name = titleCase(row.name.trim().replace(/\s+/g, " "));
+  if (!name) return null;
+  const primaryMuscles = [...new Set(row.primaryMuscles.map(canonicalMuscle).filter((muscle): muscle is string => Boolean(muscle)))];
+  const secondaryMuscles = [...new Set(row.secondaryMuscles.map(canonicalMuscle).filter((muscle): muscle is string => Boolean(muscle)))]
+    .filter((muscle) => !primaryMuscles.includes(muscle));
+  const equipment = row.equipment ? (row.equipment in freeEquipment ? freeEquipment[row.equipment] : row.equipment.toLowerCase()) : undefined;
+  const base = freeExerciseImageBase(commitSha);
+  return {
+    name,
+    searchAliases: [row.name.trim().toLowerCase()].filter((alias) => alias !== name.toLowerCase()),
+    primaryMuscles,
+    secondaryMuscles,
+    movementPattern: inferMovementPattern(row.name, primaryMuscles),
+    equipment,
+    images: (row.images ?? []).slice(0, 4).map((path) => `${base}${path}`),
+    externalRef: { source: freeExerciseSource, id: row.id }
   };
 }

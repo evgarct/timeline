@@ -57,6 +57,8 @@ export const exercises = pgTable("exercises", {
   secondaryMuscles: jsonb("secondary_muscles").$type<string[]>(),
   movementPattern: text("movement_pattern"),
   equipment: text("equipment"),
+  // Absolute https image URLs (e.g. the two frames of a public-domain exercise photo), shown in the app.
+  images: jsonb("images").$type<string[]>(),
   isArchived: boolean("is_archived").default(false).notNull(),
   searchAliases: jsonb("search_aliases").notNull().default([]),
   normalizedSearchAliases: text("normalized_search_aliases"),

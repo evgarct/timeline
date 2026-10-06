@@ -30,6 +30,7 @@ export const exerciseInputSchema = z.object({
   secondaryMuscles: z.array(z.string().trim().min(1)).max(12).optional(),
   movementPattern: z.enum(movementPatterns).optional(),
   equipment: z.string().trim().min(1).max(60).optional(),
+  images: z.array(z.string().url().refine((value) => value.startsWith("https://"), "images_must_be_https")).max(4).optional(),
   isArchived: z.boolean().default(false),
   searchAliases: z.array(z.string().trim().min(1).max(120)).max(20).default([]),
   externalRef: externalRefSchema.optional()

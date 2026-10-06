@@ -40,6 +40,7 @@ function exerciseFromRow(row: typeof exercises.$inferSelect): Exercise {
     secondaryMuscles: row.secondaryMuscles ?? undefined,
     movementPattern: row.movementPattern ?? undefined,
     equipment: row.equipment ?? undefined,
+    images: row.images ?? undefined,
     isArchived: row.isArchived,
     searchAliases: row.searchAliases,
     externalRef: row.externalSource && row.externalId
@@ -152,6 +153,7 @@ export async function upsertExercise(userId: string, rawInput: ExerciseInput) {
     secondaryMuscles: exercise.secondaryMuscles,
     movementPattern: exercise.movementPattern,
     equipment: exercise.equipment,
+    images: exercise.images,
     isArchived: exercise.isArchived,
     searchAliases: exercise.searchAliases,
     normalizedSearchAliases,
@@ -170,6 +172,7 @@ export async function upsertExercise(userId: string, rawInput: ExerciseInput) {
       secondaryMuscles: values.secondaryMuscles,
       movementPattern: values.movementPattern,
       equipment: values.equipment,
+      images: values.images,
       isArchived: values.isArchived,
       searchAliases: values.searchAliases,
       normalizedSearchAliases: values.normalizedSearchAliases,
@@ -416,6 +419,8 @@ export interface ExerciseHistory {
   bestSet?: { date: string; reps?: number; weightKg?: number };
   bestE1rmKg?: number;
   recentSessions: ExerciseHistoryEntry[];
+  // The newest session's date and working sets: the app's "last time" column for exercises added by hand.
+  lastSession?: { date: string; sets: Array<{ reps?: number; weightKg?: number }> };
 }
 
 // A malformed stored timezone must not make a whole history endpoint throw: fall back to UTC.
@@ -427,6 +432,7 @@ function dateKey(date: Date, timezone: string) {
 
 interface HistoryRow {
   eventId: string;
+  setIndex: number;
   reps: number | null;
   weightKg: number | null;
   setType: string;
@@ -442,18 +448,27 @@ async function loadHistoryRows(userId: string, exerciseId: string): Promise<Hist
       .flatMap((set) => {
         const event = memoryWorkoutEvents.find((candidate) => candidate.userId === userId && candidate.id === set.eventId);
         return event ? [{
-          eventId: set.eventId, reps: set.reps ?? null, weightKg: set.weightKg ?? null,
+          eventId: set.eventId, setIndex: set.setIndex, reps: set.reps ?? null, weightKg: set.weightKg ?? null,
           setType: set.setType, completed: set.completed, occurredAt: event.occurredAt, timezone: event.timezone
         }] : [];
       });
   }
   const rows = await database.select({
-    eventId: workoutSets.eventId, reps: workoutSets.reps, weightKg: workoutSets.weightKg,
+    eventId: workoutSets.eventId, setIndex: workoutSets.setIndex, reps: workoutSets.reps, weightKg: workoutSets.weightKg,
     setType: workoutSets.setType, completed: workoutSets.completed, occurredAt: events.occurredAt, timezone: events.timezone
   }).from(workoutSets).innerJoin(events, eq(events.id, workoutSets.eventId)).where(and(
     eq(workoutSets.userId, userId), eq(workoutSets.exerciseId, exerciseId)
   )).orderBy(desc(events.occurredAt));
   return rows.map((row) => ({ ...row, weightKg: row.weightKg !== null ? Number(row.weightKg) : null }));
+}
+
+function sessionSets(rows: HistoryRow[], date: string) {
+  return {
+    date,
+    sets: [...rows]
+      .sort((a, b) => a.setIndex - b.setIndex)
+      .map((row) => ({ reps: row.reps ?? undefined, weightKg: row.weightKg ?? undefined }))
+  };
 }
 
 // Reused by both the Android-facing REST endpoint and the get_exercise_history MCP tool so the query
@@ -498,6 +513,7 @@ export async function getExerciseHistory(userId: string, exerciseId: string, lim
     windowSessions: Math.min(allSessions.length, limit),
     bestSet: best,
     bestE1rmKg: maxOf(rows.map(e1rm)),
+    lastSession: allSessions[0] ? sessionSets(byEvent.get(allSessions[0].eventId) ?? [], allSessions[0].date) : undefined,
     recentSessions: allSessions.slice(0, limit).map(({ eventId, date, topWeightKg, totalReps, bestE1rmKg }) => ({
       eventId, date, topWeightKg, totalReps, bestE1rmKg
     }))
@@ -735,12 +751,11 @@ export async function getMuscleVolume(
   });
 }
 
-// Working/drop sets of the most recent session that contained the exercise, for load suggestions.
-export async function getLastSessionSets(userId: string, exerciseId: string) {
+// The most recent session that contained the exercise: its local date (YYYY-MM-DD, in the session's own
+// timezone) and its working/drop sets, for load suggestions and the "last time" column in the app.
+export async function getLastSession(userId: string, exerciseId: string) {
   const rows = (await loadHistoryRows(userId, exerciseId)).filter((row) => row.setType !== "warmup" && row.completed);
-  if (!rows.length) return [];
+  if (!rows.length) return undefined;
   const latest = rows.reduce((best, row) => (row.occurredAt > best.occurredAt ? row : best), rows[0]);
-  return rows
-    .filter((row) => row.eventId === latest.eventId)
-    .map((row) => ({ reps: row.reps ?? undefined, weightKg: row.weightKg ?? undefined }));
+  return sessionSets(rows.filter((row) => row.eventId === latest.eventId), dateKey(latest.occurredAt, latest.timezone));
 }

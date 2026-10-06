@@ -279,6 +279,20 @@ describe("memory exercise repository", () => {
     await expect(repository.recordWorkoutSession(userId, { ...base, mood: "great" as never })).rejects.toThrow();
   });
 
+  it("stores exercise images (https only, max 4) and returns them from search", async () => {
+    const owner = "images-owner";
+    const saved = await repository.upsertExercise(owner, {
+      name: "Image Lift", images: ["https://cdn.example.test/a/0.jpg", "https://cdn.example.test/a/1.jpg"]
+    });
+    expect(saved.images).toEqual(["https://cdn.example.test/a/0.jpg", "https://cdn.example.test/a/1.jpg"]);
+    expect((await repository.searchExercises(owner, "image lift")).items[0].images).toHaveLength(2);
+
+    await expect(repository.upsertExercise(owner, { name: "Plain http", images: ["http://insecure.test/a.jpg"] })).rejects.toThrow();
+    await expect(repository.upsertExercise(owner, {
+      name: "Too many", images: Array.from({ length: 5 }, (_, index) => `https://cdn.example.test/${index}.jpg`)
+    })).rejects.toThrow();
+  });
+
   it("archives exercises out of search by default", async () => {
     const exercise = await repository.upsertExercise(userId, { name: "Zercher Squat" });
     await repository.upsertExercise(userId, { id: exercise.id, name: "Zercher Squat", isArchived: true });
