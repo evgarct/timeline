@@ -4,10 +4,16 @@ import { notFound, redirect } from "next/navigation";
 import { MediaStrip } from "@/components/fitness/media-strip";
 import { DeleteEventButton } from "@/components/fitness/delete-event-button";
 import { Button } from "@/components/ui/button";
-import { getEvent } from "@/data/repository";
+import { InBodyReport } from "@/components/fitness/inbody-report";
+import { getEvent, listEvents } from "@/data/repository";
+import { isInBodyEvent } from "@/domain/inbody";
 import { isLocale } from "@/i18n/config";
+import { getInBodyCopy } from "@/i18n/inbody-messages";
 import { getMessages } from "@/i18n/messages";
 import { getCurrentUserId } from "@/lib/current-user";
+
+// The media route downloads by default; an image or PDF opens in the browser tab with ?inline=1.
+const withInline = (url: string) => (url.startsWith("/api/media/") ? `${url}?inline=1` : url);
 
 export default async function EventPage({
   params
@@ -21,6 +27,11 @@ export default async function EventPage({
   if (!userId) redirect(`/${locale}`);
   const event = await getEvent(userId, id);
   if (!event) notFound();
+  const inbodyCopy = getInBodyCopy(locale);
+  // The test before this one gives the change shown next to every reading.
+  const previousInBody = event.type === "inbody"
+    ? (await listEvents(userId, { type: "inbody", to: new Date(event.occurredAt.getTime() - 1) }, { hydrate: false })).filter(isInBodyEvent)[0]
+    : undefined;
 
   const title = {
     progress_photo: copy.progressPhoto,
@@ -72,22 +83,15 @@ export default async function EventPage({
 
         {event.type === "inbody" ? (
           <>
-            <dl className="surface divide-y overflow-hidden rounded-xl">
-              {event.metrics.map((metric) => (
-                <div key={metric.key} className="flex items-center justify-between px-4 py-3">
-                  <dt className="text-sm text-muted-foreground">{metric.label}</dt>
-                  <dd className="text-sm font-medium">{metric.value}{metric.unit ? ` ${metric.unit}` : ""}</dd>
-                </div>
-              ))}
-            </dl>
             {event.source.url ? (
               <Button asChild variant="outline" size="lg">
-                <a href={event.source.url} target="_blank" rel="noreferrer">
+                <a href={withInline(event.source.url)} target="_blank" rel="noreferrer" data-testid="inbody-open-original">
                   <ExternalLink data-icon="inline-start" />
-                  {copy.openReport}
+                  {inbodyCopy.openOriginal}
                 </a>
               </Button>
             ) : null}
+            <InBodyReport event={event} previous={previousInBody} copy={inbodyCopy} locale={locale} />
           </>
         ) : null}
 

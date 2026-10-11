@@ -5,6 +5,9 @@ import { feedbackCategorySchema, feedbackInputSchema, feedbackStatusSchema } fro
 import { exerciseInputSchema, movementPatterns, setInputSchema } from "@/domain/exercises";
 import { templatePatchSchema, workoutTemplateInputSchema } from "@/domain/workout-templates";
 
+// The photo tool keeps its old input: only a file name (the InBody variant is its own tool).
+const photoUploadInputSchema = agentUploadLinkSchema.omit({ kind: true });
+
 /**
  * One definition per agent tool, shared by every surface: the MCP server registers from it, the WebMCP bridge
  * registers the ones with a `rest` mapping against the REST API, and /api/openapi.json is generated from it.
@@ -64,6 +67,9 @@ const meta: Record<string, Pick<ToolSpec, "annotations" | "rest">> = {
   update_workout_template: { annotations: { ...idempotent }, rest: { method: "PATCH", path: "/api/templates/{id}" } },
   get_week_plan: { annotations: readOnly, rest: { method: "GET", path: "/api/schedule/week", query: ["start", "timezone"] } },
   create_photo_upload: { annotations: {}, rest: { method: "POST", path: "/api/uploads/agent-link" } },
+  create_inbody_upload: { annotations: {}, rest: { method: "POST", path: "/api/uploads/agent-link/inbody" } },
+  get_body_composition: { annotations: readOnly, rest: { method: "GET", path: "/api/body/inbody", query: ["from", "to", "metrics", "timezone"] } },
+  get_inbody_original: { annotations: readOnly, rest: { method: "GET", path: "/api/body/inbody/{eventId}/original" } },
   send_feedback: { annotations: {}, rest: { method: "POST", path: "/api/feedback" } },
   list_feedback: { annotations: readOnly, rest: { method: "GET", path: "/api/feedback", query: ["status", "category", "tool", "limit"] } },
   update_feedback: { annotations: { ...idempotent }, rest: { method: "PUT", path: "/api/feedback/{id}" } }
@@ -277,7 +283,30 @@ export const specs = {
     name: "create_photo_upload",
     title: "Get a link to upload a progress photo",
     description: "Upload ONE progress photo so it can be attached to a progress_photo event (create_event refuses a photo without a managed asset). Returns assetId and a one-time uploadUrl (valid 15 minutes, this site, no login needed). POST the picture bytes (JPEG, PNG or WebP, at most maxBytes, about 4 MB; downscale large pictures first; iPhone HEIC/HEIF originals are refused with unsupported_heic, so convert them to JPEG in the browser first, for example by drawing them on a canvas and exporting JPEG) to uploadUrl with fetch(uploadUrl, { method: \"POST\", body: blob }): the server strips metadata, corrects orientation, makes the full and thumbnail JPEGs and answers { assetId, width, height, palette }. Then call create_event with { type: \"progress_photo\", id: <a stable uuid per source message so a retry cannot duplicate it>, occurredAt: <the real date and time of the photo, ISO 8601>, timezone: <IANA, e.g. Europe/Prague>, photos: [{ id: <any short id>, assetId, palette, alt: <short description> }] }. Photos taken at the same time can share one event (up to 12 photos): upload each, then list all assetIds in one create_event. One upload link serves one picture; call this tool again for the next one. Never upload other people's pictures, collages or screenshots unless the user asked for them.",
-    input: agentUploadLinkSchema
+    input: photoUploadInputSchema
+  }),
+  create_inbody_upload: spec({
+    name: "create_inbody_upload",
+    title: "Get a link to upload an InBody report file",
+    description: "Upload the ORIGINAL InBody result sheet (a photo or scan: JPEG, PNG, HEIC/HEIF, or a PDF) so the coach can always see the source of the numbers. Returns assetId and a one-time uploadUrl (valid 15 minutes, this site, no login needed). POST the file bytes (at most maxBytes, about 4 MB; compress or downscale a larger photo first) to uploadUrl with fetch(uploadUrl, { method: \"POST\", body: blob }): the server stores the bytes untouched and answers { assetId, mimeType, sizeBytes }. Then call create_event with { type: \"inbody\", id: <stable uuid>, occurredAt: <the test date and time printed on the sheet, ISO 8601>, timezone: <IANA, e.g. Europe/Prague>, source: { assetId, mimeType: <from the answer>, fileName }, metrics: [...], extraction: { method: \"mcp_agent\", reviewed: false } }. Metrics are { key, value } plus referenceMin/referenceMax (the normal range printed in brackets), evaluation (under|normal|over) and, for per-segment values, segment (left_arm|right_arm|trunk|left_leg|right_leg) and, for impedance, frequencyKhz (20 or 100); label, unit and category are filled in from the catalog. Read every number off the sheet; do not estimate. Keys: inbody_score, total_body_water, protein, minerals, body_fat_mass, weight, skeletal_muscle_mass, bmi, percent_body_fat, waist_hip_ratio, visceral_fat_level, target_weight, weight_control, fat_control, muscle_control, fat_free_mass, basal_metabolic_rate, obesity_degree, smi, recommended_calorie_intake, lean_mass_kg and lean_mass_pct (segmental lean analysis: kg and % per segment), fat_mass_kg and fat_mass_pct (segmental fat analysis), impedance_ohm (segment + frequencyKhz), exercise_kcal_<activity> (golf, walking, badminton, tennis, boxing, mountain_climbing, aerobics, soccer, japanese_fencing, squash, gateball, yoga, table_tennis, bicycling, basketball, jumping_rope, jogging, swimming, racketball, taekwondo). Put the printed header in report: { device, testId, heightCm, ageYears, gender }. The date on the sheet is the test date: never use today's date.",
+    input: z.object({ fileName: z.string().min(1).max(255).optional().describe("Original file name, e.g. inbody-2026-06-20.jpg") })
+  }),
+  get_body_composition: spec({
+    name: "get_body_composition",
+    title: "Get InBody tests with dynamics and context",
+    description: "The body-composition history: every InBody test oldest first with the change since the previous test (and since the first), and for each interval what happened in between: diet (days logged, average kcal and macros per logged day), steps, workouts (count, sets, tonnage), progress photos taken between and just after the tests, and the nearest tape measurements. Use it to explain WHY the numbers moved. from/to (YYYY-MM-DD or ISO 8601) limit the tests; metrics is a comma list of keys (default: weight, skeletal_muscle_mass, body_fat_mass, percent_body_fat and the other trend metrics) or \"all\" for every reading on the sheets (segmental lean/fat, impedance, exercise kcal). timezone (IANA) defines the days. Use get_event for the full sheet of one test and get_inbody_original for its original file.",
+    input: z.object({
+      from: z.string().optional().describe("Only tests at or after this date"),
+      to: z.string().optional().describe("Only tests at or before this date"),
+      metrics: z.string().optional().describe("Comma list of metric keys, or \"all\""),
+      timezone: z.string().min(1).default("UTC").describe("IANA timezone that defines the days, e.g. Europe/Prague")
+    })
+  }),
+  get_inbody_original: spec({
+    name: "get_inbody_original",
+    title: "Get a link to the original InBody sheet",
+    description: "A short-lived download link (about one hour) to the original InBody sheet attached to one test (id from get_body_composition or list_events). Open it to read the printed numbers yourself or to show the sheet to the user; do not store the link.",
+    input: z.object({ eventId: z.string().uuid() })
   }),
   send_feedback: spec({
     name: "send_feedback",

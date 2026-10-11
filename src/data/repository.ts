@@ -29,7 +29,14 @@ export interface EventFilter {
 const isFiltered = (filter: EventFilter) => Object.values(filter).some((value) => value !== undefined);
 
 /** Newest first. Without a filter this is the whole timeline, as before; filters are applied in the query. */
-export async function listEvents(userId: string, filter: EventFilter = {}): Promise<TimelineEvent[]> {
+export async function listEvents(
+  userId: string,
+  filter: EventFilter = {},
+  // Aggregations that only need ids and dates pass `hydrate: false` to skip the per-event media lookup and signed URLs.
+  options: { hydrate?: boolean } = {}
+): Promise<TimelineEvent[]> {
+  const hydrate = options.hydrate !== false;
+  const attach = (event: TimelineEvent) => (hydrate ? hydrateEventMedia(userId, event) : Promise.resolve(event));
   if (useMemory || !database) {
     let list = [...memoryEvents];
     if (isFiltered(filter)) {
@@ -40,7 +47,7 @@ export async function listEvents(userId: string, filter: EventFilter = {}): Prom
         .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
         .slice(start, filter.limit === undefined ? undefined : start + filter.limit);
     }
-    return Promise.all(list.map((event) => hydrateEventMedia(userId, event)));
+    return Promise.all(list.map(attach));
   }
   let query = database.select().from(events).where(and(
     eq(events.userId, userId),
@@ -59,7 +66,7 @@ export async function listEvents(userId: string, filter: EventFilter = {}): Prom
     note: row.note ?? undefined,
     ...(row.payload as object)
   }));
-  return Promise.all(parsed.map((event) => hydrateEventMedia(userId, event)));
+  return Promise.all(parsed.map(attach));
 }
 
 export async function getEvent(userId: string, id: string) {

@@ -8,6 +8,7 @@ const statusByCode: Record<string, number> = {
   payload_too_large: 413,
   invalid_image: 422,
   unsupported_heic: 415,
+  unsupported_file: 415,
   empty_body: 400
 };
 

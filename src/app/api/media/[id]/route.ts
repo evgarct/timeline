@@ -3,7 +3,9 @@ import { safeFileName } from "@/domain/media";
 import { getCurrentUserId } from "@/lib/current-user";
 import { getObject } from "@/lib/r2";
 
-export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
+// `?inline=1` shows an image or PDF in the browser tab instead of downloading it (the web "open original" link).
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const inline = new URL(request.url).searchParams.get("inline") === "1";
   const userId = await getCurrentUserId();
   if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
   const asset = await getMediaAsset(userId, (await params).id);
@@ -14,7 +16,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
     const object = await getObject(asset.objectKey);
     const headers = new Headers({
       "content-type": asset.mimeType,
-      "content-disposition": `attachment; filename*=UTF-8''${encodeURIComponent(safeFileName(asset.originalFileName))}`,
+      "content-disposition": `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(safeFileName(asset.originalFileName))}`,
       "x-content-type-options": "nosniff",
       "cache-control": "private, no-store"
     });

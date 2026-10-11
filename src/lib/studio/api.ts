@@ -1,6 +1,7 @@
 "use client";
 
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { BodyCompositionTest } from "@/domain/body-composition";
 import type { WorkoutTemplateInput } from "@/domain/workout-templates";
 import type { ExerciseFacets, ExerciseHistory, ExercisePage, ExerciseSummary, FeedbackEntry, MuscleVolumeWeek, RecentWorkoutSession, StoredTemplate } from "./types";
 
@@ -146,6 +147,13 @@ export function useNewFeedbackCount() {
   });
   return query.data ?? 0;
 }
+
+/** Every InBody test (all readings) with changes and the diet/steps/training/photos between tests. */
+export const useBodyComposition = (timezone: string) =>
+  useQuery({
+    queryKey: ["studio", "body", timezone],
+    queryFn: async () => (await request<{ tests: BodyCompositionTest[] }>(`/api/body/inbody?metrics=all&timezone=${encodeURIComponent(timezone)}`)).tests
+  });
 
 export const useRecentSessions = (limit = 200) =>
   useQuery({ queryKey: ["studio", "sessions", limit], queryFn: async () => (await request<{ sessions: RecentWorkoutSession[] }>(`/api/workouts?limit=${limit}`)).sessions });

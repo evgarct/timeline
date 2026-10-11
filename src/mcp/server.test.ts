@@ -386,6 +386,73 @@ describe("send_feedback, list_feedback and update_feedback", () => {
     expect(response.content[0].text).toContain("storage_not_configured");
   });
 
+  it("stores an InBody test sent as key+value and reads it back as text only", async () => {
+    const client = await connectClient();
+    const text = (response: unknown) => (response as { content: Array<{ text: string }> }).content[0].text;
+    const id = "9d2f6a30-7a1b-4c55-8e0f-3b6c1d2e4f50";
+    const created = await client.callTool({
+      name: "create_event",
+      arguments: {
+        event: {
+          id, type: "inbody", occurredAt: "2026-08-25T07:30:00.000Z", timezone: "Europe/Prague",
+          source: { url: "/demo/inbody-sample.jpg", mimeType: "image/jpeg", fileName: "sheet.jpg" },
+          report: { device: "InBody270", heightCm: 180 },
+          extraction: { method: "mcp_agent", reviewed: false },
+          metrics: [
+            { key: "weight", value: 80.4, referenceMin: 60.2, referenceMax: 81.4 },
+            { key: "skeletal_muscle_mass", value: 39.5 },
+            { key: "percent_body_fat", value: 12.1, evaluation: "normal" },
+            { key: "lean_mass_kg", segment: "left_arm", value: 4.2, evaluation: "normal" }
+          ]
+        }
+      }
+    });
+    expect(text(created)).toContain(id);
+    expect(text(created)).toContain("4 readings");
+
+    // a segmental reading without its segment is refused with a message that says what is missing
+    const bad = await client.callTool({ name: "create_event", arguments: { event: { id: "1d2f6a30-7a1b-4c55-8e0f-3b6c1d2e4f51", type: "inbody", occurredAt: "2026-08-21T07:30:00.000Z", timezone: "UTC", source: { url: "/x.jpg", mimeType: "image/jpeg", fileName: "x.jpg" }, extraction: { method: "manual", reviewed: true }, metrics: [{ key: "lean_mass_kg", value: 4 }] } } }) as { isError?: boolean };
+    expect(bad.isError).toBe(true);
+
+    const event = text(await client.callTool({ name: "get_event", arguments: { id } }));
+    expect(event).toContain("weight 80.4 kg (ref 60.2-81.4)");
+    expect(event).toContain("lean_mass_kg[left_arm] 4.2 kg normal");
+    expect(event).toContain("not yet reviewed");
+
+    const listed = text(await client.callTool({ name: "list_events", arguments: { type: "inbody" } }));
+    expect(listed).toContain(`${id} | inbody`);
+    expect(listed).toContain("weight 80.4 kg");
+
+    const today = text(await client.callTool({ name: "get_today", arguments: { timezone: "UTC" } }));
+    expect(today).toContain("last InBody 2026-08-25");
+    expect(today).not.toContain('"key":"exercise_kcal_golf"');
+  });
+
+  it("answers get_body_composition with changes and the context between tests, in the text", async () => {
+    const client = await connectClient();
+    const text = (response: unknown) => (response as { content: Array<{ text: string }> }).content[0].text;
+    const answer = text(await client.callTool({ name: "get_body_composition", arguments: { timezone: "Europe/Prague" } }));
+    expect(answer).toContain("InBody tests, oldest first");
+    expect(answer).toMatch(/weight 76\.1 kg \(\+1\.1\)/);
+    expect(answer).toContain("diet logged");
+    expect((await client.callTool({ name: "get_body_composition", arguments: { timezone: "Not/AZone" } })).isError).toBe(true);
+    const all = text(await client.callTool({ name: "get_body_composition", arguments: { metrics: "all" } }));
+    expect(all).toContain("per segment:");
+    expect(all).toContain("impedance_ohm:trunk@20");
+  });
+
+  it("offers create_inbody_upload and get_inbody_original, and is plain when storage is not configured", async () => {
+    const client = await connectClient();
+    const tools = (await client.listTools()).tools.map((tool) => tool.name);
+    expect(tools).toEqual(expect.arrayContaining(["create_inbody_upload", "get_body_composition", "get_inbody_original"]));
+    const upload = await client.callTool({ name: "create_inbody_upload", arguments: {} }) as { isError?: boolean; content: Array<{ text: string }> };
+    expect(upload.isError).toBe(true);
+    expect(upload.content[0].text).toContain("storage_not_configured");
+    const original = await client.callTool({ name: "get_inbody_original", arguments: { eventId: "7e5839e1-0274-4969-be96-a96e407fd9bf" } }) as { isError?: boolean; content: Array<{ text: string }> };
+    expect(original.isError).toBe(true);
+    expect(original.content[0].text).toContain("original_unavailable");
+  });
+
   it("rejects an invalid category through the tool schema", async () => {
     const client = await connectClient();
     await expect(client.callTool({ name: "send_feedback", arguments: { category: "rant", summary: "x" } })).resolves.toMatchObject({ isError: true });

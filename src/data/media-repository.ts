@@ -125,7 +125,13 @@ export async function releaseMediaAssetClaim(userId: string, id: string) {
  * Marks a pending asset ready after the server stored its (already normalized) objects, recording the real sizes
  * and dimensions of what was written. Null when the asset is missing or not pending (a link works once).
  */
-export async function completeUploadedMediaAsset(userId: string, id: string, stored: { width: number; height: number; sizeBytes: number; thumbnailSizeBytes: number }) {
+export async function completeUploadedMediaAsset(
+  userId: string,
+  id: string,
+  rawStored: { width?: number; height?: number; sizeBytes: number; thumbnailSizeBytes?: number; mimeType?: string }
+) {
+  // An InBody original keeps its own bytes: no dimensions or thumbnail, but the sniffed type replaces the reserved one.
+  const stored = Object.fromEntries(Object.entries(rawStored).filter(([, value]) => value !== undefined)) as typeof rawStored;
   if (useMemory) {
     const asset = memoryAssets.find((item) => item.userId === userId && item.id === id && item.status === "pending");
     if (!asset) return null;

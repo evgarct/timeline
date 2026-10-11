@@ -10,7 +10,10 @@ normalized in the browser to metadata-free JPEG files before upload:
 
 The database stores object keys and managed asset IDs, not signed URLs. Progress image reads use
 one-hour presigned URLs. InBody originals are streamed through the authenticated application route
-with `Content-Disposition: attachment`, `X-Content-Type-Options: nosniff`, and no-store caching.
+with `Content-Disposition: attachment` (`?inline=1` opens an image or PDF in the browser tab),
+`X-Content-Type-Options: nosniff`, and no-store caching. Agents upload an original through the one-time
+link from `create_inbody_upload`; the bytes are stored untouched and the sniffed type is recorded on
+the asset. `get_inbody_original` gives an agent a one-hour presigned download link that is never stored.
 
 ## Cloudflare setup
 

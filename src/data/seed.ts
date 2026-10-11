@@ -1,4 +1,5 @@
 import type { TaskSchedule, TimelineEvent } from "@/domain/events";
+import { fabricatedInBodyMetrics } from "./seed-inbody";
 
 const date = (daysAgo: number, hour = 8) => {
   const value = new Date();
@@ -40,15 +41,20 @@ export const seedEvents: TimelineEvent[] = [
     type: "inbody",
     occurredAt: date(6, 16),
     timezone: "Europe/Prague",
-    source: { url: "/demo/inbody-sample.jpg", mimeType: "image/jpeg", fileName: "InBody-20-06-2026.jpg" },
+    source: { url: "/demo/inbody-sample.jpg", mimeType: "image/jpeg", fileName: "InBody-demo-latest.jpg" },
+    report: { device: "InBody270", heightCm: 180, ageYears: 33, gender: "male" },
     extraction: { method: "mcp_agent", reviewed: true },
-    metrics: [
-      { key: "weight", label: "Weight", value: 85.1, unit: "kg", category: "composition" },
-      { key: "skeletal_muscle_mass", label: "Skeletal Muscle Mass", value: 43.8, unit: "kg", category: "composition" },
-      { key: "percent_body_fat", label: "Percent Body Fat", value: 11.4, unit: "%", category: "obesity" },
-      { key: "inbody_score", label: "InBody Score", value: 90, unit: "points", category: "other" },
-      { key: "visceral_fat_level", label: "Visceral Fat Level", value: 3, category: "obesity" }
-    ]
+    metrics: fabricatedInBodyMetrics(1)
+  },
+  {
+    id: "0f6f2d4c-0b2a-4b53-9d0e-5c3b1a7e6a10",
+    type: "inbody",
+    occurredAt: date(120, 9),
+    timezone: "Europe/Prague",
+    source: { url: "/demo/inbody-sample.jpg", mimeType: "image/jpeg", fileName: "InBody-demo-start.jpg" },
+    report: { device: "InBody270", heightCm: 180, ageYears: 33, gender: "male" },
+    extraction: { method: "mcp_agent", reviewed: true },
+    metrics: fabricatedInBodyMetrics(0)
   },
   {
     id: "8c009177-4ff4-473d-af6d-b073d9ba4a31",
