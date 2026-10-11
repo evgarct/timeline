@@ -4,6 +4,7 @@ import { useReducer, useState } from "react";
 import { getStudioCopy } from "@/i18n/studio-messages";
 import { ConsistencyGrid, LineChart, WeekBars } from "./dashboard/charts";
 import { builderReducer, initialState, type BuilderDoc } from "./builder/builder-state";
+import { writeDraggedExercise } from "./builder/drag";
 import { CanvasPanel } from "./builder/canvas-panel";
 import { CreateExerciseForm } from "./builder/create-exercise";
 import { DropIndicator } from "./builder/drop-indicator";
@@ -137,3 +138,25 @@ export const DropTarget: Story = {
     </div>
   )
 };
+
+function DragDemo({ empty }: { empty?: boolean }) {
+  const copy = getStudioCopy("ru");
+  const [state, dispatch] = useReducer(builderReducer, empty ? { name: "", items: [] } : seedDoc, (doc) => initialState(doc));
+  const pool = [exercise(4, "Barbell Squat", ["quads"], ["glutes"]), exercise(5, "Pull-Up", ["lats"], ["biceps"])];
+  return (
+    <div className="grid max-w-4xl gap-6 md:grid-cols-[280px_1fr]">
+      <ul className="space-y-2">
+        {pool.map((item) => (
+          <li key={item.id}>
+            <div draggable onDragStart={(event) => writeDraggedExercise(event, item)} className="cursor-grab rounded-[var(--s-radius-lg)] bg-[var(--s-surface-container)] p-3 text-[15px] font-semibold active:cursor-grabbing">{item.name}</div>
+          </li>
+        ))}
+      </ul>
+      <CanvasPanel items={state.present.items} copy={copy} dispatch={dispatch} onDropExercise={(dropped, index) => dispatch({ type: "add", exercise: dropped, key: `${dropped.id}-${state.present.items.length}`, index })} />
+    </div>
+  );
+}
+
+/** Drag a tile from the left onto the canvas: hit-testing, insertion line and the drop itself. */
+export const DragFromCatalog: Story = { render: () => <DragDemo /> };
+export const DragIntoEmptyCanvas: Story = { render: () => <DragDemo empty /> };
