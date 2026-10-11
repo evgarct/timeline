@@ -5,6 +5,11 @@ export interface BridgeDeps {
   fetchImpl?: typeof fetch;
   /** Asked before a destructive tool runs; resolving false cancels it. */
   confirm?: (message: string) => Promise<boolean>;
+  /**
+   * When it returns true every data-changing tool (not just destructive ones) asks first; the page turns it off with the
+   * "agent may change data without asking" switch. Feedback is never asked about: it only writes a note to the developer.
+   */
+  confirmWrites?: () => boolean;
   /** Called after a successful write (POST/PUT/DELETE) so the UI can refresh what it shows. */
   onWrite?: (spec: ToolSpec) => void;
   /** Extra request headers set by the page (e.g. where feedback came from); the agent cannot set or see them. */
@@ -27,7 +32,7 @@ export function buildRequest(spec: ToolSpec, input: Record<string, unknown>) {
   }
   const queryFields = new Set(rest.query ?? []);
   let body: unknown;
-  if (rest.method === "POST" || rest.method === "PUT") {
+  if (rest.method === "POST" || rest.method === "PUT" || rest.method === "PATCH") {
     body = rest.unwrap
       ? input[rest.unwrap]
       : Object.fromEntries(Object.entries(input).filter(([name, value]) => !pathFields.has(name) && !queryFields.has(name) && value !== undefined));
@@ -42,7 +47,9 @@ export function buildRequest(spec: ToolSpec, input: Record<string, unknown>) {
  */
 export function restBridgeTools(deps: BridgeDeps = {}, specs: ToolSpec[] = allSpecs): WebMcpTool[] {
   return specs.filter((spec) => spec.rest).map((spec) => toWebMcpTool(spec, async (input, options) => {
-    if (spec.annotations.destructiveHint && deps.confirm && !(await deps.confirm(spec.title))) {
+    const changesData = spec.rest?.method !== "GET" && !spec.annotations.readOnlyHint && spec.name !== "send_feedback";
+    const needsConfirm = spec.annotations.destructiveHint || (changesData && deps.confirmWrites?.());
+    if (needsConfirm && deps.confirm && !(await deps.confirm(spec.title))) {
       throw new ToolError("user_declined", "The user declined this action.");
     }
     const request = buildRequest(spec, input);

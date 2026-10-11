@@ -15,7 +15,7 @@ export function buildOpenApi(origin: string, specs: ToolSpec[] = allSpecs) {
     const required = new Set(schema.required ?? []);
     const inPath = new Set(pathParams(spec.rest.path));
     const inQuery = new Set(spec.rest.query ?? []);
-    const hasBody = spec.rest.method === "POST" || spec.rest.method === "PUT";
+    const hasBody = spec.rest.method === "POST" || spec.rest.method === "PUT" || spec.rest.method === "PATCH";
 
     const parameters = [
       ...[...inPath].map((name) => ({ name, in: "path", required: true, schema: properties[name] ?? { type: "string" } })),

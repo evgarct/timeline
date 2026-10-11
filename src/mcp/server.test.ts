@@ -311,6 +311,72 @@ describe("send_feedback, list_feedback and update_feedback", () => {
     expect(isError(await client.callTool({ name: "update_feedback", arguments: { id: "00000000-0000-4000-8000-000000000321", status: "done" } }))).toBe(true);
   });
 
+  it("patches a template schedule, shows names in templates and reports the week plan as text", async () => {
+    const client = await connectClient();
+    const text = (response: unknown) => (response as { content: Array<{ text: string }> }).content[0].text;
+    const idOf = (value: string) => /id: ([0-9a-f-]{36})/.exec(value)![1];
+
+    const created = text(await client.callTool({
+      name: "upsert_exercise",
+      arguments: { exercise: { name: "Plan Press", primaryMuscles: ["chest"], videoUrl: "https://youtu.be/dQw4w9WgXcQ" } }
+    }));
+    expect(created).toContain("Created exercise");
+    const exerciseId = idOf(created);
+
+    const again = text(await client.callTool({ name: "upsert_exercise", arguments: { exercise: { name: "plan press", equipment: "barbell" } } }));
+    expect(again).toContain("Matched the existing exercise");
+    expect(again).toContain("equipment");
+
+    const found = text(await client.callTool({ name: "search_exercises", arguments: { query: "plan press" } }));
+    expect(found).toContain("| video");
+    expect(found).not.toContain("instructions");
+    expect(text(await client.callTool({ name: "get_exercise", arguments: { exerciseId } }))).toContain("Video: https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+
+    const template = text(await client.callTool({
+      name: "upsert_workout_template",
+      arguments: { template: { name: "Plan Day", exercises: [{ exerciseId, sets: 3 }] } }
+    }));
+    const templateId = idOf(template);
+
+    const patched = text(await client.callTool({
+      name: "update_workout_template",
+      arguments: { id: templateId, schedule: { weekdays: [1, 4] }, exercises: [{ index: 0, sets: 4, note: "pause the rep" }] }
+    }));
+    expect(patched).toContain("weekdays 1,4");
+    expect(patched).toContain('"name":"Plan Press"');
+    expect(patched).toContain('"sets":4');
+
+    const listed = text(await client.callTool({ name: "list_workout_templates", arguments: {} }));
+    expect(listed).toContain('"name":"Plan Press"');
+
+    // 2026-08-29 is a Saturday: the Monday and Thursday are planned and the week starts on 2026-08-24
+    const week = text(await client.callTool({ name: "get_week_plan", arguments: { timezone: "UTC" } }));
+    expect(week).toContain("Week of 2026-08-24");
+    expect(week).toContain("2026-08-24 (Mon): missed | planned: Plan Day");
+    expect(week).toContain("Unplanned days:");
+
+    expect((await client.callTool({ name: "update_workout_template", arguments: { id: templateId, exercises: [{ sets: 2 }] } })).isError).toBe(true);
+  });
+
+  it("hides signed photo URLs in get_today unless asked", async () => {
+    const client = await connectClient();
+    const text = (response: unknown) => (response as { content: Array<{ text: string }> }).content[0].text;
+    await client.callTool({
+      name: "create_event",
+      arguments: {
+        event: {
+          type: "progress_photo", occurredAt: "2026-08-29T08:00:00.000Z", timezone: "UTC",
+          photos: [{ id: "p1", url: "https://signed.example.test/full.jpg?sig=abc", thumbnailUrl: "https://signed.example.test/thumb.jpg?sig=abc", alt: "Front" }]
+        }
+      }
+    });
+    const plain = text(await client.callTool({ name: "get_today", arguments: { timezone: "UTC" } }));
+    expect(plain).not.toContain("/demo/progress-front.png");
+    expect(plain).toContain('"photoCount":3');
+    const withUrls = text(await client.callTool({ name: "get_today", arguments: { timezone: "UTC", includePhotoUrls: true } }));
+    expect(withUrls).toContain("/demo/progress-front.png");
+  });
+
   it("rejects an invalid category through the tool schema", async () => {
     const client = await connectClient();
     await expect(client.callTool({ name: "send_feedback", arguments: { category: "rant", summary: "x" } })).resolves.toMatchObject({ isError: true });

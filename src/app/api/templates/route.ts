@@ -1,4 +1,4 @@
-import { listTemplates, upsertTemplate } from "@/data/workout-template-repository";
+import { listTemplates, upsertTemplate, withExerciseDetails } from "@/data/workout-template-repository";
 import { workoutTemplateInputSchema } from "@/domain/workout-templates";
 import { getCurrentUserId } from "@/lib/current-user";
 
@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   const userId = await getCurrentUserId();
   if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
   const includeArchived = new URL(request.url).searchParams.get("includeArchived") === "true";
-  return Response.json({ items: await listTemplates(userId, includeArchived) });
+  return Response.json({ items: await withExerciseDetails(userId, await listTemplates(userId, includeArchived)) });
 }
 
 export async function POST(request: Request) {

@@ -41,7 +41,50 @@ describe("memory workout template repository", () => {
     })).rejects.toThrow("unknown_exercise");
   });
 
-  it("ignores incomplete sets when planning, so an unfinished top set cannot change the suggestion", async () => {
+  it("keeps the schedule when a template is re-saved without one, and clears it with null", async () => {
+    const row = await exercises.upsertExercise(userId, { name: "Schedule Row" });
+    const created = await templates.upsertTemplate(userId, {
+      name: "Scheduled Pull",
+      schedule: { weekdays: [5, 1, 1], startDate: "2026-10-05", endDate: "2026-11-30" },
+      exercises: [{ exerciseId: row.id, sets: 3 }]
+    });
+    expect(created.schedule).toEqual({ weekdays: [1, 5], startDate: "2026-10-05", endDate: "2026-11-30" });
+
+    const resaved = await templates.upsertTemplate(userId, { name: "Scheduled Pull", exercises: [{ exerciseId: row.id, sets: 4 }] });
+    expect(resaved.schedule).toEqual(created.schedule);
+
+    const cleared = await templates.upsertTemplate(userId, { name: "Scheduled Pull", schedule: null, exercises: [{ exerciseId: row.id, sets: 4 }] });
+    expect(cleared.schedule).toBeFalsy();
+  });
+
+  it("patches a template by exercise id or index without resending the list", async () => {
+    const a = await exercises.upsertExercise(userId, { name: "Patch A", primaryMuscles: ["chest"] });
+    const b = await exercises.upsertExercise(userId, { name: "Patch B" });
+    const created = await templates.upsertTemplate(userId, {
+      name: "Patchable",
+      exercises: [{ exerciseId: a.id, sets: 3, note: "slow" }, { exerciseId: b.id, sets: 2, weightKg: 20 }]
+    });
+
+    const patched = await templates.patchTemplate(userId, created.id, {
+      note: "week 1",
+      schedule: { weekdays: [2, 4] },
+      exercises: [{ exerciseId: a.id, sets: 5, note: null }, { index: 1, weightKg: 22.5 }]
+    });
+    expect(patched?.note).toBe("week 1");
+    expect(patched?.schedule?.weekdays).toEqual([2, 4]);
+    expect(patched?.exercises[0]).toMatchObject({ exerciseId: a.id, sets: 5 });
+    expect(patched?.exercises[0].note).toBeFalsy();
+    expect(patched?.exercises[1]).toMatchObject({ exerciseId: b.id, sets: 2, weightKg: 22.5 });
+
+    await expect(templates.patchTemplate(userId, created.id, { exercises: [{ sets: 3 } as never] })).rejects.toThrow();
+    await expect(templates.patchTemplate(userId, created.id, { exercises: [{ index: 9, sets: 3 }] })).rejects.toThrow("exercise_not_in_template");
+    expect(await templates.patchTemplate("someone-else", created.id, { note: "x" })).toBeUndefined();
+
+    const [view] = await templates.withExerciseDetails(userId, [patched!]);
+    expect(view.exercises[0]).toMatchObject({ name: "Patch A", primaryMuscles: ["chest"] });
+  });
+
+  it("ignores incomplete sets when planning,so an unfinished top set cannot change the suggestion", async () => {
     const squat = await exercises.upsertExercise(userId, { name: "Template Squat" });
     await exercises.recordWorkoutSession(userId, {
       occurredAt: new Date("2026-09-22T09:00:00.000Z"), timezone: "Europe/Prague", muscleGroups: ["quads"],

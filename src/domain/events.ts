@@ -122,3 +122,25 @@ export const taskScheduleSchema = z.object({
 
 export type TaskSchedule = z.infer<typeof taskScheduleSchema>;
 
+/**
+ * The event without signed media URLs (progress-photo urls, the InBody file link): agents rarely need them and each
+ * pre-signed URL is long. Photos keep their ids, size and alt text, and `photoCount` says how many there are.
+ */
+export function redactMediaUrls<T extends TimelineEvent | undefined>(event: T): T {
+  if (!event) return event;
+  if (event.type === "progress_photo") {
+    return {
+      ...event,
+      photoCount: event.photos.length,
+      photos: event.photos.map((photo) => {
+        const { url: _url, thumbnailUrl: _thumbnailUrl, ...rest } = photo;
+        return rest;
+      })
+    } as unknown as T;
+  }
+  if (event.type === "inbody" && event.source && "url" in event.source && event.source.url) {
+    const { url: _url, ...source } = event.source;
+    return { ...event, source } as unknown as T;
+  }
+  return event;
+}

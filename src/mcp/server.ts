@@ -10,7 +10,7 @@ import {
   saveTaskSchedule,
   updateEvent
 } from "@/data/repository";
-import { taskScheduleSchema, timelineEventSchema } from "@/domain/events";
+import { redactMediaUrls, taskScheduleSchema, timelineEventSchema } from "@/domain/events";
 import {
   deleteFoodEntry,
   getFoodEntry,
@@ -49,11 +49,13 @@ import {
   previewTemplateVolume,
   recordWorkoutSession,
   replaceWorkoutSession,
+  exerciseSearchItem,
   searchExercises,
-  upsertExercise
+  upsertExerciseDetailed
 } from "@/data/exercise-repository";
 import { isValidTimeZone } from "@/domain/exercises";
-import { deleteTemplate, duplicateTemplate, getTemplate, listTemplates, planTemplate, upsertTemplate } from "@/data/workout-template-repository";
+import { deleteTemplate, duplicateTemplate, getTemplate, listTemplates, patchTemplate, planTemplate, upsertTemplate, withExerciseDetails } from "@/data/workout-template-repository";
+import { getWeekPlan } from "@/data/week-plan-repository";
 import { isTaskCompleted, latestEvent } from "@/domain/timeline";
 import { resolveMcpUser } from "@/data/repository";
 import { listDailyActivity } from "@/data/daily-activity-repository";
@@ -155,14 +157,18 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
   server.registerTool("get_today", {
     title: "Get Today",
     description: "Return today's tasks and current body state. Pass timezone (an IANA name like \"Europe/Prague\") to also get the running macro totals (energy, protein, fat, carbs) logged so far for the user's local today.",
-    inputSchema: { timezone: z.string().min(1).optional() }
-  }, async ({ timezone }) => {
+    inputSchema: {
+      timezone: z.string().min(1).optional(),
+      includePhotoUrls: z.boolean().default(false).describe("Include the long pre-signed photo and file URLs (default false: photos come back as ids and a count; get_event returns one event with its URLs)")
+    }
+  }, async ({ timezone, includePhotoUrls }) => {
     const [events, schedules] = await Promise.all([listEvents(userId), listTaskSchedules(userId)]);
     const due = schedules.filter((schedule) => schedule.enabled).map((schedule) => ({
       type: schedule.eventType,
       completed: isTaskCompleted(schedule.eventType, events)
     }));
-    const current = ["progress_photo", "measurements", "inbody"].map((type) => latestEvent(events, type as never));
+    const latest = ["progress_photo", "measurements", "inbody"].map((type) => latestEvent(events, type as never));
+    const current = includePhotoUrls ? latest : latest.map((event) => redactMediaUrls(event));
     const tasksText = `${due.filter((task) => task.completed).length}/${due.length} tasks completed`;
     let nutrition: { date: string; totals: ReturnType<typeof aggregateNutrients> } | undefined;
     if (timezone) {
@@ -175,7 +181,7 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
     const text = nutrition
       ? `${tasksText} · today ${summarizeMacros(nutrition.totals)}`
       : tasksText;
-    return result("Today", text, { due, current, ...(nutrition ? { nutrition } : {}) }, [], { text });
+    return result("Today", text, { due, current, ...(nutrition ? { nutrition } : {}) }, [], { text, withData: true });
   });
 
   registerSpec(server, specs.list_events, async ({ limit, offset, type, from, to }) => {
@@ -588,12 +594,13 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
     const lines = found.items.map((exercise) => {
       const primary = (exercise.primaryMuscles ?? exercise.muscleGroups ?? []).join(", ") || "-";
       const secondary = exercise.secondaryMuscles?.length ? ` (+${exercise.secondaryMuscles.join(", ")})` : "";
-      return `${exercise.name} — ${primary}${secondary} | ${exercise.equipment ?? "-"} | ${exercise.movementPattern ?? "-"} | id: ${exercise.id}`;
+      return `${exercise.name} — ${primary}${secondary} | ${exercise.equipment ?? "-"} | ${exercise.movementPattern ?? "-"} | id: ${exercise.id}${exercise.images?.length ? ` | ${exercise.images.length} photos` : ""}${exercise.videoUrl ? " | video" : ""}`;
     });
     const header = found.items.length
       ? `${found.items.length} exercises${found.hasMore ? " (more on the next page)" : ""}`
       : "No exercises matched; loosen the query or filters (list_exercise_filters shows valid values)";
-    return result("Exercises", `Exercise search: ${query || "all"}`, found, [], { text: [header, ...lines].join("\n") });
+    const compact = { ...found, items: found.items.map(exerciseSearchItem) };
+    return result("Exercises", `Exercise search: ${query || "all"}`, compact, [], { text: [header, ...lines].join("\n") });
   });
 
   registerSpec(server, specs.get_exercise, async ({ exerciseId }) => {
@@ -609,7 +616,8 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
       exercise.searchAliases.length ? `Also known as: ${exercise.searchAliases.join(", ")}` : undefined,
       "Technique:",
       steps,
-      exercise.images?.length ? `Photos: ${exercise.images.join(" ")}` : undefined
+      exercise.images?.length ? `Photos: ${exercise.images.join(" ")}` : undefined,
+      exercise.videoUrl ? `Video: ${exercise.videoUrl}` : undefined
     ].filter(Boolean).join("\n");
     return result("Exercise", exercise.name, exercise, [], { text });
   });
@@ -623,8 +631,11 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
 
   registerSpec(server, specs.upsert_exercise, async ({ exercise }) => {
     try {
-      const saved = await upsertExercise(userId, exercise);
-      return result("Exercise saved", saved.name, saved, [], { id: saved.id, text: `${saved.name} (id: ${saved.id})` });
+      const { exercise: saved, created, matchedBy, changedFields } = await upsertExerciseDetailed(userId, exercise);
+      const text = created
+        ? `Created exercise "${saved.name}" (id: ${saved.id}).`
+        : `Matched the existing exercise "${saved.name}" (id: ${saved.id}) by ${matchedBy}; ${changedFields.length ? `updated: ${changedFields.join(", ")}` : "nothing changed"}. Fields you did not send keep their stored values.`;
+      return result("Exercise saved", saved.name, { ...saved, created, matchedBy, changedFields }, [], { id: saved.id, text });
     } catch (error) {
       return { content: [{ type: "text" as const, text: error instanceof Error ? error.message : "exercise_save_failed" }], isError: true };
     }
@@ -694,7 +705,7 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
   });
 
   registerSpec(server, specs.list_workout_templates, async ({ includeArchived }) => {
-    const items = await listTemplates(userId, includeArchived);
+    const items = await withExerciseDetails(userId, await listTemplates(userId, includeArchived));
     const text = itemizeText(items.length, "templates", items.map((template) => `${template.name} (id: ${template.id}, ${template.exercises.length} exercises)`));
     return result("Workout templates", "Workout templates", { items }, [], { text, withData: true });
   });
@@ -737,8 +748,9 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
   });
 
   registerSpec(server, specs.get_template, async ({ id }) => {
-    const template = await getTemplate(userId, id);
-    if (!template) return fail("template_not_found");
+    const stored = await getTemplate(userId, id);
+    if (!stored) return fail("template_not_found");
+    const [template] = await withExerciseDetails(userId, [stored]);
     return result("Workout template", template.name, template, [], {
       id: template.id, text: `${template.name} (id: ${template.id}, ${template.exercises.length} exercises)`, withData: true
     });
@@ -829,6 +841,32 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
     const muscles = Object.entries(preview.byMuscle).sort((a, b) => b[1] - a[1]).map(([muscle, sets]) => `${muscle} ${sets}`);
     const text = `${preview.totalSets} sets in total; per muscle (primary 1, secondary 0.5): ${muscles.join(", ") || "none"}`;
     return result("Template volume preview", text, preview, [], { text });
+  });
+
+  registerSpec(server, specs.update_workout_template, async ({ id, ...patch }) => {
+    try {
+      const updated = await patchTemplate(userId, id, patch);
+      if (!updated) return fail("template_not_found");
+      const [view] = await withExerciseDetails(userId, [updated]);
+      const schedule = updated.schedule
+        ? ` Schedule: weekdays ${updated.schedule.weekdays.join(",")}${updated.schedule.startDate ? ` from ${updated.schedule.startDate}` : ""}${updated.schedule.endDate ? ` to ${updated.schedule.endDate}` : ""}.`
+        : "";
+      return result("Template updated", updated.name, view, [], { id: updated.id, text: `Updated "${updated.name}" (id: ${updated.id}, ${updated.exercises.length} exercises).${schedule}`, withData: true });
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : "template_save_failed");
+    }
+  });
+
+  registerSpec(server, specs.get_week_plan, async ({ start, timezone }) => {
+    if (!isValidTimeZone(timezone)) return fail("invalid_timezone");
+    const plan = await getWeekPlan(userId, start, timezone);
+    const lines = plan.days.map((day) => {
+      const planned = day.scheduled.map((entry) => entry.name).join(" + ") || "-";
+      const done = day.sessions.map((session) => `${session.muscleGroups.join("+")} ${session.setCount} sets`).join("; ") || "-";
+      return `${day.date} (${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day.weekday]}): ${day.status} | planned: ${planned} | logged: ${done}`;
+    });
+    const text = [`Week of ${plan.weekStart} (${plan.timezone}); today ${plan.today}`, ...lines, `Unplanned days: ${plan.summary.unplannedDays.join(", ") || "none"}`].join("\n");
+    return result("Week plan", `Week of ${plan.weekStart}`, plan, [], { text, withData: true });
   });
 
   registerSpec(server, specs.send_feedback, async (input) => {
