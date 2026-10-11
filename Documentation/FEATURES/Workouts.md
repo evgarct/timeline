@@ -15,7 +15,7 @@ Source of truth for the strength-training model. Product intent comes from the A
 
 ## REST (Android and web clients)
 - `GET/POST /api/exercises`, `GET/PUT /api/exercises/{id}` (PUT also archives), `GET /api/exercises/{id}/history`
-- `GET /api/workouts?date=&timezone=`, `POST /api/workouts` (idempotent on `idempotencyKey`; unknown exercise → 422)
+- `GET /api/workouts?date=&timezone=` (without `date`: recent sessions, `limit` up to 200, the web dashboard asks for 200 to cover its 12-week window), `POST /api/workouts` (idempotent on `idempotencyKey`; unknown exercise → 422)
 - `GET/PUT/DELETE /api/workouts/{eventId}` (PUT replaces the whole set list atomically)
 - `GET /api/exercises/facets`: filter vocabulary with counts (muscles, equipment, movement patterns), the same data MCP `list_exercise_filters` returns; used by the web catalog chips.
 

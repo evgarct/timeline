@@ -55,7 +55,10 @@ export function useSaveTemplate() {
   return useMutation({
     mutationFn: ({ id, input }: { id?: string; input: WorkoutTemplateInput }) =>
       request<StoredTemplate>(id ? `/api/templates/${id}` : "/api/templates", { method: id ? "PUT" : "POST", body: JSON.stringify(input) }),
-    onSuccess: () => client.invalidateQueries({ queryKey: ["studio", "templates"] })
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: ["studio", "templates"] }),
+      client.invalidateQueries({ queryKey: ["studio", "template"] })
+    ])
   });
 }
 
@@ -67,7 +70,7 @@ export function useDeleteTemplate() {
   });
 }
 
-export const useRecentSessions = (limit = 50) =>
+export const useRecentSessions = (limit = 200) =>
   useQuery({ queryKey: ["studio", "sessions", limit], queryFn: async () => (await request<{ sessions: RecentWorkoutSession[] }>(`/api/workouts?limit=${limit}`)).sessions });
 
 export const useMuscleVolume = (weeks = 12) =>

@@ -85,12 +85,12 @@ function ExerciseCard({ item, index, items, copy, dispatch }: { item: BuilderIte
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3 @lg:grid-cols-3 @3xl:grid-cols-6">
-          <Field label={copy.builder.sets}><Stepper label={copy.builder.sets} value={item.sets} min={1} max={20} onChange={(sets) => patch({ sets })} /></Field>
-          <Field label={copy.builder.weight}><Stepper label={copy.builder.weight} value={item.weightKg} min={0} max={1000} step={2.5} suffix={copy.common.kg} onChange={(weightKg) => patch({ weightKg: weightKg || undefined })} /></Field>
-          <Field label={copy.builder.repMin}><Stepper label={copy.builder.repMin} value={item.repMin} min={1} max={100} onChange={(repMin) => patch({ repMin })} /></Field>
-          <Field label={copy.builder.repMax}><Stepper label={copy.builder.repMax} value={item.repMax} min={1} max={100} onChange={(repMax) => patch({ repMax })} /></Field>
-          <Field label={copy.builder.rir}><Stepper label={copy.builder.rir} value={item.targetRir} min={0} max={5} onChange={(targetRir) => patch({ targetRir })} /></Field>
-          <Field label={copy.builder.progression}><Stepper label={copy.builder.progression} value={item.progressionKg} min={0} max={50} step={0.5} onChange={(progressionKg) => patch({ progressionKg: progressionKg || undefined })} /></Field>
+          <Field label={copy.builder.sets}><Stepper label={copy.builder.sets} value={item.sets} min={1} max={20} onChange={(sets) => patch({ sets: sets ?? item.sets })} /></Field>
+          <Field label={copy.builder.weight}><Stepper label={copy.builder.weight} value={item.weightKg} min={0} max={1000} step={2.5} suffix={copy.common.kg} optional onChange={(weightKg) => patch({ weightKg })} /></Field>
+          <Field label={copy.builder.repMin}><Stepper label={copy.builder.repMin} value={item.repMin} min={1} max={100} optional onChange={(repMin) => patch({ repMin })} /></Field>
+          <Field label={copy.builder.repMax}><Stepper label={copy.builder.repMax} value={item.repMax} min={1} max={100} optional onChange={(repMax) => patch({ repMax })} /></Field>
+          <Field label={copy.builder.rir}><Stepper label={copy.builder.rir} value={item.targetRir} min={0} max={5} optional onChange={(targetRir) => patch({ targetRir })} /></Field>
+          <Field label={copy.builder.progression}><Stepper label={copy.builder.progression} value={item.progressionKg} min={0} max={50} step={0.5} optional onChange={(progressionKg) => patch({ progressionKg: progressionKg || undefined })} /></Field>
         </div>
 
         <input

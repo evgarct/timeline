@@ -1,7 +1,7 @@
 "use client";
 
 import { motion, useMotionValue, useReducedMotion, useSpring, useTransform, type HTMLMotionProps } from "motion/react";
-import { useEffect, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useState, type ComponentProps, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { effects, spatial } from "@/lib/motion/tokens";
 
@@ -106,29 +106,56 @@ export function Chip({ active, groupId, count, children, className, ...props }: 
   );
 }
 
-/** +/- stepper with a numeric field, tabular digits; the value flips with an effects-spring slide. */
-export function Stepper({ value, min = 0, max = 99, step = 1, onChange, label, suffix }: { value: number | undefined; min?: number; max?: number; step?: number; onChange: (value: number) => void; label: string; suffix?: string }) {
-  const current = value ?? 0;
-  const clamp = (next: number) => onChange(Math.min(max, Math.max(min, Math.round(next * 100) / 100)));
+/**
+ * +/- stepper with a numeric field and tabular digits. The field keeps what the user is typing as text and
+ * commits on blur/Enter, so "62." and an emptied field survive until the edit is finished. An `optional`
+ * stepper commits an empty field as `undefined`; a required one snaps back to its last value.
+ */
+export function Stepper({ value, min = 0, max = 99, step = 1, onChange, label, suffix, optional }: {
+  value: number | undefined;
+  min?: number;
+  max?: number;
+  step?: number;
+  onChange: (value: number | undefined) => void;
+  label: string;
+  suffix?: string;
+  optional?: boolean;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const clamp = (next: number) => Math.min(max, Math.max(min, Math.round(next * 100) / 100));
+  const bump = (delta: number) => {
+    setDraft(null);
+    // From an empty optional field "+" starts at one step (never at a meaningless 0 kg), "-" at the minimum.
+    onChange(value === undefined ? clamp(delta > 0 ? Math.max(min, step) : min) : clamp(value + delta));
+  };
+
+  function commit() {
+    if (draft === null) return;
+    const text = draft.trim().replace(",", ".");
+    setDraft(null);
+    if (text === "") { if (optional) onChange(undefined); return; }
+    const parsed = Number(text);
+    if (Number.isFinite(parsed)) onChange(clamp(parsed));
+  }
+
   return (
     <div className="flex h-11 items-center rounded-[var(--s-radius-sm)] bg-[var(--s-surface-container-highest)]" role="group" aria-label={label}>
-      <button type="button" aria-label={`${label} −`} onClick={() => clamp(current - step)} className="h-full w-9 rounded-l-[var(--s-radius-sm)] text-lg text-[var(--s-on-surface-variant)] transition-colors hover:bg-[var(--s-surface-container-high)] active:scale-90">−</button>
+      <button type="button" aria-label={`${label} −`} onClick={() => bump(-step)} className="h-full w-9 rounded-l-[var(--s-radius-sm)] text-lg text-[var(--s-on-surface-variant)] transition-colors hover:bg-[var(--s-surface-container-high)] active:scale-90">−</button>
       <label className="relative flex min-w-12 flex-1 items-center justify-center">
         <input
           inputMode="decimal"
           aria-label={label}
-          value={value === undefined ? "" : String(value)}
+          value={draft ?? (value === undefined ? "" : String(value))}
           placeholder="–"
-          onChange={(event) => {
-            const parsed = Number(event.target.value.replace(",", "."));
-            if (event.target.value === "") onChange(min);
-            else if (Number.isFinite(parsed)) clamp(parsed);
-          }}
+          onFocus={(event) => event.currentTarget.select()}
+          onChange={(event) => setDraft(event.target.value)}
+          onBlur={commit}
+          onKeyDown={(event) => { if (event.key === "Enter") event.currentTarget.blur(); else if (event.key === "Escape") setDraft(null); }}
           className="s-num w-full bg-transparent text-center text-base outline-none placeholder:opacity-40"
         />
         {suffix ? <span className="pointer-events-none absolute right-1 text-[10px] text-[var(--s-on-surface-variant)]">{suffix}</span> : null}
       </label>
-      <button type="button" aria-label={`${label} +`} onClick={() => clamp(current + step)} className="h-full w-9 rounded-r-[var(--s-radius-sm)] text-lg text-[var(--s-on-surface-variant)] transition-colors hover:bg-[var(--s-surface-container-high)] active:scale-90">+</button>
+      <button type="button" aria-label={`${label} +`} onClick={() => bump(step)} className="h-full w-9 rounded-r-[var(--s-radius-sm)] text-lg text-[var(--s-on-surface-variant)] transition-colors hover:bg-[var(--s-surface-container-high)] active:scale-90">+</button>
     </div>
   );
 }

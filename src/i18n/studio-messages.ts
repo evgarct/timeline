@@ -12,7 +12,7 @@ const ru = {
     noResults: "Ничего не найдено", create: "Создать", add: "Добавить", canvasEmpty: "Добавь упражнения слева", canvasEmptyHint: "Клик по карточке или ⌘K",
     sets: "Подходы", weight: "Вес", repMin: "Повт. от", repMax: "Повт. до", rir: "RIR", progression: "Прогрессия +кг", note: "Заметка", superset: "Суперсет", linkNext: "Связать со следующим", unlink: "Разорвать суперсет", remove: "Убрать",
     summary: "Сводка", totalSets: "Всего подходов", musclesTitle: "Подходов на мышцу", secondaryHint: "Вторичные мышцы считаются за половину",
-    unsaved: "Есть несохранённые изменения", saveFailed: "Не удалось сохранить", unknownExercise: "Упражнение не найдено в каталоге", nameRequired: "Введи название", exercisesRequired: "Добавь хотя бы одно упражнение",
+    unsaved: "Есть несохранённые изменения", leaveConfirm: "Несохранённые изменения будут потеряны. Уйти?", saveFailed: "Не удалось сохранить", unknownExercise: "Упражнение не найдено в каталоге", nameRequired: "Введи название", exercisesRequired: "Добавь хотя бы одно упражнение",
     palette: "Быстро добавить упражнение", dragHint: "Перетащи, чтобы изменить порядок", instructions: "Техника"
   },
   dashboard: {
@@ -37,7 +37,7 @@ const en: StudioCopy = {
     noResults: "Nothing found", create: "Create", add: "Add", canvasEmpty: "Add exercises from the left", canvasEmptyHint: "Click a card or press ⌘K",
     sets: "Sets", weight: "Weight", repMin: "Reps from", repMax: "Reps to", rir: "RIR", progression: "Progression +kg", note: "Note", superset: "Superset", linkNext: "Link with next", unlink: "Break superset", remove: "Remove",
     summary: "Summary", totalSets: "Total sets", musclesTitle: "Sets per muscle", secondaryHint: "Secondary muscles count as half",
-    unsaved: "Unsaved changes", saveFailed: "Couldn't save", unknownExercise: "Exercise not found in the catalog", nameRequired: "Enter a name", exercisesRequired: "Add at least one exercise",
+    unsaved: "Unsaved changes", leaveConfirm: "Unsaved changes will be lost. Leave?", saveFailed: "Couldn't save", unknownExercise: "Exercise not found in the catalog", nameRequired: "Enter a name", exercisesRequired: "Add at least one exercise",
     palette: "Quick-add an exercise", dragHint: "Drag to reorder", instructions: "Technique"
   },
   dashboard: {
@@ -60,7 +60,7 @@ const cs: StudioCopy = {
     noResults: "Nic nenalezeno", create: "Vytvořit", add: "Přidat", canvasEmpty: "Přidej cviky zleva", canvasEmptyHint: "Klikni na kartu nebo ⌘K",
     sets: "Série", weight: "Váha", repMin: "Opak. od", repMax: "Opak. do", rir: "RIR", progression: "Progrese +kg", note: "Poznámka", superset: "Superset", linkNext: "Spojit s dalším", unlink: "Zrušit superset", remove: "Odebrat",
     summary: "Souhrn", totalSets: "Sérií celkem", musclesTitle: "Sérií na sval", secondaryHint: "Vedlejší svaly se počítají za půlku",
-    unsaved: "Neuložené změny", saveFailed: "Uložení se nepodařilo", unknownExercise: "Cvik nebyl v katalogu nalezen", nameRequired: "Zadej název", exercisesRequired: "Přidej alespoň jeden cvik",
+    unsaved: "Neuložené změny", leaveConfirm: "Neuložené změny budou ztraceny. Odejít?", saveFailed: "Uložení se nepodařilo", unknownExercise: "Cvik nebyl v katalogu nalezen", nameRequired: "Zadej název", exercisesRequired: "Přidej alespoň jeden cvik",
     palette: "Rychle přidat cvik", dragHint: "Přetažením změníš pořadí", instructions: "Technika"
   },
   dashboard: {

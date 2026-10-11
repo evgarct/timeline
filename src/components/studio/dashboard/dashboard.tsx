@@ -50,7 +50,7 @@ function Kpi({ label, value, unit, decimals = 0, sub }: { label: string; value: 
 
 export function Dashboard({ locale }: { locale: Locale }) {
   const copy = getStudioCopy(locale);
-  const sessionsQuery = useRecentSessions(50);
+  const sessionsQuery = useRecentSessions(200);
   const volumeQuery = useMuscleVolume(12);
   const templates = useTemplates();
   const [selectedWeek, setSelectedWeek] = useState<string>();

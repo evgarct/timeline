@@ -12,6 +12,7 @@ import type { ExerciseSummary } from "@/lib/studio/types";
 import { spatial } from "@/lib/motion/tokens";
 import { cn } from "@/lib/utils";
 import { StudioButton } from "../ds/primitives";
+import { useReportDirty } from "../unsaved-guard";
 import { builderReducer, initialState, toTemplateInput, type BuilderDoc } from "./builder-state";
 import { CanvasPanel } from "./canvas-panel";
 import { CatalogPanel } from "./catalog-panel";
@@ -35,6 +36,7 @@ export function TemplateBuilder({ locale, templateId, initialDoc }: { locale: Lo
   const searchRef = useRef<HTMLInputElement>(null);
   const save = useSaveTemplate();
   const { present: doc } = state;
+  useReportDirty(state.dirty);
 
   // A new template restores its unsaved draft; an existing one always starts from the server copy.
   useEffect(() => {

@@ -33,6 +33,18 @@ describe("builderReducer", () => {
     expect(state.present.items.map((item) => item.groupId)).toEqual([undefined, undefined, undefined]);
   });
 
+  it("keeps the remaining pair when one boundary of a three-exercise superset is unlinked", () => {
+    let state = withExercises(3);
+    state = builderReducer(state, { type: "toggleSuperset", key: "k1", groupId: "g1" });
+    state = builderReducer(state, { type: "toggleSuperset", key: "k2", groupId: "g1" });
+    expect(state.present.items.map((item) => item.groupId)).toEqual(["g1", "g1", "g1"]);
+    state = builderReducer(state, { type: "toggleSuperset", key: "k1", groupId: "g2" });
+    const [a, b, c] = state.present.items;
+    expect(a.groupId).toBeUndefined();
+    expect(b.groupId).toBeDefined();
+    expect(b.groupId).toBe(c.groupId);
+  });
+
   it("drops a group id when a reorder splits the superset", () => {
     let state = withExercises(3);
     state = builderReducer(state, { type: "toggleSuperset", key: "k1", groupId: "g1" });

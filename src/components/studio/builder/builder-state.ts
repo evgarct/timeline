@@ -95,8 +95,16 @@ export function builderReducer(state: BuilderState, action: BuilderAction): Buil
       const next = doc.items[index + 1];
       if (!current || !next) return state;
       const linked = current.groupId !== undefined && current.groupId === next.groupId;
-      const items = doc.items.map((item) => {
-        if (linked) return item === next ? { ...item, groupId: undefined, groupLabel: undefined } : item;
+      // Unlinking one boundary splits the run: everything after it moves to a fresh group, so A-B-C
+      // split at A|B keeps B-C together (single leftovers are dropped by normalizeGroups).
+      let tail = linked;
+      const items = doc.items.map((item, position) => {
+        if (linked) {
+          if (position <= index) return item;
+          if (tail && item.groupId === current.groupId) return { ...item, groupId: action.groupId };
+          tail = false;
+          return item;
+        }
         if (item === current) return { ...item, groupId: current.groupId ?? action.groupId };
         if (item === next) return { ...item, groupId: current.groupId ?? action.groupId, groupLabel: current.groupLabel };
         return item;
