@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, type MouseEvent, type R
 
 interface Guard {
   setDirty: (dirty: boolean) => void;
+  isDirty: () => boolean;
   /** Call from a link's onClick: cancels the navigation unless the user confirms leaving. */
   confirmLeave: (event: MouseEvent, message: string) => void;
 }
@@ -20,6 +21,7 @@ export function UnsavedGuardProvider({ children }: { children: ReactNode }) {
     let dirty = false;
     return {
       setDirty: (value) => { dirty = value; },
+      isDirty: () => dirty,
       confirmLeave: (event, message) => {
         if (dirty && !window.confirm(message)) event.preventDefault();
       }

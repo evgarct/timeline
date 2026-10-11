@@ -36,6 +36,8 @@ test("builds a template: search, add, superset, save", async ({ page, request })
 
   await page.getByRole("button", { name: "Сохранить", exact: true }).click();
   await expect(page).toHaveURL(/\/ru\/studio\/templates\/[0-9a-f-]{36}$/);
+  // The editor reloads the template from the API, which proves it persisted (and warms the routes the check below hits).
+  await expect(page.getByLabel("Название тренировки")).toHaveValue("E2E Push");
 
   const saved = await (await request.get("/api/templates")).json() as { items: Array<{ name: string; exercises: Array<{ groupId?: string }> }> };
   const template = saved.items.find((item) => item.name === "E2E Push");

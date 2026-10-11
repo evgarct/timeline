@@ -3,15 +3,19 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Redo2, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Locale } from "@/i18n/config";
 import { getStudioCopy } from "@/i18n/studio-messages";
-import { ApiError, useSaveTemplate } from "@/lib/studio/api";
+import { ApiError, createExerciseIfMissing, fetchExercise, useSaveTemplate } from "@/lib/studio/api";
+import { ToolError } from "@/lib/webmcp/model-context";
+import { useWebMcpTools } from "@/lib/webmcp/use-webmcp";
 import type { ExerciseSummary } from "@/lib/studio/types";
 import { spatial } from "@/lib/motion/tokens";
 import { cn } from "@/lib/utils";
 import { StudioButton } from "../ds/primitives";
+import { agentStore } from "../agent/agent-store";
+import { builderTools } from "../agent/builder-tools";
 import { useReportDirty } from "../unsaved-guard";
 import { toTemplateInput, type BuilderDoc } from "./builder-state";
 import { createBuilderStore, useBuilderState } from "./builder-store";
@@ -75,19 +79,43 @@ export function TemplateBuilder({ locale, templateId, initialDoc }: { locale: Lo
     return () => window.removeEventListener("beforeunload", warn);
   }, [state.dirty]);
 
-  async function onSave() {
-    if (!doc.name.trim()) return void toast.error(copy.builder.nameRequired);
-    if (!doc.items.length) return void toast.error(copy.builder.exercisesRequired);
+  // Shared by the Save button and the agent's builder_save: validates the live draft, stores it, then updates the UI.
+  const { mutateAsync: saveTemplate } = save;
+  const persistDraft = useCallback(async () => {
+    const draft = store.getState().present;
+    if (!draft.name.trim()) throw new ToolError("name_required", copy.builder.nameRequired);
+    if (!draft.items.length) throw new ToolError("exercises_required", copy.builder.exercisesRequired);
+    let saved;
     try {
-      const saved = await save.mutateAsync({ id: templateId, input: toTemplateInput(doc, templateId) });
-      dispatch({ type: "saved" });
-      try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
-      toast.success(copy.common.saved);
-      if (!templateId) router.replace(`/${locale}/studio/templates/${saved.id}`);
+      saved = await saveTemplate({ id: templateId, input: toTemplateInput(draft, templateId) });
     } catch (error) {
-      toast.error(error instanceof ApiError && error.code === "unknown_exercise" ? copy.builder.unknownExercise : copy.builder.saveFailed);
+      throw new ToolError(error instanceof ApiError ? error.code : "save_failed", error instanceof ApiError && error.code === "unknown_exercise" ? copy.builder.unknownExercise : copy.builder.saveFailed);
+    }
+    dispatch({ type: "saved" });
+    try { window.localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+    toast.success(copy.common.saved);
+    if (!templateId) router.replace(`/${locale}/studio/templates/${saved.id}`);
+    return saved;
+  }, [store, saveTemplate, templateId, copy, dispatch, router, locale]);
+
+  async function onSave() {
+    try {
+      await persistDraft();
+    } catch (error) {
+      toast.error(error instanceof ToolError ? error.message : copy.builder.saveFailed);
     }
   }
+
+  // The copilot drives this same store through WebMCP while the builder is open.
+  const agentTools = useMemo(() => builderTools({
+    store,
+    copy,
+    save: persistDraft,
+    fetchExercise,
+    createExercise: (input) => createExerciseIfMissing({ name: input.name, primaryMuscles: [input.primaryMuscle], equipment: input.equipment }),
+    allowSave: () => agentStore.getState().allowSave
+  }), [store, copy, persistDraft]);
+  useWebMcpTools(agentTools);
 
   const panes: Array<[Pane, string]> = [["catalog", copy.builder.catalog], ["canvas", doc.name || copy.templates.title], ["summary", copy.builder.summary]];
 
