@@ -1,6 +1,22 @@
 import type { Locale } from "./config";
 
 const ru = {
+  agent: {
+    chip: "Агент", history: "Действия агента", empty: "Агент пока ничего не делал", confirmTitle: "Агент просит подтверждения",
+    allow: "Разрешить", deny: "Отклонить", remember: "Больше не спрашивать про сохранение шаблонов",
+    saveConfirm: "Агент хочет сохранить шаблон «{name}»", actionConfirm: "Агент хочет выполнить: {action}",
+    leaveConfirm: "Агент хочет открыть другую страницу. Несохранённые правки будут потеряны.",
+    allowSaveOn: "Агент сохраняет без вопросов", allowSaveOff: "Агент спрашивает перед сохранением", close: "Закрыть",
+    actions: {
+      studio_navigate: "Открыл страницу", builder_set_name: "Назвал шаблон", builder_add_exercise: "Добавил упражнение",
+      builder_create_exercise: "Создал упражнение", builder_remove_exercise: "Убрал упражнение", builder_move_exercise: "Переставил упражнение",
+      builder_update_exercise: "Изменил упражнение", builder_link_superset: "Изменил суперсет", builder_undo: "Отменил изменение",
+      builder_redo: "Вернул изменение", builder_save: "Сохранил шаблон", dashboard_select_week: "Выбрал неделю", dashboard_select_exercise: "Выбрал упражнение",
+      record_workout_session: "Записал тренировку", update_workout_session: "Исправил тренировку", delete_workout_session: "Удалил тренировку",
+      upsert_workout_template: "Сохранил шаблон", rename_workout_template: "Переименовал шаблон", duplicate_workout_template: "Дублировал шаблон",
+      delete_workout_template: "Удалил шаблон", upsert_exercise: "Сохранил упражнение"
+    } as Record<string, string>
+  },
   nav: { dashboard: "Обзор", templates: "Шаблоны", today: "Сегодня", theme: "Тема" },
   common: { save: "Сохранить", saving: "Сохраняем…", saved: "Сохранено", cancel: "Отмена", delete: "Удалить", edit: "Править", retry: "Повторить", loading: "Загрузка…", empty: "Пока пусто", sets: "подходов", kg: "кг", reps: "повт.", exercises: "упражнений", sessions: "тренировок", undo: "Отменить", redo: "Вернуть" },
   templates: {
@@ -27,6 +43,22 @@ const ru = {
 type StudioCopy = typeof ru;
 
 const en: StudioCopy = {
+  agent: {
+    chip: "Agent", history: "Agent activity", empty: "The agent hasn't done anything yet", confirmTitle: "The agent asks for approval",
+    allow: "Allow", deny: "Decline", remember: "Don't ask again before saving templates",
+    saveConfirm: "The agent wants to save the template “{name}”", actionConfirm: "The agent wants to: {action}",
+    leaveConfirm: "The agent wants to open another page. Unsaved changes will be lost.",
+    allowSaveOn: "The agent saves without asking", allowSaveOff: "The agent asks before saving", close: "Close",
+    actions: {
+      studio_navigate: "Opened a page", builder_set_name: "Named the template", builder_add_exercise: "Added an exercise",
+      builder_create_exercise: "Created an exercise", builder_remove_exercise: "Removed an exercise", builder_move_exercise: "Moved an exercise",
+      builder_update_exercise: "Changed an exercise", builder_link_superset: "Changed a superset", builder_undo: "Undid a change",
+      builder_redo: "Redid a change", builder_save: "Saved the template", dashboard_select_week: "Selected a week", dashboard_select_exercise: "Selected an exercise",
+      record_workout_session: "Logged a workout", update_workout_session: "Corrected a workout", delete_workout_session: "Deleted a workout",
+      upsert_workout_template: "Saved a template", rename_workout_template: "Renamed a template", duplicate_workout_template: "Duplicated a template",
+      delete_workout_template: "Deleted a template", upsert_exercise: "Saved an exercise"
+    } as Record<string, string>
+  },
   nav: { dashboard: "Overview", templates: "Templates", today: "Today", theme: "Theme" },
   common: { save: "Save", saving: "Saving…", saved: "Saved", cancel: "Cancel", delete: "Delete", edit: "Edit", retry: "Retry", loading: "Loading…", empty: "Nothing here yet", sets: "sets", kg: "kg", reps: "reps", exercises: "exercises", sessions: "sessions", undo: "Undo", redo: "Redo" },
   templates: {
@@ -51,6 +83,22 @@ const en: StudioCopy = {
 };
 
 const cs: StudioCopy = {
+  agent: {
+    chip: "Agent", history: "Akce agenta", empty: "Agent zatím nic neudělal", confirmTitle: "Agent žádá o schválení",
+    allow: "Povolit", deny: "Odmítnout", remember: "Před ukládáním šablon se příště neptat",
+    saveConfirm: "Agent chce uložit šablonu „{name}“", actionConfirm: "Agent chce provést: {action}",
+    leaveConfirm: "Agent chce otevřít jinou stránku. Neuložené změny budou ztraceny.",
+    allowSaveOn: "Agent ukládá bez ptaní", allowSaveOff: "Agent se před uložením ptá", close: "Zavřít",
+    actions: {
+      studio_navigate: "Otevřel stránku", builder_set_name: "Pojmenoval šablonu", builder_add_exercise: "Přidal cvik",
+      builder_create_exercise: "Vytvořil cvik", builder_remove_exercise: "Odebral cvik", builder_move_exercise: "Přesunul cvik",
+      builder_update_exercise: "Změnil cvik", builder_link_superset: "Změnil superset", builder_undo: "Vrátil změnu",
+      builder_redo: "Obnovil změnu", builder_save: "Uložil šablonu", dashboard_select_week: "Vybral týden", dashboard_select_exercise: "Vybral cvik",
+      record_workout_session: "Zapsal trénink", update_workout_session: "Opravil trénink", delete_workout_session: "Smazal trénink",
+      upsert_workout_template: "Uložil šablonu", rename_workout_template: "Přejmenoval šablonu", duplicate_workout_template: "Duplikoval šablonu",
+      delete_workout_template: "Smazal šablonu", upsert_exercise: "Uložil cvik"
+    } as Record<string, string>
+  },
   nav: { dashboard: "Přehled", templates: "Šablony", today: "Dnes", theme: "Motiv" },
   common: { save: "Uložit", saving: "Ukládám…", saved: "Uloženo", cancel: "Zrušit", delete: "Smazat", edit: "Upravit", retry: "Zkusit znovu", loading: "Načítání…", empty: "Zatím prázdné", sets: "sérií", kg: "kg", reps: "opak.", exercises: "cviků", sessions: "tréninků", undo: "Zpět", redo: "Znovu" },
   templates: {

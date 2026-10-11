@@ -1,12 +1,15 @@
 "use client";
 
 import { MotionConfig, motion } from "motion/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Dumbbell, LayoutDashboard, Moon, Sun } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useMemo, useState, type ReactNode } from "react";
+import { AgentLayer } from "./agent/agent-layer";
+import { shellTools } from "./agent/shell-tools";
 import { UnsavedGuardProvider, useUnsavedGuard } from "./unsaved-guard";
+import { useWebMcpTools } from "@/lib/webmcp/use-webmcp";
 import type { Locale } from "@/i18n/config";
 import { getStudioCopy } from "@/i18n/studio-messages";
 import { spatial } from "@/lib/motion/tokens";
@@ -23,11 +26,35 @@ export function StudioShell({ locale, children }: { locale: Locale; children: Re
 }
 
 function ShellFrame({ locale, children }: { locale: Locale; children: ReactNode }) {
+  const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1, refetchOnWindowFocus: false } } }));
+  return (
+    <QueryClientProvider client={client}>
+      <ShellContent locale={locale}>{children}</ShellContent>
+    </QueryClientProvider>
+  );
+}
+
+function ShellContent({ locale, children }: { locale: Locale; children: ReactNode }) {
   const copy = getStudioCopy(locale);
   const guard = useUnsavedGuard();
   const pathname = usePathname();
-  const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { staleTime: 15_000, retry: 1, refetchOnWindowFocus: false } } }));
+  const router = useRouter();
+  const queryClient = useQueryClient();
   const [theme, setTheme] = useState<Theme>("system");
+
+  // WebMCP tool handlers are plain functions, so they read the live page and theme from the DOM instead of render state.
+  const tools = useMemo(() => shellTools({
+    locale,
+    copy,
+    getContext: () => ({
+      pathname: window.location.pathname,
+      theme: document.querySelector('[data-surface="studio"]')?.getAttribute("data-theme") ?? "system",
+      unsavedChanges: guard?.isDirty() ?? false
+    }),
+    navigate: (path) => router.push(path),
+    onWrite: () => { void queryClient.invalidateQueries({ queryKey: ["studio"] }); }
+  }), [locale, copy, guard, router, queryClient]);
+  useWebMcpTools(tools);
   const base = `/${locale}/studio`;
   const items = [
     { href: base, label: copy.nav.dashboard, icon: LayoutDashboard, active: pathname === base },
@@ -35,7 +62,6 @@ function ShellFrame({ locale, children }: { locale: Locale; children: ReactNode 
   ];
 
   return (
-    <QueryClientProvider client={client}>
       <MotionConfig reducedMotion="user">
         <div data-surface="studio" data-theme={theme === "system" ? undefined : theme} className="min-h-dvh lg:pl-20">
           <nav aria-label="Studio" className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around gap-2 border-t border-[var(--s-outline-variant)] bg-[color-mix(in_srgb,var(--s-background)_88%,transparent)] px-3 py-2 backdrop-blur-xl lg:inset-y-0 lg:left-0 lg:right-auto lg:w-20 lg:flex-col lg:justify-start lg:gap-3 lg:border-r lg:border-t-0 lg:px-0 lg:py-6">
@@ -56,8 +82,8 @@ function ShellFrame({ locale, children }: { locale: Locale; children: ReactNode 
             </button>
           </nav>
           <main className="pb-20 lg:pb-0">{children}</main>
+          <AgentLayer copy={copy} />
         </div>
       </MotionConfig>
-    </QueryClientProvider>
   );
 }

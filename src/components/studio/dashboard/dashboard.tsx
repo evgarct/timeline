@@ -10,6 +10,9 @@ import { useExerciseHistory, useMuscleVolume, useRecentSessions, useTemplates } 
 import type { RecentWorkoutSession } from "@/lib/studio/types";
 import { spatial } from "@/lib/motion/tokens";
 import { cn } from "@/lib/utils";
+import { useLatest } from "@/lib/webmcp/use-latest";
+import { useWebMcpTools } from "@/lib/webmcp/use-webmcp";
+import { dashboardTools } from "../agent/dashboard-tools";
 import { MuscleMap } from "../ds/muscle-map";
 import { Chip, Eyebrow, NumberTicker, SerifNumber, Surface } from "../ds/primitives";
 import { ConsistencyGrid, LineChart, WeekBars } from "./charts";
@@ -96,6 +99,32 @@ export function Dashboard({ locale }: { locale: Locale }) {
   const points = useMemo(() => (history.data?.recentSessions ?? []).filter((entry) => entry.bestE1rmKg).map((entry) => ({ label: entry.date.slice(5), value: entry.bestE1rmKg as number })).reverse(), [history.data]);
   const failed = sessionsQuery.isError || volumeQuery.isError;
   const base = `/${locale}/studio/templates`;
+
+  // What the human sees, as data: the copilot reads this through dashboard_get_view and steers it with the select tools.
+  const view = {
+    selectedWeek: week?.weekStart ?? null,
+    weeks: weeks.map((entry) => ({ weekStart: entry.weekStart, totalSets: entry.totalSets })),
+    kpis: { weekSets: week?.totalSets ?? 0, lastWeekSets: lastWeek?.totalSets ?? null, tonnageKg: weekTonnage, sessions: weekSessions, bestE1rmKg: bestE1rm(sessions) },
+    setsPerMuscle: week?.sets ?? {},
+    exercisesAvailable: exercisesInUse.map(([id, entry]) => ({ id, name: entry.name })),
+    chart: { exerciseId: activeExercise ?? null, e1rmKg: points },
+    recentSessions: sessions.slice(0, 10).map((session) => ({ eventId: session.eventId, date: session.occurredAt, muscleGroups: session.muscleGroups, ...session.summary }))
+  };
+  const getView = useLatest(view);
+  const agentTools = useMemo(() => dashboardTools({
+    getView,
+    selectWeek: (weekStart) => {
+      if (!getView().weeks.some((entry) => entry.weekStart === weekStart)) return false;
+      setSelectedWeek(weekStart);
+      return true;
+    },
+    selectExercise: (exerciseId) => {
+      if (!getView().exercisesAvailable.some((entry) => entry.id === exerciseId)) return false;
+      setExerciseId(exerciseId);
+      return true;
+    }
+  }), [getView]);
+  useWebMcpTools(agentTools);
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 px-4 py-10 lg:px-8">

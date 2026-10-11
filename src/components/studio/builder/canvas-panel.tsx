@@ -8,6 +8,7 @@ import { spatial } from "@/lib/motion/tokens";
 import { cn } from "@/lib/utils";
 import { Eyebrow, Stepper, Surface } from "../ds/primitives";
 import type { ExerciseSummary } from "@/lib/studio/types";
+import { useAgentState } from "../agent/agent-store";
 import type { BuilderAction, BuilderItem } from "./builder-state";
 import { DropIndicator } from "./drop-indicator";
 import { hasDraggedExercise, insertionIndex, readDraggedExercise } from "./drag";
@@ -33,6 +34,8 @@ function ExerciseCard({ item, index, items, copy, dispatch }: { item: BuilderIte
   const patch = (value: Partial<BuilderItem>) => dispatch({ type: "patch", key: item.key, patch: value });
   const muscles = (item.exercise.primaryMuscles ?? item.exercise.muscleGroups ?? []).map((muscle) => muscleLabel(copy, muscle)).join(" · ");
   const photo = item.exercise.images?.[0];
+  const touched = useAgentState().touched;
+  const agentTouched = touched?.key === item.key ? touched.at : null;
 
   return (
     <Reorder.Item
@@ -54,6 +57,17 @@ function ExerciseCard({ item, index, items, copy, dispatch }: { item: BuilderIte
         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} transition={spatial.fast} className="ml-5 inline-flex rounded-t-[14px] bg-[var(--s-primary)] px-3 py-1 text-[13px] font-semibold text-[var(--s-on-primary)]">
           {item.groupLabel ?? copy.builder.superset}
         </motion.div>
+      ) : null}
+      {agentTouched ? (
+        <motion.div
+          key={agentTouched}
+          aria-hidden
+          data-testid="agent-highlight"
+          initial={{ opacity: 1 }}
+          animate={{ opacity: 0 }}
+          transition={{ duration: 1.6, ease: "easeOut" }}
+          className="pointer-events-none absolute inset-0 z-10 rounded-[var(--s-radius-xl)] shadow-[0_0_0_2px_var(--s-primary),0_0_44px_6px_var(--s-glow)]"
+        />
       ) : null}
       <Surface
         tone={inGroup ? "high" : "container"}

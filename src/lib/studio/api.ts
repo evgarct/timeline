@@ -60,6 +60,8 @@ export function useCreateExercise() {
   });
 }
 
+export const fetchExercise = (id: string) => request<ExerciseSummary>(`/api/exercises/${encodeURIComponent(id)}`);
+
 export const useExerciseFacets = () => useQuery({ queryKey: ["studio", "facets"], queryFn: () => request<ExerciseFacets>("/api/exercises/facets"), staleTime: 60_000 });
 
 export const useTemplates = () => useQuery({ queryKey: ["studio", "templates"], queryFn: async () => (await request<{ items: StoredTemplate[] }>("/api/templates")).items });
