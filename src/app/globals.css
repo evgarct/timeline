@@ -4,6 +4,7 @@
 @import "antd-mobile/es/global/global.css";
 @import "antd-mobile/es/components/list/list.css";
 @import "antd-mobile/es/components/safe-area/safe-area.css";
+@import "../styles/studio-tokens.css";
 
 @custom-variant dark (&:is(.dark *));
 

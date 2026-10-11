@@ -17,6 +17,7 @@ Source of truth for the strength-training model. Product intent comes from the A
 - `GET/POST /api/exercises`, `GET/PUT /api/exercises/{id}` (PUT also archives), `GET /api/exercises/{id}/history`
 - `GET /api/workouts?date=&timezone=`, `POST /api/workouts` (idempotent on `idempotencyKey`; unknown exercise → 422)
 - `GET/PUT/DELETE /api/workouts/{eventId}` (PUT replaces the whole set list atomically)
+- `GET /api/exercises/facets`: filter vocabulary with counts (muscles, equipment, movement patterns), the same data MCP `list_exercise_filters` returns; used by the web catalog chips.
 
 ## MCP
 `search_exercises`, `upsert_exercise`, `record_workout_session`, `get_exercise_history` expose the same fields. Tool descriptions in `src/mcp/server.ts` are the steering lever. The telegram-bot repo keeps a hand-maintained copy of the tool list and must be updated separately.
@@ -44,6 +45,12 @@ Beyond the tools above: `list_workout_sessions` (recent logged sessions with set
 - Visual QA without a login: `WorkoutScreenshotTest` (androidTest) seeds a fixture draft and writes PNGs to the app's external files dir (`adb pull /sdcard/Android/data/com.evgarct.form/files/workout-qa`). Run it with `adb shell am instrument` — `connectedAndroidTest` uninstalls the app and deletes the files.
 
 - Templates on Android: the Train tab lists templates; tapping one loads `/api/templates/{id}/plan` and builds the draft (prescribed set count, suggested weight prefilled, last-time sets, superset groups kept). The exercise card shows the target ("3 × 6–10 · RIR 2") and the suggestion. "Save as template" turns the current draft into a template: a prescription that came from a template is kept, for ad-hoc exercises the rep range is derived from the logged sets and warm-ups are not counted. There is no in-app template editor yet — edit prescriptions and progression rules through MCP.
+
+## Web Studio (form.safronov.dev/{locale}/studio)
+- Desktop-first companion for the strength module, mounted under `[locale]/studio` with its own shell and the `[data-surface="studio"]` token scope (Today/Timeline tokens are untouched). Needs a signed-in session (cookie), like the rest of the REST API.
+- Template builder (`/studio/templates/new`, `/studio/templates/{id}`): catalog with search + facet chips and photo cards on the left, a reorderable canvas (Motion `Reorder`) in the middle, a live summary (muscle map, sets per muscle, total sets; secondary muscles count 0.5 like `getMuscleVolume`) on the right. Per exercise: sets, weight, rep range, target RIR, double-progression increment, note; superset = neighbours sharing a `groupId` (a reorder that splits a group drops it, `normalizeGroups`). Undo/redo, a localStorage draft for new templates, ⌘K focuses the catalog search. The Android app has no template editor, so this is where templates are authored outside MCP. State logic lives in `builder-state.ts` (pure reducer, unit-tested).
+- Dashboard (`/studio`): weekly sets/tonnage/sessions/best e1RM, 12-week volume bars with a muscle heat map for the selected week, e1RM line per exercise, consistency grid, expandable session history. All data comes from existing endpoints (`/api/workouts`, `/api/workouts/volume`, `/api/exercises/{id}/history`); the volume endpoint returns newest week first, the UI sorts ascending. Neutral by design: no goals, streaks or colour judgement.
+- Design system: `src/components/studio/ds/*` (primitives, `MuscleMap`), tokens in `src/styles/studio-tokens.css`, Android-parity springs in `src/lib/motion/tokens.ts`; principles go to `docs/DESIGN.md` once the UI is approved.
 
 ## Open decisions / not yet built
 Production catalog seed (see below), templates and prescriptions, progression rules and mesocycles, analytics (weekly sets per muscle, muscle map), optional Health Connect write of finished sessions.
