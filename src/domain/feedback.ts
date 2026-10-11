@@ -58,9 +58,11 @@ export type FeedbackFilter = {
   limit?: number;
 };
 
-/** One user cannot file more than this per hour: an agent stuck in a loop must not flood the inbox. */
+/** About this many entries per user per hour: an agent stuck in a loop must not flood the inbox (a soft limit, bursts of parallel requests can overshoot slightly). */
 export const FEEDBACK_RATE_LIMIT_PER_HOUR = 30;
-/** The same summary about the same tool inside this window returns the existing entry instead of a new one. */
-export const FEEDBACK_DEDUPE_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/** The same summary about the same tool on the same UTC day is one entry; the database enforces it with a unique index. */
+export const feedbackDedupeKey = (summary: string, tool: string | null | undefined, at: Date) =>
+  `${normalizeFeedbackSummary(summary)}|${tool ?? ""}|${at.toISOString().slice(0, 10)}`;
 
 export const normalizeFeedbackSummary = (summary: string) => summary.trim().replace(/\s+/g, " ").toLowerCase();

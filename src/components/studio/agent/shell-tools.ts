@@ -52,8 +52,8 @@ export function shellTools(deps: ShellToolDeps): WebMcpTool[] {
       return { ok: true, path };
     }, { consequential: true }),
     ...restBridgeTools({
-      // Feedback sent from the page records where it came from; the agent cannot set these fields itself.
-      augmentBody: (spec) => (spec.name === "send_feedback" ? { source: "webmcp", page: deps.getContext().pathname } : undefined),
+      // Feedback sent from the page records where it came from; the agent cannot set these headers itself.
+      augmentHeaders: (spec) => (spec.name === "send_feedback" ? { "x-form-source": "webmcp", "x-form-page": deps.getContext().pathname } : undefined),
       confirm: (title) => agentStore.requestConfirm(copy.agent.actionConfirm.replace("{action}", title)),
       onWrite: (spec) => {
         agentStore.record(spec.name);

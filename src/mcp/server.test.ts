@@ -282,7 +282,7 @@ describe("send_feedback, list_feedback and update_feedback", () => {
     const client = await connectClient();
     expect(client.getInstructions()).toContain("send_feedback");
     const { tools } = await client.listTools();
-    expect(tools.find((tool) => tool.name === "send_feedback")?.description).toContain("at most 30 entries per hour");
+    expect(tools.find((tool) => tool.name === "send_feedback")?.description).toContain("about 30 entries per hour at most");
     expect(tools.find((tool) => tool.name === "list_feedback")?.annotations?.readOnlyHint).toBe(true);
   });
 
@@ -301,7 +301,7 @@ describe("send_feedback, list_feedback and update_feedback", () => {
     expect(again).toContain(id);
 
     const listed = text(await client.callTool({ name: "list_feedback", arguments: { tool: "list_events" } }));
-    for (const part of [id, "new", "friction/medium", "I wanted only chest workouts", "a muscle filter", "add muscleGroup to list_events", "list_events=confusing", "test-agent"]) expect(listed).toContain(part);
+    for (const part of [id, "new", "friction/medium", "I wanted only chest workouts", "a muscle filter", "add muscleGroup to list_events", "list_events=confusing", "test-agent", "source: mcp"]) expect(listed).toContain(part);
 
     const done = text(await client.callTool({ name: "update_feedback", arguments: { id, status: "done", resolution: "Added in PR #123" } }));
     expect(done).toContain("done");

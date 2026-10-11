@@ -4,12 +4,11 @@ import { and, count, desc, eq, gte } from "drizzle-orm";
 import { database } from "@/db/client";
 import { agentFeedback } from "@/db/schema";
 import {
-  FEEDBACK_DEDUPE_WINDOW_MS,
   FEEDBACK_RATE_LIMIT_PER_HOUR,
   feedbackCreateSchema,
+  feedbackDedupeKey,
   feedbackSchema,
   feedbackUpdateSchema,
-  normalizeFeedbackSummary,
   type Feedback,
   type FeedbackFilter,
   type FeedbackInput,
@@ -18,6 +17,7 @@ import {
 
 interface MemoryFeedback extends Feedback {
   userId: string;
+  dedupeKey: string;
 }
 
 const memoryFeedback: MemoryFeedback[] = [];
@@ -48,39 +48,47 @@ function fromRow(row: typeof agentFeedback.$inferSelect): Feedback {
 function stripOwner(entry: MemoryFeedback): Feedback {
   const copy: Partial<MemoryFeedback> = { ...entry };
   delete copy.userId;
+  delete copy.dedupeKey;
   return copy as Feedback;
 }
 
 /**
- * Stores one piece of agent feedback. The same summary about the same tool within 24 hours returns the existing
- * entry (`duplicate: true`) so a retrying agent does not file it twice; more than 30 entries an hour throws
- * `rate_limited` so a looping agent cannot flood the inbox.
+ * Stores one piece of agent feedback. The same summary about the same tool on the same UTC day returns the existing
+ * entry (`duplicate: true`, enforced by a unique index so concurrent retries cannot both insert); about 30 entries an hour
+ * throws `rate_limited` so a looping agent cannot flood the inbox.
  */
 export async function createFeedback(userId: string, rawInput: FeedbackInput): Promise<{ feedback: Feedback; duplicate: boolean }> {
   const input = feedbackCreateSchema.parse(rawInput);
   const now = new Date();
-  const dedupeKey = (summary: string, tool?: string | null) => `${normalizeFeedbackSummary(summary)}|${tool ?? ""}`;
-  const wanted = dedupeKey(input.summary, input.tool);
+  const dedupeKey = feedbackDedupeKey(input.summary, input.tool, now);
 
   if (useMemory || !database) {
     const own = memoryFeedback.filter((entry) => entry.userId === userId);
-    const duplicate = own.find((entry) => now.getTime() - entry.createdAt.getTime() < FEEDBACK_DEDUPE_WINDOW_MS && dedupeKey(entry.summary, entry.tool) === wanted);
+    const duplicate = own.find((entry) => entry.dedupeKey === dedupeKey);
     if (duplicate) return { feedback: stripOwner(duplicate), duplicate: true };
     if (own.filter((entry) => now.getTime() - entry.createdAt.getTime() < HOUR_MS).length >= FEEDBACK_RATE_LIMIT_PER_HOUR) throw new Error("rate_limited");
-    const created: MemoryFeedback = { ...input, id: randomUUID(), userId, status: "new", createdAt: now, updatedAt: now };
+    const created: MemoryFeedback = { ...input, id: randomUUID(), userId, dedupeKey, status: "new", createdAt: now, updatedAt: now };
     memoryFeedback.push(created);
     return { feedback: stripOwner(created), duplicate: false };
   }
 
-  const recent = await database.select().from(agentFeedback).where(and(
-    eq(agentFeedback.userId, userId), gte(agentFeedback.createdAt, new Date(now.getTime() - FEEDBACK_DEDUPE_WINDOW_MS))
-  )).orderBy(desc(agentFeedback.createdAt));
-  const duplicate = recent.find((row) => dedupeKey(row.summary, row.tool) === wanted);
-  if (duplicate) return { feedback: fromRow(duplicate), duplicate: true };
-  if (recent.filter((row) => now.getTime() - row.createdAt.getTime() < HOUR_MS).length >= FEEDBACK_RATE_LIMIT_PER_HOUR) throw new Error("rate_limited");
+  const db = database; // the narrowing from the guard above is lost inside the closure
+  const existing = async () => (await db.select().from(agentFeedback).where(and(
+    eq(agentFeedback.userId, userId), eq(agentFeedback.dedupeKey, dedupeKey)
+  )).limit(1))[0];
 
+  const duplicate = await existing();
+  if (duplicate) return { feedback: fromRow(duplicate), duplicate: true };
+  const [{ total }] = await database.select({ total: count() }).from(agentFeedback).where(and(
+    eq(agentFeedback.userId, userId), gte(agentFeedback.createdAt, new Date(now.getTime() - HOUR_MS))
+  ));
+  if (total >= FEEDBACK_RATE_LIMIT_PER_HOUR) throw new Error("rate_limited");
+
+  // The unique (user_id, dedupe_key) index decides a race between two identical retries: the loser inserts nothing
+  // and gets the winner's row back.
   const [row] = await database.insert(agentFeedback).values({
     userId,
+    dedupeKey,
     category: input.category,
     severity: input.severity,
     tool: input.tool,
@@ -92,8 +100,11 @@ export async function createFeedback(userId: string, rawInput: FeedbackInput): P
     source: input.source,
     client: input.client,
     page: input.page
-  }).returning();
-  return { feedback: fromRow(row), duplicate: false };
+  }).onConflictDoNothing({ target: [agentFeedback.userId, agentFeedback.dedupeKey] }).returning();
+  if (row) return { feedback: fromRow(row), duplicate: false };
+  const winner = await existing();
+  if (!winner) throw new Error("feedback_failed");
+  return { feedback: fromRow(winner), duplicate: true };
 }
 
 /** Newest first. Without a status filter every status is returned. */

@@ -30,7 +30,7 @@ describe("feedback repository", () => {
     expect((await repo.listFeedback(userId, { status: "done" })).length).toBe(0);
   });
 
-  it("returns the existing entry for the same summary and tool within a day", async () => {
+  it("returns the existing entry for the same summary and tool on the same day", async () => {
     const first = await repo.createFeedback(userId, input("Dedupe me", { tool: "get_template" }));
     const again = await repo.createFeedback(userId, input("  dedupe   ME ", { tool: "get_template" }));
     expect(again.duplicate).toBe(true);

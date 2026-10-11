@@ -120,19 +120,21 @@ describe("REST bridge", () => {
     expect((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1]).toMatchObject({ signal: controller.signal });
   });
 
-  it("lets the page add trusted fields to a write body, which the agent cannot override", async () => {
+  it("lets the page add trusted headers to a write, and the agent's body cannot carry provenance", async () => {
     const fetchImpl = vi.fn(async () => Response.json({ id: "f1" }, { status: 201 })) as unknown as typeof fetch;
     const tools = Object.fromEntries(restBridgeTools({
       fetchImpl,
-      augmentBody: (spec) => (spec.name === "send_feedback" ? { source: "webmcp", page: "/ru/studio" } : undefined)
+      augmentHeaders: (spec) => (spec.name === "send_feedback" ? { "x-form-source": "webmcp", "x-form-page": "/ru/studio" } : undefined)
     }).map((tool) => [tool.name, tool]));
     await tools.send_feedback.execute({ category: "works_well", summary: "Builder tools are great", tool: "builder_add_exercise" });
-    const body = JSON.parse(String((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1].body));
-    expect(body).toMatchObject({ category: "works_well", summary: "Builder tools are great", source: "webmcp", page: "/ru/studio" });
-    // The agent-facing schema has no source/page, so a forged value is dropped before the request is built.
+    const call = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(call.headers).toMatchObject({ "content-type": "application/json", "x-form-source": "webmcp", "x-form-page": "/ru/studio" });
+    expect(JSON.parse(String(call.body))).toEqual({ category: "works_well", summary: "Builder tools are great", tool: "builder_add_exercise" });
+    // The agent-facing schema has no source/page, so forged values are dropped before the request is built.
     await tools.send_feedback.execute({ category: "bug", summary: "forged", source: "mcp", page: "/evil" });
     const forged = JSON.parse(String((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[1][1].body));
-    expect(forged).toMatchObject({ source: "webmcp", page: "/ru/studio" });
+    expect(forged).not.toHaveProperty("source");
+    expect(forged).not.toHaveProperty("page");
   });
 
   it("exposes only specs with a REST mapping", () => {

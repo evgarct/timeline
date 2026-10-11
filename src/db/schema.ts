@@ -192,12 +192,15 @@ export const agentFeedback = pgTable("agent_feedback", {
   source: text("source").notNull(),
   client: text("client"),
   page: text("page"),
+  // normalized summary | tool | UTC day: the unique index below makes "the same point twice a day" impossible even under concurrent retries.
+  dedupeKey: text("dedupe_key").notNull(),
   status: text("status").default("new").notNull(),
   resolution: text("resolution"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
 }, (table) => [
   uniqueIndex("agent_feedback_user_id_id_idx").on(table.userId, table.id),
+  uniqueIndex("agent_feedback_user_dedupe_idx").on(table.userId, table.dedupeKey),
   index("agent_feedback_user_status_created_idx").on(table.userId, table.status, table.createdAt)
 ]);
 

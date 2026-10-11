@@ -126,9 +126,14 @@ export function useUpdateFeedback() {
 /** Number of untriaged entries, for the navigation badge. */
 export function useNewFeedbackCount() {
   // Polled: an invalidation that lands while the very first request is still in flight does not start a second one,
-  // and agents write feedback from outside React, so the badge must also catch up on its own.
-  const query = useFeedback({ status: "new" }, { refetchInterval: 30_000 });
-  return query.data?.length ?? 0;
+  // and agents write feedback from outside React, so the badge must also catch up on its own. The count comes from its
+  // own endpoint, so it stays right beyond the 200 entries a list request returns.
+  const query = useQuery({
+    queryKey: ["studio", "feedback", "count"],
+    refetchInterval: 30_000,
+    queryFn: async () => (await request<{ new: number }>("/api/feedback/counts")).new
+  });
+  return query.data ?? 0;
 }
 
 export const useRecentSessions = (limit = 200) =>

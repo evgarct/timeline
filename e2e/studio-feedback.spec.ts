@@ -23,7 +23,7 @@ const callTool = (page: Page, name: string, input: Record<string, unknown> = {})
 test("an agent leaves feedback through WebMCP and the owner triages it in the inbox", async ({ page }) => {
   await installFakeModelContext(page);
   // Let the navigation badge's first request finish, so the agent's write is not racing the initial load.
-  const firstBadgeLoad = page.waitForResponse((response) => response.url().includes("/api/feedback?") && response.request().method() === "GET");
+  const firstBadgeLoad = page.waitForResponse((response) => response.url().includes("/api/feedback/counts") && response.request().method() === "GET");
   await page.goto("/ru/studio", { waitUntil: "domcontentloaded" });
   await firstBadgeLoad;
   await page.waitForFunction(() => (window as unknown as { __agent: { names: () => string[] } }).__agent.names().includes("send_feedback"));

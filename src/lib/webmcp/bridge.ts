@@ -7,8 +7,8 @@ export interface BridgeDeps {
   confirm?: (message: string) => Promise<boolean>;
   /** Called after a successful write (POST/PUT/DELETE) so the UI can refresh what it shows. */
   onWrite?: (spec: ToolSpec) => void;
-  /** Extra fields merged into a write's JSON body by the page (e.g. where the feedback came from); never set by the agent. */
-  augmentBody?: (spec: ToolSpec) => Record<string, unknown> | undefined;
+  /** Extra request headers set by the page (e.g. where feedback came from); the agent cannot set or see them. */
+  augmentHeaders?: (spec: ToolSpec) => Record<string, string> | undefined;
 }
 
 /** Builds the request a spec's REST mapping describes. Exported for tests. */
@@ -47,15 +47,15 @@ export function restBridgeTools(deps: BridgeDeps = {}, specs: ToolSpec[] = allSp
     }
     const request = buildRequest(spec, input);
     const { url, method } = request;
-    const extra = deps.augmentBody?.(spec);
-    const body = extra && request.body && typeof request.body === "object" ? { ...(request.body as Record<string, unknown>), ...extra } : request.body;
+    const { body } = request;
+    const extraHeaders = deps.augmentHeaders?.(spec);
     const fetchImpl = deps.fetchImpl ?? fetch;
     const response = await fetchImpl(url, {
       method,
       credentials: "same-origin",
       // A cancelled tool call must not leave a write running in the background.
       signal: options?.signal,
-      headers: body === undefined ? undefined : { "content-type": "application/json" },
+      headers: body === undefined && !extraHeaders ? undefined : { ...(body === undefined ? {} : { "content-type": "application/json" }), ...extraHeaders },
       body: body === undefined ? undefined : JSON.stringify(body)
     });
     if (!response.ok) {

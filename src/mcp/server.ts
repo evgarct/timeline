@@ -144,6 +144,7 @@ function feedbackText(entry: Feedback) {
     entry.suggestion ? `  suggestion: ${entry.suggestion}` : undefined,
     entry.toolCalls?.length ? `  calls: ${entry.toolCalls.map((call) => `${call.tool}=${call.outcome}${call.note ? ` (${call.note})` : ""}`).join(", ")}` : undefined,
     entry.client ? `  client: ${entry.client}` : undefined,
+    `  source: ${entry.source}${entry.page ? ` (${entry.page})` : ""}`,
     entry.resolution ? `  resolution: ${entry.resolution}` : undefined
   ].filter(Boolean).join("\n");
 }
