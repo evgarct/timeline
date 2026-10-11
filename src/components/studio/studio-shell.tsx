@@ -2,7 +2,7 @@
 
 import { MotionConfig, motion } from "motion/react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { Dumbbell, LayoutDashboard, Moon, Sun } from "lucide-react";
+import { Dumbbell, LayoutDashboard, MessageSquareText, Moon, Sun } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
@@ -12,6 +12,7 @@ import { UnsavedGuardProvider, useUnsavedGuard } from "./unsaved-guard";
 import { useWebMcpTools } from "@/lib/webmcp/use-webmcp";
 import type { Locale } from "@/i18n/config";
 import { getStudioCopy } from "@/i18n/studio-messages";
+import { useNewFeedbackCount } from "@/lib/studio/api";
 import { spatial } from "@/lib/motion/tokens";
 import { cn } from "@/lib/utils";
 
@@ -41,6 +42,7 @@ function ShellContent({ locale, children }: { locale: Locale; children: ReactNod
   const router = useRouter();
   const queryClient = useQueryClient();
   const [theme, setTheme] = useState<Theme>("system");
+  const newFeedback = useNewFeedbackCount();
 
   // WebMCP tool handlers are plain functions, so they read the live page and theme from the DOM instead of render state.
   const tools = useMemo(() => shellTools({
@@ -58,7 +60,8 @@ function ShellContent({ locale, children }: { locale: Locale; children: ReactNod
   const base = `/${locale}/studio`;
   const items = [
     { href: base, label: copy.nav.dashboard, icon: LayoutDashboard, active: pathname === base },
-    { href: `${base}/templates`, label: copy.nav.templates, icon: Dumbbell, active: pathname.startsWith(`${base}/templates`) }
+    { href: `${base}/templates`, label: copy.nav.templates, icon: Dumbbell, active: pathname.startsWith(`${base}/templates`) },
+    { href: `${base}/feedback`, label: copy.nav.feedback, icon: MessageSquareText, active: pathname.startsWith(`${base}/feedback`), badge: newFeedback }
   ];
 
   return (
@@ -69,6 +72,7 @@ function ShellContent({ locale, children }: { locale: Locale; children: ReactNod
               <Link key={item.href} href={item.href} onClick={(event) => guard?.confirmLeave(event, copy.builder.leaveConfirm)} aria-current={item.active ? "page" : undefined} className="relative grid w-16 place-items-center gap-0.5 rounded-[var(--s-radius-lg)] py-2 text-[11px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-[var(--s-primary)]">
                 {item.active ? <motion.span layoutId="studio-nav" transition={spatial.default} className="absolute inset-0 rounded-[var(--s-radius-lg)] bg-[var(--s-primary-container)]" /> : null}
                 <item.icon className={cn("relative size-5", item.active ? "text-[var(--s-on-primary-container)]" : "text-[var(--s-on-surface-variant)]")} />
+                {item.badge ? <span data-testid="feedback-badge" className="absolute right-2 top-1 grid min-w-4 place-items-center rounded-full bg-[var(--s-primary)] px-1 text-[10px] font-bold leading-4 text-[var(--s-on-primary)]">{item.badge}</span> : null}
                 <span className={cn("relative", item.active ? "text-[var(--s-on-primary-container)]" : "text-[var(--s-on-surface-variant)]")}>{item.label}</span>
               </Link>
             ))}

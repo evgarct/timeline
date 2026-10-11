@@ -22,6 +22,12 @@ const tools = (page: Page) => page.evaluate(() => (window as unknown as { __agen
 const callTool = (page: Page, name: string, input: Record<string, unknown> = {}) =>
   page.evaluate(([toolName, toolInput]) => (window as unknown as { __agent: { call: (n: string, i: unknown) => Promise<unknown> } }).__agent.call(toolName as string, toolInput), [name, input] as const) as Promise<Record<string, unknown>>;
 
+// The dev server compiles a route on its first request and can reload modules, wiping the in-memory demo data.
+// The navigation badge calls /api/feedback, so warm it up before any test seeds data.
+test.beforeEach(async ({ request }) => {
+  await request.get("/api/feedback");
+});
+
 async function createExercise(request: APIRequestContext, name: string, primary: string) {
   const response = await request.post("/api/exercises", { data: { name, primaryMuscles: [primary], equipment: "barbell", movementPattern: "push" } });
   expect(response.ok()).toBe(true);
@@ -54,7 +60,7 @@ test("a copilot builds and saves a template through WebMCP while the human watch
   await expect(dialog).toContainText("Agent E2E Push");
   await dialog.getByRole("button", { name: "Разрешить" }).click();
   expect(await saving).toMatchObject({ ok: true });
-  await expect(page).toHaveURL(/\/ru\/studio\/templates\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/ru\/studio\/templates\/[0-9a-f-]{36}$/, { timeout: 20_000 });
 
   const saved = await (await request.get("/api/templates")).json() as { items: Array<{ name: string; exercises: Array<{ sets: number; groupId?: string }> }> };
   const template = saved.items.find((item) => item.name === "Agent E2E Push");

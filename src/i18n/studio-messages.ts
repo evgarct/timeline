@@ -1,6 +1,16 @@
 import type { Locale } from "./config";
 
 const ru = {
+  feedback: {
+    title: "Фидбек агентов", eyebrow: "Агенты", empty: "Агенты пока ничего не прислали", emptyHint: "Когда агент через MCP или WebMCP отправит замечание, оно появится здесь.", loadError: "Не удалось загрузить фидбек",
+    allStatuses: "Все статусы", allCategories: "Все типы", details: "Что произошло", expected: "Ожидал", suggestion: "Предложение",
+    calls: "Вызовы", client: "Клиент", tool: "Инструмент", resolution: "Заметка о решении", saveResolution: "Сохранить",
+    statuses: { new: "Новое", triaged: "Разбираем", done: "Сделано", wontfix: "Не будем" } as Record<string, string>,
+    categories: { bug: "Ошибка", friction: "Неудобно", missing_tool: "Не хватает", works_well: "Работает", suggestion: "Идея", other: "Другое" } as Record<string, string>,
+    severities: { low: "низкая", medium: "средняя", high: "высокая" } as Record<string, string>,
+    sources: { mcp: "MCP", webmcp: "WebMCP", rest: "REST" } as Record<string, string>,
+    outcomes: { ok: "ок", error: "ошибка", confusing: "непонятно" } as Record<string, string>
+  },
   agent: {
     chip: "Агент", history: "Действия агента", empty: "Агент пока ничего не делал", confirmTitle: "Агент просит подтверждения",
     allow: "Разрешить", deny: "Отклонить", remember: "Больше не спрашивать про сохранение шаблонов",
@@ -17,7 +27,7 @@ const ru = {
       delete_workout_template: "Удалил шаблон", upsert_exercise: "Сохранил упражнение"
     } as Record<string, string>
   },
-  nav: { dashboard: "Обзор", templates: "Шаблоны", today: "Сегодня", theme: "Тема" },
+  nav: { dashboard: "Обзор", templates: "Шаблоны", feedback: "Фидбек", today: "Сегодня", theme: "Тема" },
   common: { save: "Сохранить", saving: "Сохраняем…", saved: "Сохранено", cancel: "Отмена", delete: "Удалить", edit: "Править", retry: "Повторить", loading: "Загрузка…", empty: "Пока пусто", sets: "подходов", kg: "кг", reps: "повт.", exercises: "упражнений", sessions: "тренировок", undo: "Отменить", redo: "Вернуть" },
   templates: {
     title: "Шаблоны тренировок", eyebrow: "Силовые", new: "Новый шаблон", empty: "Шаблонов пока нет", emptyHint: "Собери первый в билдере — он сразу появится в приложении.", open: "Открыть билдер",
@@ -43,6 +53,16 @@ const ru = {
 type StudioCopy = typeof ru;
 
 const en: StudioCopy = {
+  feedback: {
+    title: "Agent feedback", eyebrow: "Agents", empty: "Agents haven't sent anything yet", emptyHint: "When an agent reports through MCP or WebMCP, it shows up here.", loadError: "Couldn't load feedback",
+    allStatuses: "All statuses", allCategories: "All types", details: "What happened", expected: "Expected", suggestion: "Suggestion",
+    calls: "Calls", client: "Client", tool: "Tool", resolution: "Resolution note", saveResolution: "Save",
+    statuses: { new: "New", triaged: "In progress", done: "Done", wontfix: "Won't fix" } as Record<string, string>,
+    categories: { bug: "Bug", friction: "Friction", missing_tool: "Missing", works_well: "Works well", suggestion: "Idea", other: "Other" } as Record<string, string>,
+    severities: { low: "low", medium: "medium", high: "high" } as Record<string, string>,
+    sources: { mcp: "MCP", webmcp: "WebMCP", rest: "REST" } as Record<string, string>,
+    outcomes: { ok: "ok", error: "error", confusing: "confusing" } as Record<string, string>
+  },
   agent: {
     chip: "Agent", history: "Agent activity", empty: "The agent hasn't done anything yet", confirmTitle: "The agent asks for approval",
     allow: "Allow", deny: "Decline", remember: "Don't ask again before saving templates",
@@ -59,7 +79,7 @@ const en: StudioCopy = {
       delete_workout_template: "Deleted a template", upsert_exercise: "Saved an exercise"
     } as Record<string, string>
   },
-  nav: { dashboard: "Overview", templates: "Templates", today: "Today", theme: "Theme" },
+  nav: { dashboard: "Overview", templates: "Templates", feedback: "Feedback", today: "Today", theme: "Theme" },
   common: { save: "Save", saving: "Saving…", saved: "Saved", cancel: "Cancel", delete: "Delete", edit: "Edit", retry: "Retry", loading: "Loading…", empty: "Nothing here yet", sets: "sets", kg: "kg", reps: "reps", exercises: "exercises", sessions: "sessions", undo: "Undo", redo: "Redo" },
   templates: {
     title: "Workout templates", eyebrow: "Strength", new: "New template", empty: "No templates yet", emptyHint: "Build the first one in the builder — it shows up in the app right away.", open: "Open builder",
@@ -83,6 +103,16 @@ const en: StudioCopy = {
 };
 
 const cs: StudioCopy = {
+  feedback: {
+    title: "Zpětná vazba agentů", eyebrow: "Agenti", empty: "Agenti zatím nic neposlali", emptyHint: "Až agent nahlásí poznámku přes MCP nebo WebMCP, objeví se zde.", loadError: "Zpětnou vazbu se nepodařilo načíst",
+    allStatuses: "Všechny stavy", allCategories: "Všechny typy", details: "Co se stalo", expected: "Očekával", suggestion: "Návrh",
+    calls: "Volání", client: "Klient", tool: "Nástroj", resolution: "Poznámka k řešení", saveResolution: "Uložit",
+    statuses: { new: "Nové", triaged: "Řešíme", done: "Hotovo", wontfix: "Nebudeme" } as Record<string, string>,
+    categories: { bug: "Chyba", friction: "Nepohodlné", missing_tool: "Chybí", works_well: "Funguje", suggestion: "Nápad", other: "Jiné" } as Record<string, string>,
+    severities: { low: "nízká", medium: "střední", high: "vysoká" } as Record<string, string>,
+    sources: { mcp: "MCP", webmcp: "WebMCP", rest: "REST" } as Record<string, string>,
+    outcomes: { ok: "ok", error: "chyba", confusing: "nejasné" } as Record<string, string>
+  },
   agent: {
     chip: "Agent", history: "Akce agenta", empty: "Agent zatím nic neudělal", confirmTitle: "Agent žádá o schválení",
     allow: "Povolit", deny: "Odmítnout", remember: "Před ukládáním šablon se příště neptat",
@@ -99,7 +129,7 @@ const cs: StudioCopy = {
       delete_workout_template: "Smazal šablonu", upsert_exercise: "Uložil cvik"
     } as Record<string, string>
   },
-  nav: { dashboard: "Přehled", templates: "Šablony", today: "Dnes", theme: "Motiv" },
+  nav: { dashboard: "Přehled", templates: "Šablony", feedback: "Zpětná vazba", today: "Dnes", theme: "Motiv" },
   common: { save: "Uložit", saving: "Ukládám…", saved: "Uloženo", cancel: "Zrušit", delete: "Smazat", edit: "Upravit", retry: "Zkusit znovu", loading: "Načítání…", empty: "Zatím prázdné", sets: "sérií", kg: "kg", reps: "opak.", exercises: "cviků", sessions: "tréninků", undo: "Zpět", redo: "Znovu" },
   templates: {
     title: "Tréninkové šablony", eyebrow: "Síla", new: "Nová šablona", empty: "Zatím žádné šablony", emptyHint: "Vytvoř první v builderu — hned se objeví v aplikaci.", open: "Otevřít builder",

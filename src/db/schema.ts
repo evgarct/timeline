@@ -176,6 +176,34 @@ export const nutritionReports = pgTable("nutrition_reports", {
   uniqueIndex("nutrition_reports_user_id_id_idx").on(table.userId, table.id)
 ]);
 
+// Feedback agents leave about the tools they use (see src/domain/feedback.ts). Plain text columns with zod-checked
+// vocabularies keep the vocabulary editable without a migration.
+export const agentFeedback = pgTable("agent_feedback", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  userId: text("user_id").notNull(),
+  category: text("category").notNull(),
+  severity: text("severity"),
+  tool: text("tool"),
+  summary: text("summary").notNull(),
+  details: text("details"),
+  expected: text("expected"),
+  suggestion: text("suggestion"),
+  toolCalls: jsonb("tool_calls").$type<Array<{ tool: string; outcome: "ok" | "error" | "confusing"; note?: string }>>(),
+  source: text("source").notNull(),
+  client: text("client"),
+  page: text("page"),
+  // normalized summary | tool | UTC day: the unique index below makes "the same point twice a day" impossible even under concurrent retries.
+  dedupeKey: text("dedupe_key").notNull(),
+  status: text("status").default("new").notNull(),
+  resolution: text("resolution"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()
+}, (table) => [
+  uniqueIndex("agent_feedback_user_id_id_idx").on(table.userId, table.id),
+  uniqueIndex("agent_feedback_user_dedupe_idx").on(table.userId, table.dedupeKey),
+  index("agent_feedback_user_status_created_idx").on(table.userId, table.status, table.createdAt)
+]);
+
 export const dailyActivity = pgTable("daily_activity", {
   id: uuid("id").primaryKey().defaultRandom(),
   userId: text("user_id").notNull(),

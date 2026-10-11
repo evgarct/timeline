@@ -31,6 +31,15 @@ Results are plain JSON-serializable objects (the draft says `executeTool` resolv
 
 Tests: unit tests with a fake `modelContext` (both entry points, abort, errors), the bridge request mapping, builder tools against a real store, and Playwright (`e2e/studio-agent.spec.ts`) with an init script that stands in for a WebMCP browser.
 
+## Feedback from agents
+Agents report how the tools worked for them through `send_feedback` (MCP, WebMCP and `POST /api/feedback`); nothing is delivered anywhere, entries are stored in `agent_feedback` (migration 0015) and read when the tools are worked on.
+- **Fields:** `category` (`bug`, `friction`, `missing_tool`, `works_well`, `suggestion`, `other`), optional `severity` (`low|medium|high`), `tool`, `summary` (≤200), `details`, `expected`, `suggestion`, `toolCalls` (`[{tool, outcome: ok|error|confusing, note}]`), `client` (self-reported agent name; for MCP the User-Agent header is used when it is omitted). `source` (`mcp|webmcp|rest`) and `page` are set by the transport, never taken from the body: MCP sets `mcp`, the WebMCP bridge sends the `x-form-source` / `x-form-page` headers from the page (`augmentHeaders`), a plain REST call is `rest`.
+- **Limits:** the same summary about the same tool on the same UTC day is one entry (`duplicate`; a unique index on `(user_id, dedupe_key)` enforces it under concurrent retries); about 30 entries per hour per user (`rate_limited`, HTTP 429; a soft limit, a burst of parallel requests can overshoot slightly). `GET /api/feedback/counts` returns `{ new, total }` for the badge.
+- **Privacy:** the tool description tells agents to paraphrase instead of pasting secrets, personal health data or photos.
+- **Reading:** `list_feedback` (MCP/WebMCP/`GET /api/feedback`, filters `status|category|tool|limit`), the Studio inbox at `/studio/feedback` (status chips, resolution note, a badge in the navigation counts `new` entries), and `update_feedback` / `PUT /api/feedback/{id}` to triage (`new → triaged → done | wontfix` with a resolution note).
+- The MCP server's `instructions` ask agents to call `send_feedback` when something failed, was unclear or worked especially well; the Hub exposes the same tools as `form_send_feedback` and friends.
+- **Working rule (see AGENTS.md):** before changing MCP/REST tools, Studio or agent UX, read open entries with `list_feedback` and propose fixes for the related ones; a PR that fixes an entry marks it `done` with the PR in the resolution.
+
 ## Conventions
 - Date windows: `from`/`to` accept ISO 8601 or `YYYY-MM-DD`; a bare date is a whole UTC day (`src/lib/agent/range.ts`). An unparsable or reversed window is `invalid_date_range`.
 - Tool results must carry their data in the text content (clients read only text): include ids and the fields an agent needs; test with `content[0].text`.

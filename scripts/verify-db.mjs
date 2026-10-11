@@ -8,13 +8,16 @@ const requiredPublicTables = [
   "task_schedules",
   "mcp_tokens",
   "media_assets",
-  "storage_policies"
+  "storage_policies",
+  "agent_feedback"
 ];
 
 const requiredMigrations = [
   1782143245859,
   1782163256374,
-  1782237866247
+  1782237866247,
+  1791719592344,
+  1791721246119
 ];
 
 if (!process.env.DATABASE_URL) {

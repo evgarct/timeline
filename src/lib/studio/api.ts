@@ -2,7 +2,7 @@
 
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { WorkoutTemplateInput } from "@/domain/workout-templates";
-import type { ExerciseFacets, ExerciseHistory, ExercisePage, ExerciseSummary, MuscleVolumeWeek, RecentWorkoutSession, StoredTemplate } from "./types";
+import type { ExerciseFacets, ExerciseHistory, ExercisePage, ExerciseSummary, FeedbackEntry, MuscleVolumeWeek, RecentWorkoutSession, StoredTemplate } from "./types";
 
 export class ApiError extends Error {
   constructor(public status: number, public code: string) { super(code); }
@@ -97,6 +97,43 @@ export function useDeleteTemplate() {
     mutationFn: (id: string) => request<void>(`/api/templates/${id}`, { method: "DELETE" }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["studio", "templates"] })
   });
+}
+
+export interface FeedbackFilter { status?: FeedbackEntry["status"]; category?: FeedbackEntry["category"] }
+
+export function useFeedback(filter: FeedbackFilter = {}, options: { refetchInterval?: number } = {}) {
+  return useQuery({
+    queryKey: ["studio", "feedback", filter],
+    refetchInterval: options.refetchInterval,
+    queryFn: async () => {
+      const params = new URLSearchParams({ limit: "200" });
+      if (filter.status) params.set("status", filter.status);
+      if (filter.category) params.set("category", filter.category);
+      return (await request<{ items: FeedbackEntry[] }>(`/api/feedback?${params}`)).items;
+    }
+  });
+}
+
+export function useUpdateFeedback() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, ...patch }: { id: string; status?: FeedbackEntry["status"]; resolution?: string }) =>
+      request<FeedbackEntry>(`/api/feedback/${id}`, { method: "PUT", body: JSON.stringify(patch) }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["studio", "feedback"] })
+  });
+}
+
+/** Number of untriaged entries, for the navigation badge. */
+export function useNewFeedbackCount() {
+  // Polled: an invalidation that lands while the very first request is still in flight does not start a second one,
+  // and agents write feedback from outside React, so the badge must also catch up on its own. The count comes from its
+  // own endpoint, so it stays right beyond the 200 entries a list request returns.
+  const query = useQuery({
+    queryKey: ["studio", "feedback", "count"],
+    refetchInterval: 30_000,
+    queryFn: async () => (await request<{ new: number }>("/api/feedback/counts")).new
+  });
+  return query.data ?? 0;
 }
 
 export const useRecentSessions = (limit = 200) =>
