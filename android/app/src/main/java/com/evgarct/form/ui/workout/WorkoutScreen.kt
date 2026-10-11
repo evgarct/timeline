@@ -74,7 +74,11 @@ import com.evgarct.form.data.workout.repsHint
 import com.evgarct.form.data.workout.tonnageKg
 import com.evgarct.form.ui.nutrition.components.SelectAllOnFocusTextField
 import kotlinx.coroutines.delay
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
+import androidx.compose.runtime.DisposableEffect
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import java.time.Instant
 import java.time.LocalDate
 import java.time.format.TextStyle as JavaTextStyle
@@ -198,6 +202,14 @@ internal fun Eyebrow(text: String) {
 private fun IdleContent(viewModel: WorkoutViewModel) {
     val colorScheme = MaterialTheme.colorScheme
     var pendingDelete by remember { mutableStateOf<RecentWorkoutSession?>(null) }
+    // "Today" must follow the calendar when the app stays composed overnight: refresh on every resume.
+    var today by remember { mutableStateOf(LocalDate.now()) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event -> if (event == Lifecycle.Event.ON_RESUME) today = LocalDate.now() }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     Column(
         modifier = Modifier
@@ -220,7 +232,7 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
         if (viewModel.templates.any { it.schedule != null }) {
             ScheduleSection(
                 templates = viewModel.templates,
-                today = remember { LocalDate.now() },
+                today = today,
                 startingId = viewModel.startingTemplateId,
                 onStart = viewModel::startFromTemplate
             )
