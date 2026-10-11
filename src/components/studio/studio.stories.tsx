@@ -5,6 +5,8 @@ import { getStudioCopy } from "@/i18n/studio-messages";
 import { ConsistencyGrid, LineChart, WeekBars } from "./dashboard/charts";
 import { builderReducer, initialState, type BuilderDoc } from "./builder/builder-state";
 import { CanvasPanel } from "./builder/canvas-panel";
+import { CreateExerciseForm } from "./builder/create-exercise";
+import { DropIndicator } from "./builder/drop-indicator";
 import { InspectorPanel } from "./builder/inspector-panel";
 import { MuscleMap } from "./ds/muscle-map";
 import { Chip, Eyebrow, NumberTicker, SerifNumber, Stepper, StudioButton, Surface } from "./ds/primitives";
@@ -111,4 +113,27 @@ export const Charts: Story = {
       </div>
     );
   }
+};
+
+export const CreateExercise: Story = {
+  render: () => (
+    <div className="max-w-sm">
+      <CreateExerciseForm
+        copy={getStudioCopy("ru")}
+        defaultName="Жим Свенда"
+        muscles={[{ value: "chest", count: 12 }, { value: "lats", count: 9 }, { value: "quads", count: 7 }]}
+        equipment={[{ value: "barbell", count: 30 }, { value: "dumbbell", count: 22 }]}
+        onSubmit={() => undefined}
+        onCancel={() => undefined}
+      />
+    </div>
+  )
+};
+
+export const DropTarget: Story = {
+  render: () => (
+    <div className="relative h-40 max-w-xl rounded-[var(--s-radius-xl)] bg-[var(--s-surface-container)] p-6">
+      <DropIndicator y={70} label={getStudioCopy("ru").builder.dropHere} />
+    </div>
+  )
 };

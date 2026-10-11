@@ -2,12 +2,15 @@
 
 import { AnimatePresence, Reorder, motion, useDragControls } from "motion/react";
 import { GripVertical, Link2, Link2Off, Trash2 } from "lucide-react";
-import { useState, type Dispatch } from "react";
+import { useRef, useState, type DragEvent, type Dispatch } from "react";
 import { muscleLabel, type StudioCopy } from "@/i18n/studio-messages";
 import { spatial } from "@/lib/motion/tokens";
 import { cn } from "@/lib/utils";
 import { Eyebrow, Stepper, Surface } from "../ds/primitives";
+import type { ExerciseSummary } from "@/lib/studio/types";
 import type { BuilderAction, BuilderItem } from "./builder-state";
+import { DropIndicator } from "./drop-indicator";
+import { hasDraggedExercise, insertionIndex, readDraggedExercise } from "./drag";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -38,6 +41,7 @@ function ExerciseCard({ item, index, items, copy, dispatch }: { item: BuilderIte
       dragControls={controls}
       onDragStart={() => setDragging(true)}
       onDragEnd={() => setDragging(false)}
+      data-card
       layout="position"
       initial={{ opacity: 0, scale: 0.94, y: 16 }}
       animate={{ opacity: 1, scale: dragging ? 1.02 : 1, y: 0 }}
@@ -125,22 +129,57 @@ function ExerciseCard({ item, index, items, copy, dispatch }: { item: BuilderIte
   );
 }
 
-export function CanvasPanel({ items, copy, dispatch }: { items: BuilderItem[]; copy: StudioCopy; dispatch: Dispatch<BuilderAction> }) {
-  if (!items.length) {
-    return (
-      <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={spatial.slow} className="grid min-h-[320px] place-items-center rounded-[var(--s-radius-xl)] border border-dashed border-[var(--s-outline-variant)] p-10 text-center">
-        <div>
-          <div className="s-serif text-2xl">{copy.builder.canvasEmpty}</div>
-          <Eyebrow className="mt-2">{copy.builder.canvasEmptyHint}</Eyebrow>
-        </div>
-      </motion.div>
-    );
+export function CanvasPanel({ items, copy, dispatch, onDropExercise }: { items: BuilderItem[]; copy: StudioCopy; dispatch: Dispatch<BuilderAction>; onDropExercise?: (exercise: ExerciseSummary, index: number) => void }) {
+  const container = useRef<HTMLDivElement>(null);
+  const [drop, setDrop] = useState<{ index: number; y: number } | null>(null);
+
+  function locate(clientY: number) {
+    const root = container.current;
+    if (!root) return { index: items.length, y: 0 };
+    const rects = Array.from(root.querySelectorAll<HTMLElement>("[data-card]")).map((node) => node.getBoundingClientRect());
+    const index = insertionIndex(rects, clientY);
+    const base = root.getBoundingClientRect().top;
+    const y = rects.length === 0 ? 0 : index < rects.length ? rects[index].top - base - 6 : rects[rects.length - 1].bottom - base + 6;
+    return { index, y };
   }
+
+  const dropProps = onDropExercise ? {
+    onDragOver: (event: DragEvent<HTMLDivElement>) => {
+      if (!hasDraggedExercise(event.dataTransfer)) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      setDrop(locate(event.clientY));
+    },
+    onDragLeave: (event: DragEvent<HTMLDivElement>) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDrop(null);
+    },
+    onDrop: (event: DragEvent<HTMLDivElement>) => {
+      const exercise = readDraggedExercise(event.dataTransfer);
+      if (!exercise) return;
+      event.preventDefault();
+      const at = locate(event.clientY).index;
+      setDrop(null);
+      onDropExercise(exercise, at);
+    }
+  } : {};
+
   return (
-    <Reorder.Group axis="y" values={items.map((item) => item.key)} onReorder={(keys) => dispatch({ type: "reorder", keys })} className="m-0 p-0">
-      <AnimatePresence initial={false}>
-        {items.map((item, index) => <ExerciseCard key={item.key} item={item} index={index} items={items} copy={copy} dispatch={dispatch} />)}
-      </AnimatePresence>
-    </Reorder.Group>
+    <div ref={container} className="relative min-h-[320px]" {...dropProps}>
+      {!items.length ? (
+        <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} transition={spatial.slow} className={cn("grid min-h-[320px] place-items-center rounded-[var(--s-radius-xl)] border border-dashed p-10 text-center transition-colors", drop ? "border-[var(--s-primary)] bg-[var(--s-primary-container)]" : "border-[var(--s-outline-variant)]")}>
+          <div>
+            <div className="s-serif text-2xl">{drop ? copy.builder.dropHere : copy.builder.canvasEmpty}</div>
+            <Eyebrow className="mt-2">{copy.builder.canvasEmptyHint}</Eyebrow>
+          </div>
+        </motion.div>
+      ) : (
+        <Reorder.Group axis="y" values={items.map((item) => item.key)} onReorder={(keys) => dispatch({ type: "reorder", keys })} className="m-0 p-0">
+          <AnimatePresence initial={false}>
+            {items.map((item, index) => <ExerciseCard key={item.key} item={item} index={index} items={items} copy={copy} dispatch={dispatch} />)}
+          </AnimatePresence>
+        </Reorder.Group>
+      )}
+      <AnimatePresence>{drop && items.length ? <DropIndicator y={drop.y} label={copy.builder.dropHere} /> : null}</AnimatePresence>
+    </div>
   );
 }

@@ -1,3 +1,4 @@
+import { muscleSetTotals } from "@/domain/muscle-sets";
 import type { WorkoutTemplateInput } from "@/domain/workout-templates";
 import type { ExerciseSummary, StoredTemplate } from "@/lib/studio/types";
 
@@ -33,7 +34,7 @@ export interface BuilderState {
 export type BuilderAction =
   | { type: "load"; doc: BuilderDoc }
   | { type: "rename"; name: string }
-  | { type: "add"; exercise: ExerciseSummary; key: string }
+  | { type: "add"; exercise: ExerciseSummary; key: string; index?: number }
   | { type: "remove"; key: string }
   | { type: "reorder"; keys: string[] }
   | { type: "patch"; key: string; patch: Partial<Omit<BuilderItem, "key" | "exercise">> }
@@ -77,7 +78,8 @@ export function builderReducer(state: BuilderState, action: BuilderAction): Buil
       return action.name === doc.name ? state : commit(state, { ...doc, name: action.name });
     case "add": {
       const item: BuilderItem = { key: action.key, exercise: action.exercise, sets: 3 };
-      return commit(state, { ...doc, items: [...doc.items, item] });
+      const at = action.index === undefined ? doc.items.length : Math.min(doc.items.length, Math.max(0, action.index));
+      return commit(state, { ...doc, items: [...doc.items.slice(0, at), item, ...doc.items.slice(at)] });
     }
     case "remove":
       return commit(state, { ...doc, items: doc.items.filter((item) => item.key !== action.key) });
@@ -125,17 +127,7 @@ export function builderReducer(state: BuilderState, action: BuilderAction): Buil
 }
 
 /** Sets per muscle, as the API counts them: primary 1, secondary 0.5. */
-export function muscleSets(items: BuilderItem[]): Record<string, number> {
-  const totals: Record<string, number> = {};
-  for (const item of items) {
-    const primary = item.exercise.primaryMuscles?.length ? item.exercise.primaryMuscles : item.exercise.muscleGroups ?? [];
-    for (const muscle of primary) totals[muscle] = (totals[muscle] ?? 0) + item.sets;
-    for (const muscle of item.exercise.secondaryMuscles ?? []) {
-      if (!primary.includes(muscle)) totals[muscle] = (totals[muscle] ?? 0) + item.sets * 0.5;
-    }
-  }
-  return totals;
-}
+export const muscleSets = (items: BuilderItem[]) => muscleSetTotals(items);
 
 export function toTemplateInput(doc: BuilderDoc, id?: string): WorkoutTemplateInput {
   return {

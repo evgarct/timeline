@@ -33,6 +33,19 @@ export function useExerciseCatalog(filter: CatalogFilter) {
   });
 }
 
+export interface NewExerciseInput { name: string; primaryMuscles: string[]; equipment?: string }
+
+export function useCreateExercise() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (input: NewExerciseInput) => request<ExerciseSummary>("/api/exercises", { method: "POST", body: JSON.stringify(input) }),
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: ["studio", "exercises"] }),
+      client.invalidateQueries({ queryKey: ["studio", "facets"] })
+    ])
+  });
+}
+
 export const useExerciseFacets = () => useQuery({ queryKey: ["studio", "facets"], queryFn: () => request<ExerciseFacets>("/api/exercises/facets"), staleTime: 60_000 });
 
 export const useTemplates = () => useQuery({ queryKey: ["studio", "templates"], queryFn: async () => (await request<{ items: StoredTemplate[] }>("/api/templates")).items });

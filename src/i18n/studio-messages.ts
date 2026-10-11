@@ -13,7 +13,8 @@ const ru = {
     sets: "Подходы", weight: "Вес", repMin: "Повт. от", repMax: "Повт. до", rir: "RIR", progression: "Прогрессия +кг", note: "Заметка", superset: "Суперсет", linkNext: "Связать со следующим", unlink: "Разорвать суперсет", remove: "Убрать",
     summary: "Сводка", totalSets: "Всего подходов", musclesTitle: "Подходов на мышцу", secondaryHint: "Вторичные мышцы считаются за половину",
     unsaved: "Есть несохранённые изменения", leaveConfirm: "Несохранённые изменения будут потеряны. Уйти?", saveFailed: "Не удалось сохранить", unknownExercise: "Упражнение не найдено в каталоге", nameRequired: "Введи название", exercisesRequired: "Добавь хотя бы одно упражнение",
-    palette: "Быстро добавить упражнение", dragHint: "Перетащи, чтобы изменить порядок", instructions: "Техника"
+    palette: "Быстро добавить упражнение", dragHint: "Перетащи, чтобы изменить порядок", instructions: "Техника",
+    newExercise: "Новое упражнение", exerciseName: "Название упражнения", primaryMuscle: "Основная мышца", creating: "Создаём…", createFailed: "Не удалось создать упражнение", createExerciseFor: "Создать упражнение", dropHere: "Отпусти, чтобы добавить сюда"
   },
   dashboard: {
     title: "Обзор тренировок", eyebrow: "Силовые", weekSets: "Подходов за неделю", tonnage: "Тоннаж", sessions: "Тренировок", bestE1rm: "Лучший e1RM", volume: "Объём по мышцам", volumeHint: "Подходов в неделю; вторичные — за половину",
@@ -38,7 +39,8 @@ const en: StudioCopy = {
     sets: "Sets", weight: "Weight", repMin: "Reps from", repMax: "Reps to", rir: "RIR", progression: "Progression +kg", note: "Note", superset: "Superset", linkNext: "Link with next", unlink: "Break superset", remove: "Remove",
     summary: "Summary", totalSets: "Total sets", musclesTitle: "Sets per muscle", secondaryHint: "Secondary muscles count as half",
     unsaved: "Unsaved changes", leaveConfirm: "Unsaved changes will be lost. Leave?", saveFailed: "Couldn't save", unknownExercise: "Exercise not found in the catalog", nameRequired: "Enter a name", exercisesRequired: "Add at least one exercise",
-    palette: "Quick-add an exercise", dragHint: "Drag to reorder", instructions: "Technique"
+    palette: "Quick-add an exercise", dragHint: "Drag to reorder", instructions: "Technique",
+    newExercise: "New exercise", exerciseName: "Exercise name", primaryMuscle: "Primary muscle", creating: "Creating…", createFailed: "Couldn't create the exercise", createExerciseFor: "Create exercise", dropHere: "Drop to add here"
   },
   dashboard: {
     title: "Training overview", eyebrow: "Strength", weekSets: "Sets this week", tonnage: "Tonnage", sessions: "Sessions", bestE1rm: "Best e1RM", volume: "Volume by muscle", volumeHint: "Sets per week; secondary muscles count as half",
@@ -61,7 +63,8 @@ const cs: StudioCopy = {
     sets: "Série", weight: "Váha", repMin: "Opak. od", repMax: "Opak. do", rir: "RIR", progression: "Progrese +kg", note: "Poznámka", superset: "Superset", linkNext: "Spojit s dalším", unlink: "Zrušit superset", remove: "Odebrat",
     summary: "Souhrn", totalSets: "Sérií celkem", musclesTitle: "Sérií na sval", secondaryHint: "Vedlejší svaly se počítají za půlku",
     unsaved: "Neuložené změny", leaveConfirm: "Neuložené změny budou ztraceny. Odejít?", saveFailed: "Uložení se nepodařilo", unknownExercise: "Cvik nebyl v katalogu nalezen", nameRequired: "Zadej název", exercisesRequired: "Přidej alespoň jeden cvik",
-    palette: "Rychle přidat cvik", dragHint: "Přetažením změníš pořadí", instructions: "Technika"
+    palette: "Rychle přidat cvik", dragHint: "Přetažením změníš pořadí", instructions: "Technika",
+    newExercise: "Nový cvik", exerciseName: "Název cviku", primaryMuscle: "Hlavní sval", creating: "Vytvářím…", createFailed: "Cvik se nepodařilo vytvořit", createExerciseFor: "Vytvořit cvik", dropHere: "Pusť pro přidání sem"
   },
   dashboard: {
     title: "Přehled tréninku", eyebrow: "Síla", weekSets: "Sérií tento týden", tonnage: "Tonáž", sessions: "Tréninků", bestE1rm: "Nejlepší e1RM", volume: "Objem podle svalů", volumeHint: "Sérií týdně; vedlejší svaly za půlku",
