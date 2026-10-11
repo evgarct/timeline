@@ -64,8 +64,9 @@ export function useCreateExercise() {
 export function useSetExerciseVideo() {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, name, videoUrl }: { id: string; name: string; videoUrl: string }) =>
-      request<ExerciseSummary>(`/api/exercises/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ name, videoUrl }) }),
+    // An omitted isArchived means "revive" on the server, so an archived exercise sends its state back unchanged.
+    mutationFn: ({ id, name, videoUrl, isArchived }: { id: string; name: string; videoUrl: string; isArchived?: boolean }) =>
+      request<ExerciseSummary>(`/api/exercises/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ name, videoUrl, ...(isArchived ? { isArchived } : {}) }) }),
     onSuccess: () => client.invalidateQueries({ queryKey: ["studio", "exercises"] })
   });
 }

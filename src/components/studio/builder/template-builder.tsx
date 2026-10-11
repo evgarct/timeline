@@ -75,7 +75,7 @@ export function TemplateBuilder({ locale, templateId, initialDoc }: { locale: Lo
     const onKey = (event: KeyboardEvent) => {
       const meta = event.metaKey || event.ctrlKey;
       if (meta && event.key.toLowerCase() === "k") { event.preventDefault(); setPane("catalog"); setCatalogPref(true); setTimeout(() => searchRef.current?.focus(), 0); }
-      else if (meta && event.key.toLowerCase() === "z" && !(event.target instanceof HTMLInputElement)) { event.preventDefault(); dispatch({ type: event.shiftKey ? "redo" : "undo" }); }
+      else if (meta && event.key.toLowerCase() === "z" && !(event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement || (event.target instanceof HTMLElement && event.target.isContentEditable))) { event.preventDefault(); dispatch({ type: event.shiftKey ? "redo" : "undo" }); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

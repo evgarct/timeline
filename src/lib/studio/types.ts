@@ -13,6 +13,7 @@ export interface ExerciseSummary {
   instructions?: string[];
   /** Canonical YouTube watch URL of an optional how-to video. */
   videoUrl?: string;
+  isArchived?: boolean;
 }
 
 export interface ExercisePage {

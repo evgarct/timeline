@@ -67,9 +67,10 @@ export function TemplatesNav({ locale, copy, templateId }: { locale: Locale; cop
                 </Link>
               ))}
               {!others.length && !templates.isPending ? <div className="px-3 py-2 text-sm text-[var(--s-on-surface-variant)]">{copy.templates.empty}</div> : null}
-              <Link role="menuitem" href={`${base}/new`} onClick={(event) => { confirm(event); if (!event.defaultPrevented) setOpen(false); }} className="mt-1 flex items-center gap-2 rounded-[var(--s-radius-sm)] px-3 py-2 text-sm font-semibold text-[var(--s-primary)] outline-none hover:bg-[var(--s-surface-container)] focus-visible:ring-2 focus-visible:ring-[var(--s-primary)]">
+              {/* On /new the link would target the current URL and keep the stored draft, so it is offered only from a saved template. */}
+              {templateId ? <Link role="menuitem" href={`${base}/new`} onClick={(event) => { confirm(event); if (!event.defaultPrevented) setOpen(false); }} className="mt-1 flex items-center gap-2 rounded-[var(--s-radius-sm)] px-3 py-2 text-sm font-semibold text-[var(--s-primary)] outline-none hover:bg-[var(--s-surface-container)] focus-visible:ring-2 focus-visible:ring-[var(--s-primary)]">
                 <Plus className="size-4" />{copy.builder.newTemplate}
-              </Link>
+              </Link> : null}
             </motion.div>
           ) : null}
         </AnimatePresence>

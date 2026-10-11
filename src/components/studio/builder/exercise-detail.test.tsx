@@ -47,7 +47,7 @@ describe("ExerciseDetail", () => {
     const onClose = vi.fn();
     const onAdd = vi.fn();
     renderDetail({ onClose, onAdd });
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: copy.builder.addToTemplate }));
     expect(onAdd).toHaveBeenCalledWith(exercise);

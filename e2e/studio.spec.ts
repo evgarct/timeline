@@ -121,5 +121,7 @@ test("the template editor links back to the list and offers other templates", as
   const nav = page.getByRole("navigation", { name: "Шаблоны" });
   await expect(nav.getByRole("link", { name: "Шаблоны" })).toHaveAttribute("href", "/ru/studio/templates");
   await nav.getByRole("button", { name: "Другой шаблон" }).click();
-  await expect(page.getByRole("menuitem", { name: "Новый шаблон" })).toBeVisible();
+  await expect(page.getByRole("menu")).toBeVisible();
+  // On the new-template route the link would only reload the same draft, so it is not offered there.
+  await expect(page.getByRole("menuitem", { name: "Новый шаблон" })).toHaveCount(0);
 });

@@ -2,7 +2,8 @@
 
 import { motion } from "motion/react";
 import { Plus, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Dialog as DialogPrimitive } from "radix-ui";
+import { useState } from "react";
 import { toast } from "sonner";
 import { youtubeVideoId } from "@/domain/youtube";
 import { muscleLabel, type StudioCopy } from "@/i18n/studio-messages";
@@ -21,7 +22,7 @@ function VideoField({ exercise, copy, onSaved }: { exercise: ExerciseSummary; co
 
   function submit() {
     if (!valid) { toast.error(copy.builder.videoInvalid); return; }
-    save.mutate({ id: exercise.id, name: exercise.name, videoUrl: value.trim() }, {
+    save.mutate({ id: exercise.id, name: exercise.name, videoUrl: value.trim(), isArchived: exercise.isArchived }, {
       onSuccess: (saved) => { toast.success(copy.builder.videoSaved); onSaved(saved.videoUrl ?? value.trim()); },
       onError: () => toast.error(copy.builder.videoFailed)
     });
@@ -55,52 +56,45 @@ export function ExerciseDetail({ exercise, copy, coachNote, onClose, onAdd }: {
   onClose: () => void;
   onAdd?: (exercise: ExerciseSummary) => void;
 }) {
-  const closeRef = useRef<HTMLButtonElement>(null);
   // A link saved from this dialog replaces the catalog copy until the list refetches.
   const [savedVideo, setSavedVideo] = useState<string>();
   const videoUrl = savedVideo ?? exercise.videoUrl;
   const primary = exercise.primaryMuscles ?? exercise.muscleGroups ?? [];
   const secondary = exercise.secondaryMuscles ?? [];
   const steps = exercise.instructions ?? [];
-
-  useEffect(() => {
-    closeRef.current?.focus();
-    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // Radix portals to <body> by default, which is outside the Studio token scope: mount it inside the scoped surface.
+  const [container] = useState(() => document.querySelector<HTMLElement>('[data-surface="studio"]') ?? document.body);
 
   const intensity: Record<string, number> = {};
   for (const muscle of secondary) intensity[muscle] = 0.5;
   for (const muscle of primary) intensity[muscle] = 1;
 
+  // The shared Radix dialog supplies the focus trap, background isolation, Escape and focus restoration.
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={spatial.fast}
-      className="fixed inset-0 z-50 grid place-items-end bg-black/50 backdrop-blur-sm sm:place-items-center sm:p-6"
-      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
-    >
+    <DialogPrimitive.Root open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogPrimitive.Portal container={container}>
+        <DialogPrimitive.Overlay asChild>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={spatial.fast} className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm" />
+        </DialogPrimitive.Overlay>
+        <DialogPrimitive.Content
+          aria-describedby={undefined}
+          onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
+          className="pointer-events-none fixed inset-0 z-50 grid place-items-end outline-none sm:place-items-center sm:p-6"
+        >
       <motion.div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="exercise-detail-title"
         initial={{ opacity: 0, y: 32, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        exit={{ opacity: 0, y: 24, scale: 0.97 }}
         transition={spatial.default}
-        className="flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-[var(--s-radius-sheet)] bg-[var(--s-surface)] text-[var(--s-on-background)] shadow-[0_30px_80px_-20px_var(--s-glow)] sm:rounded-[var(--s-radius-sheet)]"
+        className="pointer-events-auto flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-t-[var(--s-radius-sheet)] bg-[var(--s-surface)] text-[var(--s-on-background)] shadow-[0_30px_80px_-20px_var(--s-glow)] sm:rounded-[var(--s-radius-sheet)]"
       >
         <header className="flex items-start gap-3 px-6 pb-3 pt-5">
           <div className="min-w-0 flex-1">
             <Eyebrow>{[...primary.map((muscle) => muscleLabel(copy, muscle)), exercise.equipment].filter(Boolean).join(" · ")}</Eyebrow>
-            <h2 id="exercise-detail-title" className="s-serif mt-1 text-3xl leading-tight tracking-tight">{exercise.name}</h2>
+            <DialogPrimitive.Title className="s-serif mt-1 text-3xl leading-tight tracking-tight">{exercise.name}</DialogPrimitive.Title>
           </div>
-          <button ref={closeRef} type="button" aria-label={copy.builder.closeDetail} onClick={onClose} className="grid size-10 shrink-0 place-items-center rounded-full text-[var(--s-on-surface-variant)] outline-none hover:bg-[var(--s-surface-container)] focus-visible:ring-2 focus-visible:ring-[var(--s-primary)]">
+          <DialogPrimitive.Close aria-label={copy.builder.closeDetail} className="grid size-10 shrink-0 place-items-center rounded-full text-[var(--s-on-surface-variant)] outline-none hover:bg-[var(--s-surface-container)] focus-visible:ring-2 focus-visible:ring-[var(--s-primary)]">
             <X className="size-5" />
-          </button>
+          </DialogPrimitive.Close>
         </header>
 
         <div className="space-y-6 overflow-y-auto px-6 pb-6">
@@ -179,6 +173,8 @@ export function ExerciseDetail({ exercise, copy, coachNote, onClose, onAdd }: {
           </footer>
         ) : null}
       </motion.div>
-    </motion.div>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
   );
 }
