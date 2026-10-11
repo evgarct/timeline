@@ -866,7 +866,7 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
       return `${day.date} (${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][day.weekday]}): ${day.status} | planned: ${planned} | logged: ${done}`;
     });
     const text = [`Week of ${plan.weekStart} (${plan.timezone}); today ${plan.today}`, ...lines, `Unplanned days: ${plan.summary.unplannedDays.join(", ") || "none"}`].join("\n");
-    return result("Week plan", `Week of ${plan.weekStart}`, plan, [], { text });
+    return result("Week plan", `Week of ${plan.weekStart}`, plan, [], { text, withData: true });
   });
 
   registerSpec(server, specs.send_feedback, async (input) => {

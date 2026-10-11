@@ -327,6 +327,15 @@ describe("memory exercise repository", () => {
     expect(second.exercise.primaryMuscles).toEqual(["lats"]);
   });
 
+  it("keeps archived state and aliases when a sparse update matches by name", async () => {
+    const first = await repository.upsertExerciseDetailed(userId, { name: "Sparse Curl", searchAliases: ["sparse biceps curl"] });
+    const parsed = (await import("@/domain/exercises")).exerciseInputSchema.parse({ name: "Sparse Curl", equipment: "dumbbell" });
+    const second = await repository.upsertExerciseDetailed(userId, parsed);
+    expect(second.exercise.id).toBe(first.exercise.id);
+    expect(second.exercise.searchAliases).toEqual(["sparse biceps curl"]);
+    expect(second.changedFields).toEqual(["equipment"]);
+  });
+
   it("builds search items without technique steps but with image and video flags", async () => {
     const saved = await repository.upsertExercise(userId, {
       name: "Compact Fly", images: ["https://cdn.example.test/a.jpg"], instructions: ["Step."], videoUrl: "https://youtu.be/dQw4w9WgXcQ"

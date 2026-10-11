@@ -49,12 +49,12 @@ export async function getWeekPlan(userId: string, weekStartInput: string | undef
   const from = new Date(new Date(`${dates[0]}T00:00:00Z`).getTime() - 14 * 3600 * 1000);
   const to = new Date(new Date(`${dates[6]}T23:59:59Z`).getTime() + 14 * 3600 * 1000);
   const sessions = (await listRecentWorkoutSessions(userId, 200, { from, to }))
-    .filter((session) => dates.includes(dayKeyIn(session.occurredAt, session.timezone)));
+    .filter((session) => dates.includes(dayKeyIn(session.occurredAt, zone)));
 
   const days: WeekPlanDay[] = dates.map((date) => {
     const weekday = new Date(`${date}T12:00:00Z`).getUTCDay();
     const scheduled = templates.filter((template) => isScheduledOn(template.schedule, date, weekday)).map((template) => ({ templateId: template.id, name: template.name }));
-    const logged = sessions.filter((session) => dayKeyIn(session.occurredAt, session.timezone) === date).map((session) => ({
+    const logged = sessions.filter((session) => dayKeyIn(session.occurredAt, zone) === date).map((session) => ({
       eventId: session.eventId, occurredAt: session.occurredAt, muscleGroups: session.muscleGroups,
       setCount: session.summary.setCount, tonnageKg: session.summary.tonnageKg
     }));

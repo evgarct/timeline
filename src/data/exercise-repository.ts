@@ -168,7 +168,6 @@ const upsertFields = [
 // whether the exercise was created or matched, and what changed.
 export async function upsertExerciseDetailed(userId: string, rawInput: ExerciseInput): Promise<UpsertExerciseResult> {
   const input = exerciseInputSchema.parse(rawInput);
-  const given = (key: keyof ExerciseInput) => (rawInput as Record<string, unknown>)[key] !== undefined;
   const normalizedName = normalizeExerciseText(input.name);
   const now = new Date();
 
@@ -205,8 +204,8 @@ export async function upsertExerciseDetailed(userId: string, rawInput: ExerciseI
     instructions: input.instructions ?? existing?.instructions,
     videoUrl: input.videoUrl ?? existing?.videoUrl,
     // re-submitting an archived exercise revives it unless the caller says otherwise
-    isArchived: given("isArchived") ? input.isArchived : false,
-    searchAliases: given("searchAliases") ? input.searchAliases : existing?.searchAliases ?? [],
+    isArchived: input.isArchived ?? false,
+    searchAliases: input.searchAliases ?? existing?.searchAliases ?? [],
     externalRef: input.externalRef ?? existing?.externalRef,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now

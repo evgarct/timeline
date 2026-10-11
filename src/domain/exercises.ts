@@ -38,13 +38,15 @@ export const exerciseInputSchema = z.object({
   instructions: z.array(z.string().trim().min(1).max(MAX_INSTRUCTION_STEP_CHARS)).max(20).optional(),
   // Optional how-to video (YouTube only); stored as the canonical watch URL.
   videoUrl: youtubeUrlSchema.optional(),
-  isArchived: z.boolean().default(false),
-  searchAliases: z.array(z.string().trim().min(1).max(120)).max(20).default([]),
+  isArchived: z.boolean().optional(),
+  searchAliases: z.array(z.string().trim().min(1).max(120)).max(20).optional(),
   externalRef: externalRefSchema.optional()
 });
 
 export const exerciseSchema = exerciseInputSchema.safeExtend({
   id: z.string().uuid(),
+  isArchived: z.boolean().default(false),
+  searchAliases: z.array(z.string().trim().min(1).max(120)).max(20).default([]),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date()
 });

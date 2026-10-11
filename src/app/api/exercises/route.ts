@@ -17,8 +17,8 @@ export async function GET(request: Request) {
       movementPattern: params.get("movementPattern") ?? undefined
     }
   );
-  // Technique steps stay behind GET /api/exercises/{id}: a page of 30 hits with full instructions is mostly dead weight.
-  return Response.json({ ...found, items: found.items.map(({ instructions: _instructions, ...item }) => ({ ...item, hasInstructions: Boolean(_instructions?.length) })) });
+  // REST keeps the technique steps: the Android picker copies them into the workout draft straight from this list.
+  return Response.json(found);
 }
 
 export async function POST(request: Request) {
