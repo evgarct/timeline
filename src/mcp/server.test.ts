@@ -183,3 +183,92 @@ describe("timeline MCP server", () => {
     expect((today.structuredContent as { data: { nutrition?: { totals: unknown[] } } }).data.nutrition?.totals).toBeTruthy();
   });
 });
+
+describe("agent tools added with the spec registry", () => {
+  const text = (response: unknown) => (response as { content: Array<{ text: string }> }).content[0].text;
+  const isError = (response: unknown) => Boolean((response as { isError?: boolean }).isError);
+  const call = (client: Awaited<ReturnType<typeof connectClient>>, name: string, args: Record<string, unknown>) => client.callTool({ name, arguments: args });
+  const idIn = (value: string) => value.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)?.[0] as string;
+
+  it("advertises read-only and destructive hints from the registry", async () => {
+    const client = await connectClient();
+    const { tools } = await client.listTools();
+    const byName = Object.fromEntries(tools.map((tool) => [tool.name, tool]));
+    for (const name of ["get_template", "get_workout_session", "list_exercise_alternatives", "preview_template_volume", "get_daily_activity", "list_events"]) {
+      expect(byName[name], name).toBeDefined();
+      expect(byName[name].annotations?.readOnlyHint, name).toBe(true);
+    }
+    for (const name of ["delete_workout_session", "delete_workout_template"]) expect(byName[name].annotations?.destructiveHint, name).toBe(true);
+  });
+
+  it("round-trips a session: log, read, correct and delete, always visible in the text content", async () => {
+    const client = await connectClient();
+    const created = text(await call(client, "upsert_exercise", { exercise: { name: "Agent Row", primaryMuscles: ["lats"], movementPattern: "pull", equipment: "cable" } }));
+    const exerciseId = idIn(created);
+    const logged = text(await call(client, "record_workout_session", {
+      occurredAt: "2026-08-20T10:00:00Z", timezone: "UTC", muscleGroups: ["lats"],
+      sets: [{ exerciseId, setIndex: 1, reps: 10, weightKg: 50, completed: true, setType: "working" }]
+    }));
+    const eventId = idIn(logged);
+
+    const read = text(await call(client, "get_workout_session", { eventId }));
+    expect(read).toContain(eventId);
+    expect(read).toContain("Agent Row");
+    expect(read).toContain("10x50");
+    // Every set field must be readable from the text alone, because update_workout_session replaces the whole list.
+    expect(read).toContain('"setIndex":1');
+    expect(read).toContain('"completed":true');
+
+    const updated = text(await call(client, "update_workout_session", {
+      eventId, occurredAt: "2026-08-20T10:00:00Z", timezone: "UTC", muscleGroups: ["lats"], exertion: 4,
+      sets: [{ exerciseId, setIndex: 1, reps: 12, weightKg: 52.5, completed: true, setType: "working" }]
+    }));
+    expect(updated).toContain("Workout updated");
+    expect(text(await call(client, "get_workout_session", { eventId }))).toContain("12x52.5");
+
+    const listed = text(await call(client, "list_workout_sessions", { limit: 10, from: "2026-08-20", to: "2026-08-20" }));
+    expect(listed).toContain(eventId);
+    expect(text(await call(client, "list_workout_sessions", { limit: 10, from: "2026-08-21" }))).not.toContain(eventId);
+    expect(isError(await call(client, "list_workout_sessions", { limit: 10, from: "garbage" }))).toBe(true);
+
+    expect(text(await call(client, "delete_workout_session", { eventId }))).toContain(eventId);
+    expect(isError(await call(client, "get_workout_session", { eventId }))).toBe(true);
+  });
+
+  it("reads and duplicates templates, previews volume and finds alternatives", async () => {
+    const client = await connectClient();
+    const bench = idIn(text(await call(client, "upsert_exercise", { exercise: { name: "Agent Bench", primaryMuscles: ["chest"], secondaryMuscles: ["triceps"], movementPattern: "push", equipment: "barbell" } })));
+    const dumbbell = idIn(text(await call(client, "upsert_exercise", { exercise: { name: "Agent Dumbbell Press", primaryMuscles: ["chest"], movementPattern: "push", equipment: "dumbbell" } })));
+    const template = text(await call(client, "upsert_workout_template", { template: { name: "Agent Push", exercises: [{ exerciseId: bench, sets: 4 }] } }));
+    const templateId = idIn(template);
+
+    expect(text(await call(client, "get_template", { id: templateId }))).toContain("Agent Push");
+    const copy = text(await call(client, "duplicate_workout_template", { id: templateId }));
+    expect(copy).toContain("Agent Push (copy)");
+    expect(idIn(copy)).not.toBe(templateId);
+
+    const preview = text(await call(client, "preview_template_volume", { exercises: [{ exerciseId: bench, sets: 4 }] }));
+    expect(preview).toContain("chest 4");
+    expect(preview).toContain("triceps 2");
+    expect(isError(await call(client, "preview_template_volume", { exercises: [{ exerciseId: "00000000-0000-4000-8000-000000000009", sets: 2 }] }))).toBe(true);
+
+    const alternatives = text(await call(client, "list_exercise_alternatives", { exerciseId: bench }));
+    expect(alternatives).toContain("Agent Dumbbell Press");
+    expect(alternatives).toContain(dumbbell);
+  });
+
+  it("filters timeline events and validates ranges", async () => {
+    const client = await connectClient();
+    await call(client, "create_event", { event: { id: "5b0e7c4a-2f61-4d6e-8a37-9a1c3e5f7b21", type: "workout", occurredAt: "2033-01-10T10:00:00.000Z", timezone: "UTC", completed: true, muscleGroups: ["abs"] } });
+    const filtered = text(await call(client, "list_events", { limit: 20, type: "workout", from: "2033-01-01", to: "2033-01-31" }));
+    expect(filtered).toContain("5b0e7c4a-2f61-4d6e-8a37-9a1c3e5f7b21");
+    expect(text(await call(client, "list_events", { limit: 20, type: "measurements", from: "2033-01-01", to: "2033-01-31" }))).toBe("No events");
+    expect(isError(await call(client, "list_events", { limit: 20, from: "2033-02-01", to: "2033-01-01" }))).toBe(true);
+  });
+
+  it("reports activity in a date range", async () => {
+    const client = await connectClient();
+    expect(text(await call(client, "get_daily_activity", { from: "2026-08-01", to: "2026-08-07" }))).toContain("No activity");
+    expect(isError(await call(client, "get_daily_activity", { from: "2026-08-07", to: "2026-08-01" }))).toBe(true);
+  });
+});

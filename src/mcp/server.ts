@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer, type ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import {
   createEvent,
@@ -38,20 +38,27 @@ import {
   summarizeMacros
 } from "@/domain/nutrition";
 import {
+  deleteWorkoutSession,
   exerciseFacets,
   getExercise,
   getExerciseHistory,
   getMuscleVolume,
+  getWorkoutSession,
+  listExerciseAlternatives,
   listRecentWorkoutSessions,
+  previewTemplateVolume,
   recordWorkoutSession,
+  replaceWorkoutSession,
   searchExercises,
   upsertExercise
 } from "@/data/exercise-repository";
-import { exerciseInputSchema, isValidTimeZone, movementPatterns, setInputSchema } from "@/domain/exercises";
-import { deleteTemplate, getTemplate, listTemplates, planTemplate, upsertTemplate } from "@/data/workout-template-repository";
-import { workoutTemplateInputSchema } from "@/domain/workout-templates";
+import { isValidTimeZone } from "@/domain/exercises";
+import { deleteTemplate, duplicateTemplate, getTemplate, listTemplates, planTemplate, upsertTemplate } from "@/data/workout-template-repository";
 import { isTaskCompleted, latestEvent } from "@/domain/timeline";
 import { resolveMcpUser } from "@/data/repository";
+import { listDailyActivity } from "@/data/daily-activity-repository";
+import { parseRange } from "@/lib/agent/range";
+import { specs, type ToolSpec } from "@/lib/agent/specs";
 
 function hashToken(token: string) {
   return createHash("sha256").update(`${process.env.MCP_TOKEN_PEPPER ?? "development"}:${token}`).digest("hex");
@@ -99,6 +106,18 @@ function dataAsText(data: unknown) {
     : json;
 }
 
+const fail = (text: string) => ({ content: [{ type: "text" as const, text }], isError: true as const });
+
+/** Registers a tool from the shared spec registry (name, description, schema and hints come from there). */
+function registerSpec<Shape extends z.ZodRawShape>(server: McpServer, spec: ToolSpec<Shape>, handler: ToolCallback<Shape>) {
+  server.registerTool(spec.name, {
+    title: spec.title,
+    description: spec.description,
+    inputSchema: spec.input.shape,
+    annotations: spec.annotations
+  }, handler);
+}
+
 function itemizeText(count: number, noun: string, labels: string[], maxShown = 10) {
   if (!count) return `No ${noun}`;
   const shown = labels.slice(0, maxShown);
@@ -135,12 +154,10 @@ export function createTimelineMcpServer(userId: string) {
     return result("Today", text, { due, current, ...(nutrition ? { nutrition } : {}) }, [], { text });
   });
 
-  server.registerTool("list_events", {
-    title: "List timeline events",
-    description: "List the user's timeline events in reverse chronological order.",
-    inputSchema: { limit: z.number().int().min(1).max(100).default(20) }
-  }, async ({ limit }) => {
-    const events = (await listEvents(userId)).slice(0, limit);
+  registerSpec(server, specs.list_events, async ({ limit, offset, type, from, to }) => {
+    const range = parseRange(from, to);
+    if ("error" in range) return fail(range.error);
+    const events = await listEvents(userId, { type, limit, offset, ...range });
     const lines = events.map((event) => {
       const parts = [event.id, event.type, event.occurredAt.toISOString().slice(0, 16)];
       if (event.type === "workout") {
@@ -542,18 +559,7 @@ export function createTimelineMcpServer(userId: string) {
     return { content: [{ type: "text" as const, text: "Provide productId, entryId, or date with timezone." }], isError: true };
   });
 
-  server.registerTool("search_exercises", {
-    title: "Search the exercise database",
-    description: "Search the ready exercise database (about 880 exercises from the open free-exercise-db, each with muscles, equipment, movement pattern, two photos and step-by-step technique) plus the user's own additions. THIS IS THE SOURCE FOR BUILDING WORKOUTS: pick exercises from here and use their ids in upsert_workout_template / record_workout_session; do not create new exercises (upsert_exercise) unless nothing fits. query is matched word by word in any order against names and aliases (English names, plus the owner's own wording such as Russian aliases), e.g. \"incline press\"; leave it empty to browse by filter. Filters (all optional, combined with AND): muscle = canonical PRIMARY muscle id, equipment, movementPattern — call list_exercise_filters for the valid values. Each result line shows primary/secondary muscles, equipment, pattern and the id; call get_exercise for the technique steps.",
-    inputSchema: {
-      query: z.string().default(""),
-      muscle: z.string().optional().describe("Primary muscle id, e.g. chest, quads, lats, shoulders, abs (see list_exercise_filters)"),
-      equipment: z.string().optional().describe("e.g. barbell, dumbbell, cable, machine, body weight (see list_exercise_filters)"),
-      movementPattern: z.enum(movementPatterns).optional(),
-      page: z.number().int().min(1).default(1),
-      pageSize: z.number().int().min(1).max(100).default(30)
-    }
-  }, async ({ query, muscle, equipment, movementPattern, page, pageSize }) => {
+  registerSpec(server, specs.search_exercises, async ({ query, muscle, equipment, movementPattern, page, pageSize }) => {
     const found = await searchExercises(userId, query, page, pageSize, false, { muscle, equipment, movementPattern });
     const lines = found.items.map((exercise) => {
       const primary = (exercise.primaryMuscles ?? exercise.muscleGroups ?? []).join(", ") || "-";
@@ -566,11 +572,7 @@ export function createTimelineMcpServer(userId: string) {
     return result("Exercises", `Exercise search: ${query || "all"}`, found, [], { text: [header, ...lines].join("\n") });
   });
 
-  server.registerTool("get_exercise", {
-    title: "Get one exercise with technique",
-    description: "Full detail of one exercise from the database: muscles, equipment, movement pattern, numbered technique steps and photo URLs. Use it to explain how to perform an exercise or to choose between candidates from search_exercises.",
-    inputSchema: { exerciseId: z.string().uuid() }
-  }, async ({ exerciseId }) => {
+  registerSpec(server, specs.get_exercise, async ({ exerciseId }) => {
     const exercise = await getExercise(userId, exerciseId);
     if (!exercise) return { content: [{ type: "text" as const, text: "exercise_not_found" }], isError: true };
     const steps = exercise.instructions?.length
@@ -588,22 +590,14 @@ export function createTimelineMcpServer(userId: string) {
     return result("Exercise", exercise.name, exercise, [], { text });
   });
 
-  server.registerTool("list_exercise_filters", {
-    title: "List exercise database filters",
-    description: "The vocabulary for search_exercises filters with counts: primary muscles, equipment types and movement patterns that exist in the exercise database. Call once before filtering so muscle/equipment values match exactly.",
-    inputSchema: {}
-  }, async () => {
+  registerSpec(server, specs.list_exercise_filters, async () => {
     const facets = await exerciseFacets(userId);
     const line = (label: string, values: Array<{ value: string; count: number }>) => `${label}: ${values.map((item) => `${item.value} (${item.count})`).join(", ") || "-"}`;
     const text = [`${facets.total} exercises`, line("Muscles", facets.muscles), line("Equipment", facets.equipment), line("Movement patterns", facets.movementPatterns)].join("\n");
     return result("Exercise filters", `${facets.total} exercises`, facets, [], { text });
   });
 
-  server.registerTool("upsert_exercise", {
-    title: "Create or update a personal exercise",
-    description: "Last resort: only use this when search_exercises found nothing suitable in the ready exercise database (the owner does not want exercises hand-created each time). Save an exercise to the user's personal catalog, avoiding duplicates: an explicit id updates that exercise; otherwise an exact externalRef match (a stable id from a source like \"trainero\") is reused if present, else an exact normalized-name match is reused, else a new exercise is created. An ambiguous_exercise error means more than one existing exercise matched by exact name — resolve it with search_exercises and pass an explicit id instead of retrying blindly. Fill primaryMuscles/secondaryMuscles with lowercase canonical muscle names (e.g. chest, back, quads, hamstrings, glutes, shoulders, biceps, triceps, calves, abs), movementPattern (squat|hinge|push|pull|lunge|carry|core|other) and equipment when known — weekly per-muscle volume is computed from them (primary sets count 1, secondary 0.5). Set isArchived: true to hide an exercise from search instead of deleting it (history is kept). Pass images (up to 4 absolute https URLs, e.g. the two frames of an exercise photo) to show a picture of the exercise in the app.",
-    inputSchema: { exercise: exerciseInputSchema }
-  }, async ({ exercise }) => {
+  registerSpec(server, specs.upsert_exercise, async ({ exercise }) => {
     try {
       const saved = await upsertExercise(userId, exercise);
       return result("Exercise saved", saved.name, saved, [], { id: saved.id, text: `${saved.name} (id: ${saved.id})` });
@@ -612,20 +606,7 @@ export function createTimelineMcpServer(userId: string) {
     }
   });
 
-  server.registerTool("record_workout_session", {
-    title: "Record a workout session",
-    description: "Record one completed workout: creates a \"workout\" timeline event plus its per-set detail rows (exercise, set index, reps, weight in kg) in one call. Every set's exerciseId must already exist (otherwise unknown_exercise) — call search_exercises/upsert_exercise first for each exercise. Per set you can also record rir (reps in reserve, 0-5), setType (working|warmup|drop; warm-ups are excluded from tonnage and bests), groupId (same value on sets of one superset) and a short note. Reuse the same idempotencyKey when retrying to avoid double-recording; a retry returns the originally stored session.",
-    inputSchema: {
-      occurredAt: z.string().describe("ISO 8601 date-time, e.g. 2026-09-19T18:00:00Z"),
-      timezone: z.string().min(1),
-      muscleGroups: z.array(z.string().min(1)).min(1).max(8),
-      note: z.string().max(2000).optional().describe("Free-text feedback on how the session went"),
-      exertion: z.number().int().min(1).max(5).optional().describe("Perceived difficulty of the whole session, 1 (very easy) to 5 (very hard)"),
-      mood: z.enum(["bad", "ok", "good"]).optional().describe("How the owner felt: bad, ok or good (shown as three emoji in the app)"),
-      sets: z.array(setInputSchema).min(1),
-      idempotencyKey: z.string().min(1).max(200).optional()
-    }
-  }, async ({ occurredAt, timezone, muscleGroups, note, exertion, mood, sets, idempotencyKey }) => {
+  registerSpec(server, specs.record_workout_session, async ({ occurredAt, timezone, muscleGroups, note, exertion, mood, sets, idempotencyKey }) => {
     const parsedOccurredAt = new Date(occurredAt);
     if (Number.isNaN(parsedOccurredAt.getTime())) {
       return { content: [{ type: "text" as const, text: "Provide a valid occurredAt." }], isError: true };
@@ -642,11 +623,7 @@ export function createTimelineMcpServer(userId: string) {
     }
   });
 
-  server.registerTool("rename_workout_template", {
-    title: "Rename a workout template",
-    description: "Change only the name of an existing workout template (everything else, including all exercises, stays as it is). Get the id from list_workout_templates. Use this for requests like \"rename my workout to Full Body\"; use upsert_workout_template when the exercises change too.",
-    inputSchema: { id: z.string().uuid(), name: z.string().trim().min(1).max(120) }
-  }, async ({ id, name }) => {
+  registerSpec(server, specs.rename_workout_template, async ({ id, name }) => {
     const template = await getTemplate(userId, id);
     if (!template) return { content: [{ type: "text" as const, text: "template_not_found" }], isError: true };
     try {
@@ -657,12 +634,10 @@ export function createTimelineMcpServer(userId: string) {
     }
   });
 
-  server.registerTool("list_workout_sessions", {
-    title: "List logged workout sessions",
-    description: "List the user's most recent logged strength sessions (newest first): date, trained muscles, difficulty 1-5, mood (bad|ok|good), free-text notes, and per exercise the sets as reps x kg with RIR. Use it to discuss or review workouts that were already done; planned routines are in list_workout_templates.",
-    inputSchema: { limit: z.number().int().min(1).max(30).default(10) }
-  }, async ({ limit }) => {
-    const sessions = await listRecentWorkoutSessions(userId, limit);
+  registerSpec(server, specs.list_workout_sessions, async ({ limit, from, to }) => {
+    const range = parseRange(from, to);
+    if ("error" in range) return fail(range.error);
+    const sessions = await listRecentWorkoutSessions(userId, limit, range);
     const lines = sessions.map((session) => {
       const head = [
         `${session.occurredAt.toISOString().slice(0, 10)} (id: ${session.eventId})`,
@@ -684,14 +659,7 @@ export function createTimelineMcpServer(userId: string) {
     });
   });
 
-  server.registerTool("get_muscle_volume", {
-    title: "Get weekly sets per muscle",
-    description: "Hard sets per muscle per calendar week (Monday start in the given timezone), newest week first: a primary muscle counts 1 set per completed working/drop set, a secondary muscle 0.5; warm-ups are excluded. Use it to judge training balance and plan volume — a common reference is roughly 10-20 hard sets per muscle per week, trained about twice a week, but treat it as a guide, not a target to push. Muscles come from the exercises' primaryMuscles/secondaryMuscles (see upsert_exercise); sets of exercises without muscle data are counted under \"other\".",
-    inputSchema: {
-      weeks: z.number().int().min(1).max(12).default(4),
-      timezone: z.string().min(1).default("UTC").describe("IANA timezone that defines the week boundaries, e.g. Europe/Prague")
-    }
-  }, async ({ weeks, timezone }) => {
+  registerSpec(server, specs.get_muscle_volume, async ({ weeks, timezone }) => {
     if (!isValidTimeZone(timezone)) return { content: [{ type: "text" as const, text: "invalid_timezone" }], isError: true };
     const volume = await getMuscleVolume(userId, weeks, timezone);
     const text = volume.map((week) => {
@@ -701,21 +669,13 @@ export function createTimelineMcpServer(userId: string) {
     return result("Muscle volume", `Weekly sets per muscle (${weeks} weeks)`, { weeks: volume }, [], { text });
   });
 
-  server.registerTool("list_workout_templates", {
-    title: "List workout templates",
-    description: "List the user's reusable workout templates (routines) — this is where a named workout plan such as \"Mon 5.10\" or \"Full Body\" lives; logged past sessions are separate (see list_workout_sessions). The result includes every template's id and its full exercises as JSON, so a template can be edited afterwards. Each has exercises with a prescription: sets, repMin-repMax, targetRir (reps in reserve), groupId (same value = superset) and an optional progression rule. Archived templates are hidden unless includeArchived is true.",
-    inputSchema: { includeArchived: z.boolean().default(false) }
-  }, async ({ includeArchived }) => {
+  registerSpec(server, specs.list_workout_templates, async ({ includeArchived }) => {
     const items = await listTemplates(userId, includeArchived);
     const text = itemizeText(items.length, "templates", items.map((template) => `${template.name} (id: ${template.id}, ${template.exercises.length} exercises)`));
     return result("Workout templates", "Workout templates", { items }, [], { text, withData: true });
   });
 
-  server.registerTool("upsert_workout_template", {
-    title: "Create or update a workout template",
-    description: "Save a reusable workout template. An explicit id updates that template, otherwise an exact normalized-name match is updated, else a new one is created; the exercises list is replaced as a whole. Every exerciseId must already exist (unknown_exercise otherwise) — pick them from the exercise database with search_exercises (filter by muscle/equipment/movementPattern; list_exercise_filters shows the values) rather than creating new exercises. Prescription per exercise: sets, weightKg (planned working weight; it is what the app prefills for the first session, and with a progression rule the weight is advanced from history afterwards), repMin/repMax (rep range), targetRir (0-5), groupId for supersets (with an optional groupLabel shown on the superset tab in the app, e.g. \"Superset for abs\"), and progression {type: \"double\", incrementKg} = keep the weight until every top set reaches repMax, then add incrementKg. Example: 3 x 6-10 at RIR 2 with +2.5 kg. Set isArchived: true to retire a template without deleting it.",
-    inputSchema: { template: workoutTemplateInputSchema }
-  }, async ({ template }) => {
+  registerSpec(server, specs.upsert_workout_template, async ({ template }) => {
     try {
       const saved = await upsertTemplate(userId, template);
       return result("Template saved", saved.name, saved, [], { id: saved.id, text: `${saved.name} (id: ${saved.id}, ${saved.exercises.length} exercises)`, withData: true });
@@ -724,21 +684,13 @@ export function createTimelineMcpServer(userId: string) {
     }
   });
 
-  server.registerTool("delete_workout_template", {
-    title: "Delete a workout template",
-    description: "Permanently delete a workout template by id. Logged workouts are unaffected. Prefer upsert_workout_template with isArchived: true when the user may want it back.",
-    inputSchema: { id: z.string().uuid() }
-  }, async ({ id }) => {
+  registerSpec(server, specs.delete_workout_template, async ({ id }) => {
     const deleted = await deleteTemplate(userId, id);
     if (!deleted) return { content: [{ type: "text" as const, text: "template_not_found" }], isError: true };
     return result("Template deleted", id, { id }, [], { id, text: `Deleted template ${id}` });
   });
 
-  server.registerTool("plan_workout_from_template", {
-    title: "Plan the next workout from a template",
-    description: "Read-only preview of the next session for a template: the prescription per exercise plus, from the last logged session, the previous sets and a suggested working weight under the progression rule (reason: increase = every top set reached repMax, hold = keep the weight, planned = the template's own weightKg, no_history = nothing logged and nothing planned). Nothing is recorded; log the real session with record_workout_session afterwards.",
-    inputSchema: { id: z.string().uuid() }
-  }, async ({ id }) => {
+  registerSpec(server, specs.plan_workout_from_template, async ({ id }) => {
     const plan = await planTemplate(userId, id);
     if (!plan) return { content: [{ type: "text" as const, text: "template_not_found" }], isError: true };
     const lines = plan.exercises.map((exercise) => {
@@ -749,14 +701,7 @@ export function createTimelineMcpServer(userId: string) {
     return result("Workout plan", plan.name, plan, [], { text: [plan.name, ...lines].join("\n"), withData: true });
   });
 
-  server.registerTool("get_exercise_history", {
-    title: "Get exercise history",
-    description: "Read recent session history for one exercise: the heaviest set ever logged, the best estimated 1RM (Epley, working sets of 1-12 reps) and the last N sessions' top weight, total reps and best e1RM. Warm-up sets are excluded.",
-    inputSchema: {
-      exerciseId: z.string().uuid(),
-      limit: z.number().int().min(1).max(50).default(8)
-    }
-  }, async ({ exerciseId, limit }) => {
+  registerSpec(server, specs.get_exercise_history, async ({ exerciseId, limit }) => {
     const exercise = await getExercise(userId, exerciseId);
     if (!exercise) return { content: [{ type: "text" as const, text: "exercise_not_found" }], isError: true };
     const history = await getExerciseHistory(userId, exerciseId, limit);
@@ -765,6 +710,101 @@ export function createTimelineMcpServer(userId: string) {
         + `${history.bestE1rmKg ? `, e1RM ${history.bestE1rmKg}kg` : ""}, ${history.windowSessions} recent sessions`
       : `${exercise.name}: no logged sets yet`;
     return result("Exercise history", exercise.name, history, [], { text });
+  });
+
+  registerSpec(server, specs.get_template, async ({ id }) => {
+    const template = await getTemplate(userId, id);
+    if (!template) return fail("template_not_found");
+    return result("Workout template", template.name, template, [], {
+      id: template.id, text: `${template.name} (id: ${template.id}, ${template.exercises.length} exercises)`, withData: true
+    });
+  });
+
+  async function sessionText(eventId: string) {
+    const session = await getWorkoutSession(userId, eventId);
+    if (!session) return undefined;
+    const names = new Map<string, string>();
+    for (const exerciseId of new Set(session.sets.map((set) => set.exerciseId))) {
+      names.set(exerciseId, (await getExercise(userId, exerciseId))?.name ?? "Unknown exercise");
+    }
+    const byExercise = new Map<string, string[]>();
+    for (const set of [...session.sets].sort((a, b) => a.setIndex - b.setIndex)) {
+      const line = `${set.reps ?? "?"}x${set.weightKg ?? "bw"}${set.rir !== undefined ? ` RIR${set.rir}` : ""}${set.setType !== "working" ? ` (${set.setType})` : ""}`;
+      byExercise.set(set.exerciseId, [...(byExercise.get(set.exerciseId) ?? []), line]);
+    }
+    const head = [
+      `${session.occurredAt.toISOString().slice(0, 16)} (id: ${session.eventId})`,
+      session.muscleGroups.join("+"),
+      session.exertion ? `difficulty ${session.exertion}/5` : undefined,
+      session.mood ? `mood ${session.mood}` : undefined,
+      `${session.summary.setCount} sets, ${session.summary.tonnageKg} kg tonnage`
+    ].filter(Boolean).join(" | ");
+    const lines = [...byExercise.entries()].map(([exerciseId, sets]) => `  ${names.get(exerciseId)} (exerciseId: ${exerciseId}): ${sets.join(", ")}`);
+    return { session, text: [head, session.note ? `  note: ${session.note}` : undefined, ...lines].filter(Boolean).join("\n") };
+  }
+
+  registerSpec(server, specs.get_workout_session, async ({ eventId }) => {
+    const found = await sessionText(eventId);
+    if (!found) return fail("session_not_found");
+    // withData: update_workout_session replaces the whole set list, so a text-only client needs every set field
+    // (groupId, note, completed, setIndex) to correct one value without erasing the rest.
+    return result("Workout session", found.text.split("\n")[0], found.session, [], { id: eventId, text: found.text, withData: true });
+  });
+
+  registerSpec(server, specs.update_workout_session, async ({ eventId, occurredAt, timezone, muscleGroups, note, exertion, mood, sets }) => {
+    const parsedOccurredAt = new Date(occurredAt);
+    if (Number.isNaN(parsedOccurredAt.getTime())) return fail("Provide a valid occurredAt.");
+    try {
+      const updated = await replaceWorkoutSession(userId, eventId, { occurredAt: parsedOccurredAt, timezone, muscleGroups, note, exertion, mood, sets });
+      if (!updated) return fail("session_not_found");
+      const text = `Workout updated (id: ${eventId}) — ${updated.summary.exerciseCount} exercises, ${updated.summary.setCount} sets, ${updated.summary.tonnageKg}kg tonnage`;
+      return result("Workout updated", text, updated, [], { id: eventId, text });
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : "workout_save_failed");
+    }
+  });
+
+  registerSpec(server, specs.delete_workout_session, async ({ eventId }) => {
+    if (!(await deleteWorkoutSession(userId, eventId))) return fail("session_not_found");
+    return result("Workout deleted", eventId, { eventId }, [], { id: eventId, text: `Deleted workout session ${eventId}` });
+  });
+
+  registerSpec(server, specs.get_daily_activity, async ({ from, to }) => {
+    if (from > to) return fail("invalid_date_range");
+    const days = await listDailyActivity(userId, from, to);
+    const text = days.length
+      ? days.map((day) => `${day.activityDate}: ${day.steps} steps (goal ${day.goalSteps})${day.workoutCount ? `, ${day.workoutCount} workouts` : ""}`).join("\n")
+      : "No activity recorded in that range";
+    return result("Daily activity", `${days.length} days`, { days }, [], { text, withData: days.length > 0 });
+  });
+
+  registerSpec(server, specs.duplicate_workout_template, async ({ id, name }) => {
+    try {
+      const copy = await duplicateTemplate(userId, id, name);
+      if (!copy) return fail("template_not_found");
+      return result("Template duplicated", copy.name, copy, [], { id: copy.id, text: `Created "${copy.name}" (id: ${copy.id}, ${copy.exercises.length} exercises)`, withData: true });
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : "template_save_failed");
+    }
+  });
+
+  registerSpec(server, specs.list_exercise_alternatives, async ({ exerciseId, equipment, limit }) => {
+    const found = await listExerciseAlternatives(userId, exerciseId, { equipment, limit });
+    if (!found) return fail("exercise_not_found");
+    const lines = found.items.map((exercise) => {
+      const primary = (exercise.primaryMuscles ?? exercise.muscleGroups ?? []).join(", ") || "-";
+      return `${exercise.name} — ${primary} | ${exercise.equipment ?? "-"} | ${exercise.movementPattern ?? "-"} | id: ${exercise.id}`;
+    });
+    const header = found.items.length ? `${found.items.length} alternatives for ${found.exercise.name}` : `No alternatives found for ${found.exercise.name}`;
+    return result("Exercise alternatives", header, found, [], { text: [header, ...lines].join("\n") });
+  });
+
+  registerSpec(server, specs.preview_template_volume, async ({ exercises: planned }) => {
+    const preview = await previewTemplateVolume(userId, planned);
+    if (preview.missing.length) return fail(`unknown_exercise: ${preview.missing.join(", ")}`);
+    const muscles = Object.entries(preview.byMuscle).sort((a, b) => b[1] - a[1]).map(([muscle, sets]) => `${muscle} ${sets}`);
+    const text = `${preview.totalSets} sets in total; per muscle (primary 1, secondary 0.5): ${muscles.join(", ") || "none"}`;
+    return result("Template volume preview", text, preview, [], { text });
   });
 
   return server;
