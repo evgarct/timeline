@@ -20,6 +20,8 @@ export interface ToolRest {
   path: string;
   /** Input fields sent as query parameters (GET/DELETE); everything else not in the path goes in the JSON body. */
   query?: string[];
+  /** The REST body is the value of this input field (MCP wraps it as { exercise: ... }), not the whole input. */
+  unwrap?: string;
 }
 
 export interface ToolSpec<Shape extends z.ZodRawShape = z.ZodRawShape> {
@@ -38,13 +40,13 @@ const meta: Record<string, Pick<ToolSpec, "annotations" | "rest">> = {
   search_exercises: { annotations: readOnly, rest: { method: "GET", path: "/api/exercises", query: ["query", "muscle", "equipment", "movementPattern", "page", "pageSize"] } },
   get_exercise: { annotations: readOnly, rest: { method: "GET", path: "/api/exercises/{exerciseId}" } },
   list_exercise_filters: { annotations: readOnly, rest: { method: "GET", path: "/api/exercises/facets" } },
-  upsert_exercise: { annotations: { ...idempotent }, rest: { method: "POST", path: "/api/exercises" } },
+  upsert_exercise: { annotations: { ...idempotent }, rest: { method: "POST", path: "/api/exercises", unwrap: "exercise" } },
   record_workout_session: { annotations: {}, rest: { method: "POST", path: "/api/workouts" } },
   rename_workout_template: { annotations: { ...idempotent } },
   list_workout_sessions: { annotations: readOnly, rest: { method: "GET", path: "/api/workouts", query: ["limit", "from", "to"] } },
   get_muscle_volume: { annotations: readOnly, rest: { method: "GET", path: "/api/workouts/volume", query: ["weeks", "timezone"] } },
   list_workout_templates: { annotations: readOnly, rest: { method: "GET", path: "/api/templates", query: ["includeArchived"] } },
-  upsert_workout_template: { annotations: { ...idempotent }, rest: { method: "POST", path: "/api/templates" } },
+  upsert_workout_template: { annotations: { ...idempotent }, rest: { method: "POST", path: "/api/templates", unwrap: "template" } },
   delete_workout_template: { annotations: { destructiveHint: true }, rest: { method: "DELETE", path: "/api/templates/{id}" } },
   plan_workout_from_template: { annotations: readOnly, rest: { method: "GET", path: "/api/templates/{id}/plan" } },
   get_exercise_history: { annotations: readOnly, rest: { method: "GET", path: "/api/exercises/{exerciseId}/history", query: ["limit"] } },

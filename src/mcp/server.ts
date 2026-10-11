@@ -746,7 +746,9 @@ export function createTimelineMcpServer(userId: string) {
   registerSpec(server, specs.get_workout_session, async ({ eventId }) => {
     const found = await sessionText(eventId);
     if (!found) return fail("session_not_found");
-    return result("Workout session", found.text.split("\n")[0], found.session, [], { id: eventId, text: found.text });
+    // withData: update_workout_session replaces the whole set list, so a text-only client needs every set field
+    // (groupId, note, completed, setIndex) to correct one value without erasing the rest.
+    return result("Workout session", found.text.split("\n")[0], found.session, [], { id: eventId, text: found.text, withData: true });
   });
 
   registerSpec(server, specs.update_workout_session, async ({ eventId, occurredAt, timezone, muscleGroups, note, exertion, mood, sets }) => {
@@ -773,7 +775,7 @@ export function createTimelineMcpServer(userId: string) {
     const text = days.length
       ? days.map((day) => `${day.activityDate}: ${day.steps} steps (goal ${day.goalSteps})${day.workoutCount ? `, ${day.workoutCount} workouts` : ""}`).join("\n")
       : "No activity recorded in that range";
-    return result("Daily activity", `${days.length} days`, { days }, [], { text });
+    return result("Daily activity", `${days.length} days`, { days }, [], { text, withData: days.length > 0 });
   });
 
   registerSpec(server, specs.duplicate_workout_template, async ({ id, name }) => {

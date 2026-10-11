@@ -215,6 +215,9 @@ describe("agent tools added with the spec registry", () => {
     expect(read).toContain(eventId);
     expect(read).toContain("Agent Row");
     expect(read).toContain("10x50");
+    // Every set field must be readable from the text alone, because update_workout_session replaces the whole list.
+    expect(read).toContain('"setIndex":1');
+    expect(read).toContain('"completed":true');
 
     const updated = text(await call(client, "update_workout_session", {
       eventId, occurredAt: "2026-08-20T10:00:00Z", timezone: "UTC", muscleGroups: ["lats"], exertion: 4,

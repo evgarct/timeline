@@ -47,6 +47,16 @@ describe("OpenAPI document", () => {
     const preview = paths["/api/templates/preview-volume"].post;
     expect(preview.requestBody).toBeDefined();
   });
+
+  it("documents the REST body, not the MCP wrapper, for upsert tools", () => {
+    const paths = doc.paths as Record<string, Record<string, { requestBody: { content: { "application/json": { schema: { properties: Record<string, unknown> } } } } }>>;
+    const exercise = paths["/api/exercises"].post.requestBody.content["application/json"].schema;
+    expect(exercise.properties).toHaveProperty("name");
+    expect(exercise.properties).not.toHaveProperty("exercise");
+    const template = paths["/api/templates"].post.requestBody.content["application/json"].schema;
+    expect(template.properties).toHaveProperty("exercises");
+    expect(template.properties).not.toHaveProperty("template");
+  });
 });
 
 describe("parseRange", () => {
@@ -56,5 +66,13 @@ describe("parseRange", () => {
     expect(parseRange("nonsense")).toEqual({ error: "invalid_date_range" });
     expect(parseRange("2026-10-05", "2026-10-01")).toEqual({ error: "invalid_date_range" });
     expect(parseRange()).toEqual({});
+  });
+
+  it("rejects impossible calendar days and non-ISO strings instead of shifting the window", () => {
+    expect(parseRange("2026-02-31")).toEqual({ error: "invalid_date_range" });
+    expect(parseRange("2026-13-01")).toEqual({ error: "invalid_date_range" });
+    expect(parseRange("October 1, 2026")).toEqual({ error: "invalid_date_range" });
+    expect(parseRange("2026-10-01T10:00:00")).toEqual({ from: new Date("2026-10-01T10:00:00Z") });
+    expect(parseRange("2026-10-01T10:00:00+02:00")).toEqual({ from: new Date("2026-10-01T08:00:00Z") });
   });
 });

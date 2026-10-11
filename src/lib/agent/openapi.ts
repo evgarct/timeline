@@ -32,7 +32,9 @@ export function buildOpenApi(origin: string, specs: ToolSpec[] = allSpecs) {
       "x-readOnly": Boolean(spec.annotations.readOnlyHint),
       "x-destructive": Boolean(spec.annotations.destructiveHint)
     };
-    if (hasBody && Object.keys(bodyProperties).length) {
+    if (hasBody && spec.rest.unwrap) {
+      operation.requestBody = { required: true, content: { "application/json": { schema: properties[spec.rest.unwrap] ?? { type: "object" } } } };
+    } else if (hasBody && Object.keys(bodyProperties).length) {
       operation.requestBody = {
         required: true,
         content: { "application/json": { schema: { type: "object", properties: bodyProperties, required: [...required].filter((name) => name in bodyProperties) } } }
