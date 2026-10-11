@@ -281,6 +281,14 @@
     <string name="muscle_other">Другое</string>
     <string name="timeline_event_workout">Тренировка</string>
     <string name="workout_templates_title">Шаблоны</string>
+    <string name="workout_schedule_today">По плану на сегодня</string>
+    <string name="workout_schedule_rest">Сегодня ничего не запланировано</string>
+    <string name="workout_schedule_week">На этой неделе</string>
+    <string name="workout_coach_note">Заметка тренера</string>
+    <string name="workout_show_more">Ещё</string>
+    <string name="workout_show_less">Свернуть</string>
+    <string name="workout_video">Видео</string>
+    <string name="workout_watch_video">Смотреть видео</string>
     <string name="workout_template_exercises">%1$d упр.</string>
     <string name="workout_template_start_error">Не удалось начать по шаблону</string>
     <string name="workout_template_saved">Шаблон сохранён</string>

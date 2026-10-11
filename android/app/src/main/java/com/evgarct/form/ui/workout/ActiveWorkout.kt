@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
@@ -49,6 +50,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -68,6 +71,7 @@ import com.evgarct.form.data.models.DraftSet
 import com.evgarct.form.data.models.WorkoutDraft
 import com.evgarct.form.data.workout.recordableSetCount
 import com.evgarct.form.data.workout.repsHint
+import com.evgarct.form.data.workout.youtubeVideoId
 import com.evgarct.form.data.workout.tonnageKg
 import com.evgarct.form.ui.nutrition.components.SelectAllOnFocusTextField
 import kotlinx.coroutines.delay
@@ -428,6 +432,8 @@ private fun ExerciseCard(
             )
         }
 
+        exercise.coachNote?.let { CoachNote(it) }
+
         SetTable(exercise = exercise, viewModel = viewModel)
 
         if (noteOpen) {
@@ -709,7 +715,91 @@ private fun NumberField(
     }
 }
 
-/** The pictures only, bigger: the exercise photos and the muscle map. No text. */
+/**
+ * The trainer's note for this exercise in the program. Always visible (a lifter must not have to hunt for it);
+ * a long note is shortened to a few lines with a "More" toggle, and it is separate from the lifter's own note.
+ */
+@Composable
+internal fun CoachNote(text: String, modifier: Modifier = Modifier) {
+    val colorScheme = MaterialTheme.colorScheme
+    val long = text.length > 140 || text.count { it == '\n' } >= 3
+    var expanded by remember(text) { mutableStateOf(false) }
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(colorScheme.tertiaryContainer.copy(alpha = 0.55f))
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .testTag("coach_note"),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(
+            text = stringResource(R.string.workout_coach_note).uppercase(),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.2.sp,
+            color = colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
+        )
+        Text(
+            text = text,
+            fontSize = 14.sp,
+            lineHeight = 20.sp,
+            color = colorScheme.onTertiaryContainer,
+            maxLines = if (long && !expanded) 3 else Int.MAX_VALUE,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (long) {
+            Text(
+                text = stringResource(if (expanded) R.string.workout_show_less else R.string.workout_show_more),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = colorScheme.onTertiaryContainer,
+                modifier = Modifier.clickable { expanded = !expanded }.padding(vertical = 2.dp)
+            )
+        }
+    }
+}
+
+/** A YouTube thumbnail with a play button; opening hands the link to the YouTube app or the browser. */
+@Composable
+private fun VideoLink(url: String, title: String) {
+    val colorScheme = MaterialTheme.colorScheme
+    val uriHandler = LocalUriHandler.current
+    val videoId = youtubeVideoId(url)
+    Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Eyebrow(stringResource(R.string.workout_video))
+        if (videoId != null) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(colorScheme.surfaceContainerHigh)
+                    .clickable { uriHandler.openUri(url) },
+                contentAlignment = Alignment.Center
+            ) {
+                SubcomposeAsyncImage(
+                    model = "https://i.ytimg.com/vi/$videoId/hqdefault.jpg",
+                    contentDescription = title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                    error = {}
+                )
+                Box(
+                    modifier = Modifier.size(56.dp).clip(CircleShape).background(colorScheme.scrim.copy(alpha = 0.6f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(32.dp))
+                }
+            }
+        }
+        FilledTonalButton(onClick = { uriHandler.openUri(url) }, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.workout_watch_video))
+        }
+    }
+}
+
+/** The exercise photos, the muscle map, the trainer's note, the video link and the technique. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ExerciseDetailSheet(exercise: DraftExercise, onDismiss: () -> Unit) {
@@ -748,6 +838,8 @@ private fun ExerciseDetailSheet(exercise: DraftExercise, onDismiss: () -> Unit) 
                     }
                 }
             }
+            exercise.coachNote?.let { CoachNote(it) }
+            exercise.videoUrl?.let { VideoLink(url = it, title = exercise.name) }
             if (exercise.instructions.isNotEmpty()) {
                 Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Eyebrow(stringResource(R.string.workout_technique))
