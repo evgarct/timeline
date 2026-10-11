@@ -83,3 +83,45 @@ test("dragging a catalog exercise onto the canvas inserts it at the drop positio
   await expect(page.locator("[data-card]")).toHaveCount(2);
   await expect(page.locator("[data-card]").first()).toContainText("Studio Overhead Press");
 });
+
+test("exercise detail shows technique and video; the catalog folds away and the choice sticks", async ({ page, request }) => {
+  const created = await request.post("/api/exercises", {
+    data: {
+      name: "Studio Detail Row", primaryMuscles: ["lats"], equipment: "cable", movementPattern: "pull",
+      instructions: ["Шаг первый: сядь ровно.", "Шаг второй: потяни рукоять."], videoUrl: "https://youtu.be/dQw4w9WgXcQ"
+    }
+  });
+  expect(created.ok()).toBe(true);
+  await page.goto("/ru/studio/templates/new", { waitUntil: "domcontentloaded" });
+  await searchCatalog(page, "Studio Detail");
+
+  await page.getByRole("button", { name: "Подробнее об упражнении: Studio Detail Row" }).click();
+  const dialog = page.getByRole("dialog", { name: "Studio Detail Row" });
+  await expect(dialog.getByText("Шаг первый: сядь ровно.")).toBeVisible();
+  // The player is a facade: no iframe until play is pressed.
+  await expect(dialog.locator("iframe")).toHaveCount(0);
+  await dialog.getByRole("button", { name: /Смотреть видео/ }).click();
+  await expect(dialog.locator("iframe")).toHaveAttribute("src", /youtube-nocookie\.com\/embed\/dQw4w9WgXcQ/);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+
+  // Folding the catalog hides the search; the choice survives a reload.
+  const catalog = page.getByRole("region", { name: "Каталог" });
+  await page.getByRole("button", { name: "Свернуть каталог" }).click();
+  await expect(catalog).toHaveAttribute("data-catalog-open", "false");
+  await expect(page.getByLabel("Найти упражнение")).toBeHidden();
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await expect(page.getByRole("region", { name: "Каталог" })).toHaveAttribute("data-catalog-open", "false");
+  await page.getByRole("button", { name: "Показать каталог" }).first().click();
+  await expect(page.getByLabel("Найти упражнение")).toBeVisible();
+});
+
+test("the template editor links back to the list and offers other templates", async ({ page }) => {
+  await page.goto("/ru/studio/templates/new", { waitUntil: "domcontentloaded" });
+  const nav = page.getByRole("navigation", { name: "Шаблоны" });
+  await expect(nav.getByRole("link", { name: "Шаблоны" })).toHaveAttribute("href", "/ru/studio/templates");
+  await nav.getByRole("button", { name: "Другой шаблон" }).click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  // On the new-template route the link would only reload the same draft, so it is not offered there.
+  await expect(page.getByRole("menuitem", { name: "Новый шаблон" })).toHaveCount(0);
+});

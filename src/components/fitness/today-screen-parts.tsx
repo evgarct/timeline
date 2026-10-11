@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type CSSProperties, type ReactNode } from "react";
-import { Camera, Check, ChevronDown, Dumbbell, Plus, Ruler } from "lucide-react";
+import { Camera, Check, ChevronDown, Dumbbell, LayoutDashboard, Plus, Ruler } from "lucide-react";
+import Link from "next/link";
 import { List } from "antd-mobile/es/components/list/list";
 import { ListItem } from "antd-mobile/es/components/list/list-item";
 import { SafeArea } from "antd-mobile/es/components/safe-area/safe-area";
@@ -246,7 +247,12 @@ export function TodayTimelineSection({
             <p className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">{copy.bodyHistory}</p>
             <h2 className="mt-1 text-3xl font-semibold tracking-normal">{copy.timeline}</h2>
           </div>
-          {languageMenu ?? <LanguageMenu locale={locale} />}
+          <div className="flex items-center gap-1">
+            <Button asChild variant="ghost" size="icon" aria-label={copy.openStudio} title={copy.openStudio}>
+              <Link href={`/${locale}/studio`}><LayoutDashboard /></Link>
+            </Button>
+            {languageMenu ?? <LanguageMenu locale={locale} />}
+          </div>
         </div>
 
         <div className="flex gap-2">

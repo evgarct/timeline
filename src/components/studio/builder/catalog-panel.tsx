@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Plus, Search } from "lucide-react";
+import { Play, Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { toast } from "sonner";
 import { useCreateExercise, useExerciseCatalog, useExerciseFacets, type CatalogFilter } from "@/lib/studio/api";
@@ -37,7 +37,7 @@ function FacetRow({ id, label, facets, value, onChange, format }: { id: string; 
   );
 }
 
-function ExerciseTile({ exercise, copy, onAdd }: { exercise: ExerciseSummary; copy: StudioCopy; onAdd: (exercise: ExerciseSummary) => void }) {
+function ExerciseTile({ exercise, copy, onAdd, onOpenDetail }: { exercise: ExerciseSummary; copy: StudioCopy; onAdd: (exercise: ExerciseSummary) => void; onOpenDetail: (exercise: ExerciseSummary) => void }) {
   const [first, second] = exercise.images ?? [];
   const [hover, setHover] = useState(false);
   const muscles = (exercise.primaryMuscles ?? exercise.muscleGroups ?? []).map((muscle) => muscleLabel(copy, muscle)).join(" · ");
@@ -45,18 +45,18 @@ function ExerciseTile({ exercise, copy, onAdd }: { exercise: ExerciseSummary; co
     <motion.li layout="position" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spatial.default}>
       <div draggable onDragStart={(event) => writeDraggedExercise(event, exercise)} className="cursor-grab active:cursor-grabbing">
       <Surface
-        interactive
         tone="container"
-        role="button"
-        tabIndex={0}
-        aria-label={`${copy.builder.add}: ${exercise.name}`}
-        onClick={() => onAdd(exercise)}
-        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onAdd(exercise); } }}
         onHoverStart={() => setHover(true)}
         onHoverEnd={() => setHover(false)}
-        className="group flex items-center gap-3 rounded-[var(--s-radius-lg)] p-2 pr-3"
+        className="group flex items-center gap-3 rounded-[var(--s-radius-lg)] p-2 pr-3 transition-shadow hover:shadow-[0_0_0_1px_var(--s-primary),0_12px_40px_-12px_var(--s-glow)]"
       >
-        <div className="relative size-16 shrink-0 overflow-hidden rounded-[var(--s-radius-sm)] bg-[var(--s-surface-container-highest)]">
+        <button
+          type="button"
+          aria-label={`${copy.builder.openDetail}: ${exercise.name}`}
+          title={copy.builder.openDetail}
+          onClick={() => onOpenDetail(exercise)}
+          className="relative size-20 shrink-0 cursor-zoom-in overflow-hidden rounded-[var(--s-radius-sm)] bg-[var(--s-surface-container-highest)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--s-primary)]"
+        >
           {first ? (
             <>
               {/* eslint-disable-next-line @next/next/no-img-element -- catalog photos are remote free-exercise-db frames */}
@@ -66,19 +66,29 @@ function ExerciseTile({ exercise, copy, onAdd }: { exercise: ExerciseSummary; co
               ) : null}
             </>
           ) : null}
+          {exercise.videoUrl ? <span aria-hidden className="absolute bottom-1 right-1 grid size-5 place-items-center rounded-full bg-black/60 text-white"><Play className="ml-px size-2.5 fill-current" /></span> : null}
+        </button>
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={`${copy.builder.add}: ${exercise.name}`}
+          onClick={() => onAdd(exercise)}
+          onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onAdd(exercise); } }}
+          className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-[var(--s-radius-sm)] py-1 outline-none focus-visible:ring-2 focus-visible:ring-[var(--s-primary)]"
+        >
+          <div className="min-w-0 flex-1">
+            <div className="line-clamp-2 text-[15px] font-semibold leading-snug">{exercise.name}</div>
+            <div className="mt-0.5 truncate text-[12px] text-[var(--s-on-surface-variant)]">{[muscles, exercise.equipment].filter(Boolean).join(" · ")}</div>
+          </div>
+          <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[var(--s-primary-container)] text-[var(--s-on-primary-container)] transition-transform group-hover:scale-110"><Plus className="size-4" /></span>
         </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[15px] font-semibold">{exercise.name}</div>
-          <div className="truncate text-[12px] text-[var(--s-on-surface-variant)]">{[muscles, exercise.equipment].filter(Boolean).join(" · ")}</div>
-        </div>
-        <span className="grid size-8 place-items-center rounded-full bg-[var(--s-primary-container)] text-[var(--s-on-primary-container)] transition-transform group-hover:scale-110"><Plus className="size-4" /></span>
       </Surface>
       </div>
     </motion.li>
   );
 }
 
-export function CatalogPanel({ copy, onAdd, searchRef }: { copy: StudioCopy; onAdd: (exercise: ExerciseSummary) => void; searchRef: RefObject<HTMLInputElement | null> }) {
+export function CatalogPanel({ copy, onAdd, onOpenDetail, searchRef }: { copy: StudioCopy; onAdd: (exercise: ExerciseSummary) => void; onOpenDetail: (exercise: ExerciseSummary) => void; searchRef: RefObject<HTMLInputElement | null> }) {
   const [query, setQuery] = useState("");
   const [muscle, setMuscle] = useState<string>();
   const [equipment, setEquipment] = useState<string>();
@@ -156,11 +166,11 @@ export function CatalogPanel({ copy, onAdd, searchRef }: { copy: StudioCopy; onA
           ) : null}
         </AnimatePresence>
         {catalog.isPending ? (
-          <ul className="space-y-2" aria-busy>{Array.from({ length: 6 }, (_, index) => <li key={index} className="h-20 animate-pulse rounded-[var(--s-radius-lg)] bg-[var(--s-surface-container)]" />)}</ul>
+          <ul className="space-y-2" aria-busy>{Array.from({ length: 6 }, (_, index) => <li key={index} className="h-24 animate-pulse rounded-[var(--s-radius-lg)] bg-[var(--s-surface-container)]" />)}</ul>
         ) : (
           <motion.ul layout className="space-y-2">
             <AnimatePresence initial={false} mode="popLayout">
-              {items.map((exercise) => <ExerciseTile key={exercise.id} exercise={exercise} copy={copy} onAdd={onAdd} />)}
+              {items.map((exercise) => <ExerciseTile key={exercise.id} exercise={exercise} copy={copy} onAdd={onAdd} onOpenDetail={onOpenDetail} />)}
             </AnimatePresence>
           </motion.ul>
         )}

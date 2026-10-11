@@ -88,6 +88,9 @@ Studio is the desktop-first web surface for workouts. It deliberately differs fr
 - Interaction: filter chips share a `layoutId` pill that glides between chips; cards lift 2px on hover; buttons scale to 0.96 on press; lists reorder with layout animations and a dragged card gets scale 1.02 plus a glow.
 - Muscle map: same outlines and region mapping as Android (`MuscleMap.kt`), neutral 12% / secondary 40% / primary 100%; the dashboard reuses it as a heat map via a per-muscle intensity.
 - Charts are plain SVG/CSS with the same springs (bars grow, lines draw their stroke); no chart dependency. Volume stays neutral: no goals, streaks or good/bad colouring.
+- Builder layout: side panels that are only needed while composing (the exercise catalog) fold into a slim rail, and the choice is remembered; an existing template opens with the catalog folded. A section with several screens (templates) keeps a breadcrumb and a switcher in its header so the person never has to go through the global navigation to change template; every link asks first while there are unsaved changes.
+- "What exercise is this?": a thumbnail opens a detail dialog with both photo frames at reading size, muscles (chips and the muscle map), technique, the trainer's note and the how-to video. The trainer's note and the technique are different texts (per program vs per exercise) and are labelled apart. YouTube plays in place through a click-to-load facade (thumbnail first, `youtube-nocookie.com` iframe only after the click).
+
 ## Update Process
 
 - Before UI work: read this file and follow the existing product feel.

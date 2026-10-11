@@ -31,9 +31,14 @@ export default async function LandingPage({ params }: { params: Promise<{ locale
         <p className="mt-5 max-w-xs text-sm leading-6 text-muted-foreground">{copy.heroBody}</p>
         <div className="mt-auto flex flex-col gap-3 pb-4">
           {userId ? (
-            <Button asChild size="lg" className="h-12 w-full rounded-xl">
-              <Link href={`/${locale}/today`}>{copy.openProduct}</Link>
-            </Button>
+            <>
+              <Button asChild size="lg" className="h-12 w-full rounded-xl">
+                <Link href={`/${locale}/today`}>{copy.openProduct}</Link>
+              </Button>
+              <Button asChild size="lg" variant="outline" className="h-12 w-full rounded-xl">
+                <Link href={`/${locale}/studio`}>{copy.openStudio}</Link>
+              </Button>
+            </>
           ) : (
             <>
               <AuthDialog copy={copy} locale={locale} configured={isNeonAuthConfigured} triggerLabel={copy.start} />

@@ -40,7 +40,11 @@ const ru = {
     summary: "Сводка", totalSets: "Всего подходов", musclesTitle: "Подходов на мышцу", secondaryHint: "Вторичные мышцы считаются за половину",
     unsaved: "Есть несохранённые изменения", leaveConfirm: "Несохранённые изменения будут потеряны. Уйти?", saveFailed: "Не удалось сохранить", unknownExercise: "Упражнение не найдено в каталоге", nameRequired: "Введи название", exercisesRequired: "Добавь хотя бы одно упражнение",
     palette: "Быстро добавить упражнение", dragHint: "Перетащи, чтобы изменить порядок", instructions: "Техника",
-    newExercise: "Новое упражнение", exerciseName: "Название упражнения", primaryMuscle: "Основная мышца", creating: "Создаём…", createFailed: "Не удалось создать упражнение", createExerciseFor: "Создать упражнение", dropHere: "Отпусти, чтобы добавить сюда"
+    newExercise: "Новое упражнение", exerciseName: "Название упражнения", primaryMuscle: "Основная мышца", creating: "Создаём…", createFailed: "Не удалось создать упражнение", createExerciseFor: "Создать упражнение", dropHere: "Отпусти, чтобы добавить сюда",
+    collapseCatalog: "Свернуть каталог", expandCatalog: "Показать каталог", openDetail: "Подробнее об упражнении", closeDetail: "Закрыть",
+    coachNote: "Заметка тренера", noTechnique: "Описание техники пока не добавлено", videoTitle: "Видео", videoPlay: "Смотреть видео", videoLink: "Ссылка на YouTube",
+    videoSave: "Сохранить ссылку", videoSaved: "Ссылка на видео сохранена", videoInvalid: "Нужна ссылка на YouTube", videoFailed: "Не удалось сохранить ссылку",
+    templatesAll: "Все шаблоны", switchTemplate: "Другой шаблон", newTemplate: "Новый шаблон", primaryMuscles: "Основные мышцы", secondaryMuscles: "Вторичные", addToTemplate: "Добавить в шаблон"
   },
   dashboard: {
     title: "Обзор тренировок", eyebrow: "Силовые", weekSets: "Подходов за неделю", tonnage: "Тоннаж", sessions: "Тренировок", bestE1rm: "Лучший e1RM", volume: "Объём по мышцам", volumeHint: "Подходов в неделю; вторичные — за половину",
@@ -92,7 +96,11 @@ const en: StudioCopy = {
     summary: "Summary", totalSets: "Total sets", musclesTitle: "Sets per muscle", secondaryHint: "Secondary muscles count as half",
     unsaved: "Unsaved changes", leaveConfirm: "Unsaved changes will be lost. Leave?", saveFailed: "Couldn't save", unknownExercise: "Exercise not found in the catalog", nameRequired: "Enter a name", exercisesRequired: "Add at least one exercise",
     palette: "Quick-add an exercise", dragHint: "Drag to reorder", instructions: "Technique",
-    newExercise: "New exercise", exerciseName: "Exercise name", primaryMuscle: "Primary muscle", creating: "Creating…", createFailed: "Couldn't create the exercise", createExerciseFor: "Create exercise", dropHere: "Drop to add here"
+    newExercise: "New exercise", exerciseName: "Exercise name", primaryMuscle: "Primary muscle", creating: "Creating…", createFailed: "Couldn't create the exercise", createExerciseFor: "Create exercise", dropHere: "Drop to add here",
+    collapseCatalog: "Collapse catalog", expandCatalog: "Show catalog", openDetail: "Exercise details", closeDetail: "Close",
+    coachNote: "Coach's note", noTechnique: "No technique description yet", videoTitle: "Video", videoPlay: "Play video", videoLink: "YouTube link",
+    videoSave: "Save link", videoSaved: "Video link saved", videoInvalid: "Enter a YouTube link", videoFailed: "Couldn't save the link",
+    templatesAll: "All templates", switchTemplate: "Another template", newTemplate: "New template", primaryMuscles: "Primary muscles", secondaryMuscles: "Secondary", addToTemplate: "Add to template"
   },
   dashboard: {
     title: "Training overview", eyebrow: "Strength", weekSets: "Sets this week", tonnage: "Tonnage", sessions: "Sessions", bestE1rm: "Best e1RM", volume: "Volume by muscle", volumeHint: "Sets per week; secondary muscles count as half",
@@ -142,7 +150,11 @@ const cs: StudioCopy = {
     summary: "Souhrn", totalSets: "Sérií celkem", musclesTitle: "Sérií na sval", secondaryHint: "Vedlejší svaly se počítají za půlku",
     unsaved: "Neuložené změny", leaveConfirm: "Neuložené změny budou ztraceny. Odejít?", saveFailed: "Uložení se nepodařilo", unknownExercise: "Cvik nebyl v katalogu nalezen", nameRequired: "Zadej název", exercisesRequired: "Přidej alespoň jeden cvik",
     palette: "Rychle přidat cvik", dragHint: "Přetažením změníš pořadí", instructions: "Technika",
-    newExercise: "Nový cvik", exerciseName: "Název cviku", primaryMuscle: "Hlavní sval", creating: "Vytvářím…", createFailed: "Cvik se nepodařilo vytvořit", createExerciseFor: "Vytvořit cvik", dropHere: "Pusť pro přidání sem"
+    newExercise: "Nový cvik", exerciseName: "Název cviku", primaryMuscle: "Hlavní sval", creating: "Vytvářím…", createFailed: "Cvik se nepodařilo vytvořit", createExerciseFor: "Vytvořit cvik", dropHere: "Pusť pro přidání sem",
+    collapseCatalog: "Sbalit katalog", expandCatalog: "Zobrazit katalog", openDetail: "Podrobnosti cviku", closeDetail: "Zavřít",
+    coachNote: "Poznámka trenéra", noTechnique: "Popis techniky zatím není", videoTitle: "Video", videoPlay: "Přehrát video", videoLink: "Odkaz na YouTube",
+    videoSave: "Uložit odkaz", videoSaved: "Odkaz na video uložen", videoInvalid: "Zadej odkaz na YouTube", videoFailed: "Odkaz se nepodařilo uložit",
+    templatesAll: "Všechny šablony", switchTemplate: "Jiná šablona", newTemplate: "Nová šablona", primaryMuscles: "Hlavní svaly", secondaryMuscles: "Vedlejší", addToTemplate: "Přidat do šablony"
   },
   dashboard: {
     title: "Přehled tréninku", eyebrow: "Síla", weekSets: "Sérií tento týden", tonnage: "Tonáž", sessions: "Tréninků", bestE1rm: "Nejlepší e1RM", volume: "Objem podle svalů", volumeHint: "Sérií týdně; vedlejší svaly za půlku",
