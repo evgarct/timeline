@@ -81,13 +81,30 @@ data class MeasurementDelta(
     }
 }
 
+/**
+ * One reading of an InBody sheet. A reading is identified by key + segment + frequency (the backend rejects duplicates);
+ * `evaluation` is the sheet's own verdict (under / normal / over) and the range is the normal range printed in brackets.
+ */
 @Serializable
 data class InBodyMetric(
     val key: String,
     val label: String,
     val value: Double,
     val unit: String? = null,
-    val category: String? = null
+    val category: String? = null,
+    val referenceMin: Double? = null,
+    val referenceMax: Double? = null,
+    val segment: String? = null,
+    val frequencyKhz: Double? = null,
+    val evaluation: String? = null
+)
+
+/** The original sheet: `assetId` is streamed by `GET api/media/{assetId}` for the signed-in owner. */
+@Serializable
+data class InBodySource(
+    val assetId: String? = null,
+    val mimeType: String? = null,
+    val fileName: String? = null
 )
 
 @Serializable(with = TimelineEventSerializer::class)
@@ -118,7 +135,11 @@ sealed class TimelineEvent {
         override val occurredAt: String,
         override val timezone: String,
         override val note: String?,
-        val metrics: List<InBodyMetric>
+        val metrics: List<InBodyMetric>,
+        val source: InBodySource? = null,
+        /** False while an agent's numbers have not been checked against the sheet. */
+        val reviewed: Boolean = true,
+        val device: String? = null
     ) : TimelineEvent()
 
     data class Workout(
@@ -212,7 +233,16 @@ object TimelineEventSerializer : KSerializer<TimelineEvent> {
                         null
                     }
                 }
-                TimelineEvent.InBody(id, occurredAt, timezone, note, metrics)
+                val source = root["source"]?.jsonObject?.let {
+                    try {
+                        jsonDecoder.json.decodeFromJsonElement(InBodySource.serializer(), it)
+                    } catch (e: Exception) {
+                        null
+                    }
+                }
+                val reviewed = root["extraction"]?.jsonObject?.get("reviewed")?.jsonPrimitive?.booleanOrNull ?: true
+                val device = root["report"]?.jsonObject?.get("device")?.jsonPrimitive?.contentOrNull
+                TimelineEvent.InBody(id, occurredAt, timezone, note, metrics, source, reviewed, device)
             }
             "workout" -> {
                 val completed = root["completed"]?.jsonPrimitive?.booleanOrNull ?: false

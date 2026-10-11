@@ -35,7 +35,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.evgarct.form.R
+import com.evgarct.form.data.models.INBODY_HEADLINE_KEYS
 import com.evgarct.form.data.models.TimelineEvent
+import com.evgarct.form.data.models.delta
+import com.evgarct.form.data.models.displayUnit
+import com.evgarct.form.data.models.formatDelta
+import com.evgarct.form.data.models.formatReading
+import com.evgarct.form.data.models.metric
 import java.text.SimpleDateFormat
 import com.evgarct.form.ui.workout.feedbackLine
 import com.evgarct.form.ui.workout.muscleLabel
@@ -281,10 +287,11 @@ fun TimelineMeasurementsItem(
 }
 
 @Composable
-fun TimelineInBodyItem(event: TimelineEvent.InBody) {
+fun TimelineInBodyItem(event: TimelineEvent.InBody, previous: TimelineEvent.InBody? = null, onClick: () -> Unit = {}) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onClick() }
             .padding(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -302,22 +309,18 @@ fun TimelineInBodyItem(event: TimelineEvent.InBody) {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "InBody Scan",
+                    text = stringResource(R.string.timeline_event_inbody),
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.White
                 )
             }
 
-            val weight = event.metrics.find { it.key.contains("weight", ignoreCase = true) }?.value
-            if (weight != null) {
-                Text(
-                    text = "$weight kg",
-                    fontSize = 20.sp,
-                    fontFamily = FontFamily.Serif,
-                    color = Color.White
-                )
-            }
+            Text(
+                text = formatEventDate(event.occurredAt, event.timezone),
+                fontSize = 14.sp,
+                color = Color.White.copy(alpha = 0.5f)
+            )
         }
 
         // Thin hairline separator
@@ -329,18 +332,20 @@ fun TimelineInBodyItem(event: TimelineEvent.InBody) {
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            event.metrics.take(6).forEach { metric ->
+            // The key numbers with the change since the previous test; the full sheet opens on tap.
+            INBODY_HEADLINE_KEYS.mapNotNull { event.metric(it) }.forEach { metric ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = metric.label,
+                        text = inBodyMetricLabel(metric),
                         fontSize = 15.sp,
                         color = Color.White.copy(alpha = 0.6f)
                     )
                     Text(
-                        text = "${metric.value} ${metric.unit}",
+                        text = "${formatReading(metric.value)} ${metric.displayUnit()}".trim() +
+                            formatDelta(event.delta(previous, metric.key)).let { if (it.isEmpty()) "" else "  $it" },
                         fontSize = 15.sp,
                         fontFamily = FontFamily.Monospace,
                         color = Color.White
