@@ -46,6 +46,8 @@ import com.evgarct.form.ui.nutrition.NutritionScreen
 import com.evgarct.form.ui.nutrition.ProductSearchSheet
 import com.evgarct.form.ui.nutrition.QuantityEditorSheet
 import com.evgarct.form.ui.settings.SettingsSheet
+import com.evgarct.form.data.models.TimelineEvent
+import com.evgarct.form.ui.timeline.InBodyDetailSheet
 import com.evgarct.form.ui.timeline.MeasurementEditorSheet
 import com.evgarct.form.ui.workout.WorkoutScreen
 import com.evgarct.form.ui.timeline.TimelineScreen
@@ -71,6 +73,10 @@ fun RootScreen(
 
     // Measurement editor state
     var showMeasurementEditor by remember { mutableStateOf(false) }
+
+    // InBody test sheet: the opened test and every test (oldest first) for the trend and the previous-test changes
+    data class InBodyState(val event: TimelineEvent.InBody, val tests: List<TimelineEvent.InBody>)
+    var activeInBody by remember { mutableStateOf<InBodyState?>(null) }
 
     // Nutrition sheets state
     data class AddProductState(val mealType: MealType, val date: Date)
@@ -146,7 +152,8 @@ fun RootScreen(
                             activeGallery = GalleryState(id, photos, idx)
                         },
                         onOpenActivityDetail = { selectedTab = AppTab.ACTIVITY },
-                        onOpenNutrition = { selectedTab = AppTab.NUTRITION }
+                        onOpenNutrition = { selectedTab = AppTab.NUTRITION },
+                        onOpenInBody = { event, tests -> activeInBody = InBodyState(event, tests) }
                     )
                 }
                 AppTab.ACTIVITY -> {
@@ -168,7 +175,8 @@ fun RootScreen(
                         onOpenPhotoGallery = { id, photos, idx ->
                             activeGallery = GalleryState(id, photos, idx)
                         },
-                        onOpenMeasurementEditor = { showMeasurementEditor = true }
+                        onOpenMeasurementEditor = { showMeasurementEditor = true },
+                        onOpenInBody = { event, tests -> activeInBody = InBodyState(event, tests) }
                     )
                 }
                 AppTab.EXPORT -> {
@@ -194,6 +202,14 @@ fun RootScreen(
                     initialIndex = gallery.initialIndex,
                     canPinCover = selectedTab == AppTab.TODAY,
                     onDismiss = { activeGallery = null }
+                )
+            }
+
+            activeInBody?.let { state ->
+                InBodyDetailSheet(
+                    event = state.event,
+                    tests = state.tests,
+                    onDismiss = { activeInBody = null }
                 )
             }
 

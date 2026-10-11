@@ -49,7 +49,7 @@ The write contract matches the photo upload: validation before the claim, an ato
 - Today / Timeline row: headline numbers (score, weight, muscle, body fat).
 - Event page (`/events/{id}`): key numbers with the change since the previous test, every printed section with its normal-range bar, the five-segment lean and fat grids, the impedance table, the 30-minute calorie table (folded) and the original (`/api/media/{assetId}?inline=1`).
 - Studio "Body" (`/studio/body`): metric chips, a trend chart across tests, every test with headline numbers and the interval context. WebMCP tools `body_get_view` and `body_select_metric`.
-- Android: see `Documentation/ANDROID_PORT_SPEC.md` (second PR).
+- Android: the Timeline/Today InBody card shows the headline numbers with the change since the previous test; a tap opens `InBodyDetailSheet` (key numbers, a trend chart across tests, the interval context from `GET /api/body/inbody`, every printed section with ranges, segment grids, impedance, and the original, downloaded through the session cookie into the cache and opened with `FileProvider`). Readings come from the events already loaded for the timeline; strings exist in en and ru, readings without a translation keep the backend label.
 
 ## Privacy
 

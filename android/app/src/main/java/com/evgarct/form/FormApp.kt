@@ -15,6 +15,7 @@ import com.evgarct.form.data.cache.ActivityCache
 import com.evgarct.form.data.cache.NutritionCache
 import com.evgarct.form.data.repository.ActivityRepository
 import com.evgarct.form.data.repository.AuthRepository
+import com.evgarct.form.data.repository.BodyCompositionRepository
 import com.evgarct.form.data.repository.HealthConnectRepository
 import com.evgarct.form.data.repository.NutritionRepository
 import com.evgarct.form.data.repository.TimelineRepository
@@ -40,6 +41,8 @@ class FormApp : Application() {
         private set
     lateinit var timelineRepository: TimelineRepository
         private set
+    lateinit var bodyCompositionRepository: BodyCompositionRepository
+        private set
     lateinit var nutritionRepository: NutritionRepository
         private set
     lateinit var healthConnectRepository: HealthConnectRepository
@@ -62,6 +65,7 @@ class FormApp : Application() {
 
         authRepository = AuthRepository(apiClient)
         timelineRepository = TimelineRepository(apiClient)
+        bodyCompositionRepository = BodyCompositionRepository(apiClient, cacheDir)
         healthConnectRepository = HealthConnectRepository(this)
         nutritionRepository = NutritionRepository(apiClient, healthConnectRepository, appPreferences)
         activityRepository = ActivityRepository(apiClient)

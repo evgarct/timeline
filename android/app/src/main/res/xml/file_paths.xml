@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- InBody originals are copied here, opened once, and removed with the cache. -->
+    <cache-path name="inbody" path="inbody/" />
+</paths>

@@ -72,6 +72,8 @@ import com.evgarct.form.core.theme.TextSecondary
 import com.evgarct.form.data.models.NutritionSummary
 import com.evgarct.form.data.models.PhotoItem
 import com.evgarct.form.data.models.TimelineEvent
+import com.evgarct.form.data.models.inBodyTestsOldestFirst
+import com.evgarct.form.data.models.previousOf
 import com.evgarct.form.data.repository.ActivityDataState
 import com.evgarct.form.ui.components.SyncingIndicator
 import com.evgarct.form.ui.timeline.TimelineInBodyItem
@@ -89,7 +91,8 @@ fun TodayScreen(
     onOpenSettings: () -> Unit,
     onOpenPhotoGallery: (String, List<PhotoItem>, Int) -> Unit,
     onOpenActivityDetail: (LocalDate) -> Unit,
-    onOpenNutrition: () -> Unit
+    onOpenNutrition: () -> Unit,
+    onOpenInBody: (TimelineEvent.InBody, List<TimelineEvent.InBody>) -> Unit = { _, _ -> }
 ) {
     val timelineRepo = FormApp.instance.timelineRepository
     val prefs = FormApp.instance.appPreferences
@@ -489,7 +492,12 @@ fun TodayScreen(
                                 TimelineMeasurementsItem(event = event, previous = prev)
                             }
                             is TimelineEvent.InBody -> {
-                                TimelineInBodyItem(event = event)
+                                val tests = events.inBodyTestsOldestFirst()
+                                TimelineInBodyItem(
+                                    event = event,
+                                    previous = tests.previousOf(event),
+                                    onClick = { onOpenInBody(event, tests) }
+                                )
                             }
                             else -> Unit
                         }

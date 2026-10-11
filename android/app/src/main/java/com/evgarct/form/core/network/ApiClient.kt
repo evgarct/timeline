@@ -54,6 +54,19 @@ class ApiClient(
         executeRequest(request)
     }
 
+    /** Raw bytes of a binary response (an uploaded original streamed by the backend), with the same auth handling as [get]. */
+    suspend fun getBytes(path: String): ByteArray = withContext(Dispatchers.IO) {
+        val request = Request.Builder()
+            .url(baseUrl.trimEnd('/') + "/" + path.trimStart('/'))
+            .get()
+            .build()
+        okHttpClient.newCall(request).execute().use { res ->
+            if (res.code == 401) throw SessionExpiredException()
+            if (!res.isSuccessful) throw ApiException(res.code, res.body?.string() ?: "")
+            res.body?.bytes() ?: ByteArray(0)
+        }
+    }
+
     suspend fun postJson(path: String, jsonBody: String): String = withContext(Dispatchers.IO) {
         val url = baseUrl.trimEnd('/') + "/" + path.trimStart('/')
         val body = jsonBody.toRequestBody(jsonMediaType)

@@ -43,13 +43,16 @@ import com.evgarct.form.FormApp
 import com.evgarct.form.R
 import com.evgarct.form.data.models.PhotoItem
 import com.evgarct.form.data.models.TimelineEvent
+import com.evgarct.form.data.models.inBodyTestsOldestFirst
+import com.evgarct.form.data.models.previousOf
 import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Composable
 fun TimelineScreen(
     onOpenPhotoGallery: (String, List<PhotoItem>, Int) -> Unit,
-    onOpenMeasurementEditor: () -> Unit
+    onOpenMeasurementEditor: () -> Unit,
+    onOpenInBody: (TimelineEvent.InBody, List<TimelineEvent.InBody>) -> Unit = { _, _ -> }
 ) {
     val timelineRepo = FormApp.instance.timelineRepository
     val scope = rememberCoroutineScope()
@@ -237,7 +240,12 @@ fun TimelineScreen(
                             TimelineMeasurementsItem(event = event, previous = prev)
                         }
                         is TimelineEvent.InBody -> {
-                            TimelineInBodyItem(event = event)
+                            val tests = events.inBodyTestsOldestFirst()
+                            TimelineInBodyItem(
+                                event = event,
+                                previous = tests.previousOf(event),
+                                onClick = { onOpenInBody(event, tests) }
+                            )
                         }
                         is TimelineEvent.Workout -> {
                             TimelineWorkoutItem(event = event)
