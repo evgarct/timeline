@@ -57,6 +57,8 @@ import { deleteTemplate, duplicateTemplate, getTemplate, listTemplates, planTemp
 import { isTaskCompleted, latestEvent } from "@/domain/timeline";
 import { resolveMcpUser } from "@/data/repository";
 import { listDailyActivity } from "@/data/daily-activity-repository";
+import { createFeedback, listFeedback, updateFeedback } from "@/data/feedback-repository";
+import type { Feedback } from "@/domain/feedback";
 import { parseRange } from "@/lib/agent/range";
 import { specs, type ToolSpec } from "@/lib/agent/specs";
 
@@ -125,8 +127,29 @@ function itemizeText(count: number, noun: string, labels: string[], maxShown = 1
   return `${count} ${noun}: ${shown.join("; ")}${more > 0 ? `; +${more} more` : ""}`;
 }
 
-export function createTimelineMcpServer(userId: string) {
-  const server = new McpServer({ name: "fitness-timeline", version: "0.1.0" });
+export interface McpRequestContext {
+  /** The caller's User-Agent header; the stateless transport does not keep MCP clientInfo between requests. */
+  userAgent?: string | null;
+}
+
+const SERVER_INSTRUCTIONS = "Fitness Timeline: the owner's body timeline, nutrition journal and strength training (exercises, templates, sessions, volume). "
+  + "If any tool failed, was unclear or awkward, lacked something you needed, or worked especially well, call send_feedback (one short entry per point, name the tool, no secrets or raw health data): the owner reads it when improving these tools. "
+  + "Before changing tools or the Studio UI, read open entries with list_feedback.";
+
+function feedbackText(entry: Feedback) {
+  return [
+    `${entry.id} | ${entry.status} | ${entry.category}${entry.severity ? `/${entry.severity}` : ""} | ${entry.tool ?? "-"} | ${entry.createdAt.toISOString().slice(0, 10)} | ${entry.summary}`,
+    entry.details ? `  details: ${entry.details}` : undefined,
+    entry.expected ? `  expected: ${entry.expected}` : undefined,
+    entry.suggestion ? `  suggestion: ${entry.suggestion}` : undefined,
+    entry.toolCalls?.length ? `  calls: ${entry.toolCalls.map((call) => `${call.tool}=${call.outcome}${call.note ? ` (${call.note})` : ""}`).join(", ")}` : undefined,
+    entry.client ? `  client: ${entry.client}` : undefined,
+    entry.resolution ? `  resolution: ${entry.resolution}` : undefined
+  ].filter(Boolean).join("\n");
+}
+
+export function createTimelineMcpServer(userId: string, context: McpRequestContext = {}) {
+  const server = new McpServer({ name: "fitness-timeline", version: "0.1.0" }, { instructions: SERVER_INSTRUCTIONS });
 
   server.registerTool("get_today", {
     title: "Get Today",
@@ -805,6 +828,32 @@ export function createTimelineMcpServer(userId: string) {
     const muscles = Object.entries(preview.byMuscle).sort((a, b) => b[1] - a[1]).map(([muscle, sets]) => `${muscle} ${sets}`);
     const text = `${preview.totalSets} sets in total; per muscle (primary 1, secondary 0.5): ${muscles.join(", ") || "none"}`;
     return result("Template volume preview", text, preview, [], { text });
+  });
+
+  registerSpec(server, specs.send_feedback, async (input) => {
+    try {
+      const { feedback, duplicate } = await createFeedback(userId, { ...input, source: "mcp", client: input.client ?? context.userAgent?.slice(0, 120) });
+      const text = duplicate
+        ? `Already recorded (id: ${feedback.id}); not stored twice.`
+        : `Feedback recorded (id: ${feedback.id}). Thank you; tell the user briefly that you sent it.`;
+      return result("Feedback recorded", text, feedback, [], { id: feedback.id, text });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "feedback_failed";
+      return fail(message === "rate_limited" ? "rate_limited: too many feedback entries this hour; merge your points into fewer entries or try later" : message);
+    }
+  });
+
+  registerSpec(server, specs.list_feedback, async ({ status, category, tool, limit }) => {
+    const entries = await listFeedback(userId, { status, category, tool, limit });
+    const header = entries.length ? `${entries.length} feedback entries (id | status | category/severity | tool | date | summary):` : "No feedback entries";
+    return result("Feedback", header, { items: entries }, [], { text: [header, ...entries.map(feedbackText)].join("\n") });
+  });
+
+  registerSpec(server, specs.update_feedback, async ({ id, status, resolution }) => {
+    if (status === undefined && resolution === undefined) return fail("Pass status and/or resolution.");
+    const updated = await updateFeedback(userId, id, { status, resolution });
+    if (!updated) return fail("feedback_not_found");
+    return result("Feedback updated", updated.summary, updated, [], { id: updated.id, text: feedbackText(updated) });
   });
 
   return server;

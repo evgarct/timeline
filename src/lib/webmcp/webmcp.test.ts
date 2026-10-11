@@ -120,6 +120,21 @@ describe("REST bridge", () => {
     expect((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1]).toMatchObject({ signal: controller.signal });
   });
 
+  it("lets the page add trusted fields to a write body, which the agent cannot override", async () => {
+    const fetchImpl = vi.fn(async () => Response.json({ id: "f1" }, { status: 201 })) as unknown as typeof fetch;
+    const tools = Object.fromEntries(restBridgeTools({
+      fetchImpl,
+      augmentBody: (spec) => (spec.name === "send_feedback" ? { source: "webmcp", page: "/ru/studio" } : undefined)
+    }).map((tool) => [tool.name, tool]));
+    await tools.send_feedback.execute({ category: "works_well", summary: "Builder tools are great", tool: "builder_add_exercise" });
+    const body = JSON.parse(String((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1].body));
+    expect(body).toMatchObject({ category: "works_well", summary: "Builder tools are great", source: "webmcp", page: "/ru/studio" });
+    // The agent-facing schema has no source/page, so a forged value is dropped before the request is built.
+    await tools.send_feedback.execute({ category: "bug", summary: "forged", source: "mcp", page: "/evil" });
+    const forged = JSON.parse(String((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[1][1].body));
+    expect(forged).toMatchObject({ source: "webmcp", page: "/ru/studio" });
+  });
+
   it("exposes only specs with a REST mapping", () => {
     const names = restBridgeTools().map((tool) => tool.name);
     expect(names).toContain("search_exercises");

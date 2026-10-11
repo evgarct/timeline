@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { eventTypeSchema } from "@/domain/events";
+import { feedbackCategorySchema, feedbackInputSchema, feedbackStatusSchema } from "@/domain/feedback";
 import { exerciseInputSchema, movementPatterns, setInputSchema } from "@/domain/exercises";
 import { workoutTemplateInputSchema } from "@/domain/workout-templates";
 
@@ -58,7 +59,10 @@ const meta: Record<string, Pick<ToolSpec, "annotations" | "rest">> = {
   list_events: { annotations: readOnly, rest: { method: "GET", path: "/api/events", query: ["limit", "offset", "type", "from", "to"] } },
   duplicate_workout_template: { annotations: {}, rest: { method: "POST", path: "/api/templates/{id}/duplicate" } },
   list_exercise_alternatives: { annotations: readOnly, rest: { method: "GET", path: "/api/exercises/{exerciseId}/alternatives", query: ["equipment", "limit"] } },
-  preview_template_volume: { annotations: readOnly, rest: { method: "POST", path: "/api/templates/preview-volume" } }
+  preview_template_volume: { annotations: readOnly, rest: { method: "POST", path: "/api/templates/preview-volume" } },
+  send_feedback: { annotations: {}, rest: { method: "POST", path: "/api/feedback" } },
+  list_feedback: { annotations: readOnly, rest: { method: "GET", path: "/api/feedback", query: ["status", "category", "tool", "limit"] } },
+  update_feedback: { annotations: { ...idempotent }, rest: { method: "PUT", path: "/api/feedback/{id}" } }
 };
 
 function spec<Shape extends z.ZodRawShape>(definition: Omit<ToolSpec<Shape>, "annotations" | "rest">): ToolSpec<Shape> {
@@ -248,6 +252,33 @@ export const specs = {
     description: "Read-only: given a draft list of exercises with set counts, return total sets and sets per muscle (primary 1 per set, secondary 0.5, the same counting as get_muscle_volume) without saving anything. Use it to check balance before upsert_workout_template, ideally next to get_muscle_volume for what the user already trains per week.",
     input: z.object({
       exercises: z.array(z.object({ exerciseId: z.string().uuid(), sets: z.number().int().min(1).max(20) })).min(1).max(30)
+    })
+  }),
+  send_feedback: spec({
+    name: "send_feedback",
+    title: "Send feedback about these tools",
+    description: "Tell the owner how these tools worked for you. Call it when a tool failed, behaved unexpectedly, was awkward or slow, lacked something you needed, or worked especially well, and once at the end of a longer task if anything is worth saying. One entry per point: several short entries beat one long essay. category: bug (wrong result or an error), friction (works but is awkward or slow), missing_tool (you needed something that does not exist), works_well (say what to keep), suggestion, other. Always name the tool; say what you did (summary, details), what you expected, and what would be better (suggestion); for a failure include the error code you got. toolCalls may list the calls involved with outcome ok, error or confusing. Do not include secrets or tokens and do not paste personal health data, photos or full session logs: describe the problem instead. You do not need to ask the user first, but tell them briefly that you sent it. The same summary about the same tool is stored once; at most 30 entries per hour.",
+    input: feedbackInputSchema
+  }),
+  list_feedback: spec({
+    name: "list_feedback",
+    title: "Read feedback agents left",
+    description: "Read the feedback agents left about these tools, newest first. Read it BEFORE changing tools, the Studio UI or agent behaviour, and propose fixes for the related open entries (status new or triaged). Filter by status, category or tool. Each entry shows id, status, category, severity, tool, summary, details, expected, suggestion, client and any resolution.",
+    input: z.object({
+      status: feedbackStatusSchema.optional(),
+      category: feedbackCategorySchema.optional(),
+      tool: z.string().trim().min(1).max(128).optional().describe("Only entries about this tool, e.g. list_events"),
+      limit: z.number().int().min(1).max(200).default(50)
+    })
+  }),
+  update_feedback: spec({
+    name: "update_feedback",
+    title: "Triage a feedback entry",
+    description: "Triage one feedback entry (id from list_feedback): set status (new, triaged, done, wontfix) and/or a resolution note saying what was done (for example a PR link) or why it will not be done. Mark an entry done only after the fix has shipped.",
+    input: z.object({
+      id: z.string().uuid(),
+      status: feedbackStatusSchema.optional(),
+      resolution: z.string().trim().max(1000).optional()
     })
   })
 } as const;

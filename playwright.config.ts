@@ -3,6 +3,9 @@ import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
+  // One server holds all demo data in memory and recompiles routes on first use, so parallel files race on it.
+  workers: 1,
+  globalSetup: "./e2e/global-setup.ts",
   use: {
     baseURL: "http://127.0.0.1:3100",
     trace: "on-first-retry"

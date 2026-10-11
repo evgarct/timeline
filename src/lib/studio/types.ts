@@ -57,6 +57,25 @@ export interface RecentWorkoutSession {
   summary: { setCount: number; exerciseCount: number; tonnageKg: number };
 }
 
+export interface FeedbackEntry {
+  id: string;
+  category: "bug" | "friction" | "missing_tool" | "works_well" | "suggestion" | "other";
+  severity?: "low" | "medium" | "high";
+  tool?: string;
+  summary: string;
+  details?: string;
+  expected?: string;
+  suggestion?: string;
+  toolCalls?: Array<{ tool: string; outcome: "ok" | "error" | "confusing"; note?: string }>;
+  source: "mcp" | "webmcp" | "rest";
+  client?: string;
+  page?: string;
+  status: "new" | "triaged" | "done" | "wontfix";
+  resolution?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ExerciseHistory {
   windowSessions: number;
   bestE1rmKg?: number | null;

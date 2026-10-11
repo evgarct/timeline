@@ -22,7 +22,7 @@ async function handle(request: Request) {
       )
     );
   }
-  const server = createTimelineMcpServer(userId);
+  const server = createTimelineMcpServer(userId, { userAgent: request.headers.get("user-agent") });
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true

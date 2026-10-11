@@ -272,3 +272,47 @@ describe("agent tools added with the spec registry", () => {
     expect(isError(await call(client, "get_daily_activity", { from: "2026-08-07", to: "2026-08-01" }))).toBe(true);
   });
 });
+
+describe("send_feedback, list_feedback and update_feedback", () => {
+  const text = (response: unknown) => (response as { content: Array<{ text: string }> }).content[0].text;
+  const isError = (response: unknown) => Boolean((response as { isError?: boolean }).isError);
+  const idIn = (value: string) => value.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)?.[0] as string;
+
+  it("tells agents about the feedback tool in the server instructions", async () => {
+    const client = await connectClient();
+    expect(client.getInstructions()).toContain("send_feedback");
+    const { tools } = await client.listTools();
+    expect(tools.find((tool) => tool.name === "send_feedback")?.description).toContain("at most 30 entries per hour");
+    expect(tools.find((tool) => tool.name === "list_feedback")?.annotations?.readOnlyHint).toBe(true);
+  });
+
+  it("records feedback, reads it back with every field in the text, dedupes and triages", async () => {
+    const client = await connectClient();
+    const sent = text(await client.callTool({ name: "send_feedback", arguments: {
+      category: "friction", severity: "medium", tool: "list_events", summary: "list_events cannot filter by muscle",
+      details: "I wanted only chest workouts", expected: "a muscle filter", suggestion: "add muscleGroup to list_events",
+      toolCalls: [{ tool: "list_events", outcome: "confusing", note: "no muscle field" }], client: "test-agent"
+    } }));
+    expect(sent).toContain("Feedback recorded");
+    const id = idIn(sent);
+
+    const again = text(await client.callTool({ name: "send_feedback", arguments: { category: "friction", tool: "list_events", summary: "List_events cannot filter by muscle" } }));
+    expect(again).toContain("Already recorded");
+    expect(again).toContain(id);
+
+    const listed = text(await client.callTool({ name: "list_feedback", arguments: { tool: "list_events" } }));
+    for (const part of [id, "new", "friction/medium", "I wanted only chest workouts", "a muscle filter", "add muscleGroup to list_events", "list_events=confusing", "test-agent"]) expect(listed).toContain(part);
+
+    const done = text(await client.callTool({ name: "update_feedback", arguments: { id, status: "done", resolution: "Added in PR #123" } }));
+    expect(done).toContain("done");
+    expect(done).toContain("Added in PR #123");
+    expect(text(await client.callTool({ name: "list_feedback", arguments: { status: "new", tool: "list_events" } }))).toBe("No feedback entries");
+    expect(isError(await client.callTool({ name: "update_feedback", arguments: { id } }))).toBe(true);
+    expect(isError(await client.callTool({ name: "update_feedback", arguments: { id: "00000000-0000-4000-8000-000000000321", status: "done" } }))).toBe(true);
+  });
+
+  it("rejects an invalid category through the tool schema", async () => {
+    const client = await connectClient();
+    await expect(client.callTool({ name: "send_feedback", arguments: { category: "rant", summary: "x" } })).resolves.toMatchObject({ isError: true });
+  });
+});

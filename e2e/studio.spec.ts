@@ -12,6 +12,12 @@ async function seedExercises(request: APIRequest) {
 
 type APIRequest = APIRequestContext;
 
+// The dev server compiles a route on its first request and can reload modules, wiping the in-memory demo data.
+// The navigation badge calls /api/feedback, so warm it up before any test seeds data.
+test.beforeEach(async ({ request }) => {
+  await request.get("/api/feedback");
+});
+
 /** The catalog search is a controlled input: a fill before hydration is wiped, so retry until it sticks. */
 async function searchCatalog(page: Page, text: string) {
   const search = page.getByLabel("Найти упражнение");
@@ -35,7 +41,7 @@ test("builds a template: search, add, superset, save", async ({ page, request })
   await expect(page.getByText("Суперсет").first()).toBeVisible();
 
   await page.getByRole("button", { name: "Сохранить", exact: true }).click();
-  await expect(page).toHaveURL(/\/ru\/studio\/templates\/[0-9a-f-]{36}$/);
+  await expect(page).toHaveURL(/\/ru\/studio\/templates\/[0-9a-f-]{36}$/, { timeout: 20_000 });
   // The editor reloads the template from the API, which proves it persisted (and warms the routes the check below hits).
   await expect(page.getByLabel("Название тренировки")).toHaveValue("E2E Push");
 

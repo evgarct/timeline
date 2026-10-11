@@ -7,6 +7,8 @@ export interface BridgeDeps {
   confirm?: (message: string) => Promise<boolean>;
   /** Called after a successful write (POST/PUT/DELETE) so the UI can refresh what it shows. */
   onWrite?: (spec: ToolSpec) => void;
+  /** Extra fields merged into a write's JSON body by the page (e.g. where the feedback came from); never set by the agent. */
+  augmentBody?: (spec: ToolSpec) => Record<string, unknown> | undefined;
 }
 
 /** Builds the request a spec's REST mapping describes. Exported for tests. */
@@ -43,7 +45,10 @@ export function restBridgeTools(deps: BridgeDeps = {}, specs: ToolSpec[] = allSp
     if (spec.annotations.destructiveHint && deps.confirm && !(await deps.confirm(spec.title))) {
       throw new ToolError("user_declined", "The user declined this action.");
     }
-    const { url, method, body } = buildRequest(spec, input);
+    const request = buildRequest(spec, input);
+    const { url, method } = request;
+    const extra = deps.augmentBody?.(spec);
+    const body = extra && request.body && typeof request.body === "object" ? { ...(request.body as Record<string, unknown>), ...extra } : request.body;
     const fetchImpl = deps.fetchImpl ?? fetch;
     const response = await fetchImpl(url, {
       method,
