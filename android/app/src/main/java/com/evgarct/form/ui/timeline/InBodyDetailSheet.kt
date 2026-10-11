@@ -110,6 +110,7 @@ private fun sectionTitle(category: String): String = stringResource(
         "research" -> R.string.inbody_section_research
         "segmental_lean" -> R.string.inbody_section_segmental_lean
         "segmental_fat" -> R.string.inbody_section_segmental_fat
+        "exercise" -> R.string.inbody_section_exercise
         else -> R.string.inbody_section_impedance
     }
 )

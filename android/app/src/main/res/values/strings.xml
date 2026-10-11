@@ -346,6 +346,7 @@
     <string name="inbody_section_segmental_lean">Segmental lean analysis</string>
     <string name="inbody_section_segmental_fat">Segmental fat analysis</string>
     <string name="inbody_section_impedance">Impedance</string>
+    <string name="inbody_section_exercise">Calories burned in 30 minutes</string>
     <string name="inbody_segment_left_arm">Left arm</string>
     <string name="inbody_segment_right_arm">Right arm</string>
     <string name="inbody_segment_trunk">Trunk</string>

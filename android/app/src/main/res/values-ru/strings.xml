@@ -346,6 +346,7 @@
     <string name="inbody_section_segmental_lean">Сегментарный анализ мышц</string>
     <string name="inbody_section_segmental_fat">Сегментарный анализ жира</string>
     <string name="inbody_section_impedance">Импеданс</string>
+    <string name="inbody_section_exercise">Расход калорий за 30 минут</string>
     <string name="inbody_segment_left_arm">Левая рука</string>
     <string name="inbody_segment_right_arm">Правая рука</string>
     <string name="inbody_segment_trunk">Корпус</string>

@@ -16,8 +16,8 @@ val INBODY_TREND_KEYS = listOf(
     "protein", "minerals", "bmi", "visceral_fat_level", "basal_metabolic_rate", "waist_hip_ratio", "smi", "inbody_score"
 )
 
-/** The sections printed on the sheet, in order; segmental, impedance and exercise readings have their own layouts. */
-val INBODY_PLAIN_SECTIONS = listOf("composition", "obesity", "control", "research")
+/** The sections printed on the sheet, in order as plain rows; segmental and impedance readings have their own layouts. */
+val INBODY_PLAIN_SECTIONS = listOf("composition", "obesity", "control", "research", "exercise")
 
 /** The reading for a key (and segment / frequency where the sheet has them), or null when the sheet lacks it. */
 fun TimelineEvent.InBody.metric(key: String, segment: String? = null, frequencyKhz: Double? = null): InBodyMetric? =
