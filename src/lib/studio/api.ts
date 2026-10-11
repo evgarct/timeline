@@ -33,6 +33,33 @@ export function useExerciseCatalog(filter: CatalogFilter) {
   });
 }
 
+export interface NewExerciseInput { name: string; primaryMuscles: string[]; equipment?: string }
+
+const sameName = (a: string, b: string) => a.trim().replace(/\s+/g, " ").toLowerCase() === b.trim().replace(/\s+/g, " ").toLowerCase();
+
+/**
+ * Creates an exercise unless one with the same name already exists. POST /api/exercises upserts by name and
+ * would overwrite the existing row's metadata (secondary muscles, images, technique), and the catalog's own
+ * result list may be filtered, so an unfiltered lookup decides: an existing exercise is returned untouched.
+ */
+export async function createExerciseIfMissing(input: NewExerciseInput): Promise<ExerciseSummary> {
+  const found = await request<ExercisePage>(`/api/exercises?${new URLSearchParams({ query: input.name, pageSize: "30", includeArchived: "true" })}`);
+  const existing = found.items.find((exercise) => sameName(exercise.name, input.name));
+  if (existing) return existing;
+  return request<ExerciseSummary>("/api/exercises", { method: "POST", body: JSON.stringify(input) });
+}
+
+export function useCreateExercise() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: createExerciseIfMissing,
+    onSuccess: () => Promise.all([
+      client.invalidateQueries({ queryKey: ["studio", "exercises"] }),
+      client.invalidateQueries({ queryKey: ["studio", "facets"] })
+    ])
+  });
+}
+
 export const useExerciseFacets = () => useQuery({ queryKey: ["studio", "facets"], queryFn: () => request<ExerciseFacets>("/api/exercises/facets"), staleTime: 60_000 });
 
 export const useTemplates = () => useQuery({ queryKey: ["studio", "templates"], queryFn: async () => (await request<{ items: StoredTemplate[] }>("/api/templates")).items });

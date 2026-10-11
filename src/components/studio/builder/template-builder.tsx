@@ -3,7 +3,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Redo2, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Locale } from "@/i18n/config";
 import { getStudioCopy } from "@/i18n/studio-messages";
@@ -13,7 +13,8 @@ import { spatial } from "@/lib/motion/tokens";
 import { cn } from "@/lib/utils";
 import { StudioButton } from "../ds/primitives";
 import { useReportDirty } from "../unsaved-guard";
-import { builderReducer, initialState, toTemplateInput, type BuilderDoc } from "./builder-state";
+import { toTemplateInput, type BuilderDoc } from "./builder-state";
+import { createBuilderStore, useBuilderState } from "./builder-store";
 import { CanvasPanel } from "./canvas-panel";
 import { CatalogPanel } from "./catalog-panel";
 import { InspectorPanel } from "./inspector-panel";
@@ -31,7 +32,9 @@ function readDraft(): BuilderDoc | undefined {
 export function TemplateBuilder({ locale, templateId, initialDoc }: { locale: Locale; templateId?: string; initialDoc?: BuilderDoc }) {
   const copy = getStudioCopy(locale);
   const router = useRouter();
-  const [state, dispatch] = useReducer(builderReducer, initialDoc, (doc) => initialState(doc));
+  const [store] = useState(() => createBuilderStore(initialDoc));
+  const state = useBuilderState(store);
+  const { dispatch } = store;
   const [pane, setPane] = useState<Pane>("canvas");
   const searchRef = useRef<HTMLInputElement>(null);
   const save = useSaveTemplate();
@@ -43,7 +46,7 @@ export function TemplateBuilder({ locale, templateId, initialDoc }: { locale: Lo
     if (templateId) return;
     const draft = readDraft();
     if (draft?.items.length || draft?.name) dispatch({ type: "load", doc: draft });
-  }, [templateId]);
+  }, [templateId, dispatch]);
 
   useEffect(() => {
     if (templateId || !state.dirty) return;
@@ -53,7 +56,7 @@ export function TemplateBuilder({ locale, templateId, initialDoc }: { locale: Lo
   const add = useCallback((exercise: ExerciseSummary) => {
     dispatch({ type: "add", exercise, key: crypto.randomUUID() });
     setPane("canvas");
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -63,7 +66,7 @@ export function TemplateBuilder({ locale, templateId, initialDoc }: { locale: Lo
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [dispatch]);
 
   useEffect(() => {
     if (!state.dirty) return;
@@ -127,7 +130,7 @@ export function TemplateBuilder({ locale, templateId, initialDoc }: { locale: Lo
           <CatalogPanel copy={copy} onAdd={add} searchRef={searchRef} />
         </section>
         <section aria-label={doc.name || copy.templates.title} className={cn("min-h-0 overflow-y-auto pb-24 pr-1", pane === "canvas" ? "block" : "hidden lg:block")}>
-          <CanvasPanel items={doc.items} copy={copy} dispatch={dispatch} />
+          <CanvasPanel items={doc.items} copy={copy} dispatch={dispatch} onDropExercise={(exercise, index) => dispatch({ type: "add", exercise, key: crypto.randomUUID(), index })} />
         </section>
         <section aria-label={copy.builder.summary} className={cn("min-h-0 overflow-y-auto pb-6", pane === "summary" ? "block" : "hidden lg:block")}>
           <InspectorPanel items={doc.items} copy={copy} />

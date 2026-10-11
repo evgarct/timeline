@@ -3,11 +3,14 @@
 import { AnimatePresence, motion } from "motion/react";
 import { Plus, Search } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { useExerciseCatalog, useExerciseFacets, type CatalogFilter } from "@/lib/studio/api";
+import { toast } from "sonner";
+import { useCreateExercise, useExerciseCatalog, useExerciseFacets, type CatalogFilter } from "@/lib/studio/api";
 import type { ExerciseFacet, ExerciseSummary } from "@/lib/studio/types";
 import { muscleLabel, type StudioCopy } from "@/i18n/studio-messages";
 import { effects, spatial } from "@/lib/motion/tokens";
 import { Chip, Eyebrow, Surface } from "../ds/primitives";
+import { CreateExerciseForm, type NewExercise } from "./create-exercise";
+import { writeDraggedExercise } from "./drag";
 
 function useDebounced<T>(value: T, delay: number) {
   const [debounced, setDebounced] = useState(value);
@@ -40,6 +43,7 @@ function ExerciseTile({ exercise, copy, onAdd }: { exercise: ExerciseSummary; co
   const muscles = (exercise.primaryMuscles ?? exercise.muscleGroups ?? []).map((muscle) => muscleLabel(copy, muscle)).join(" · ");
   return (
     <motion.li layout="position" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={spatial.default}>
+      <div draggable onDragStart={(event) => writeDraggedExercise(event, exercise)} className="cursor-grab active:cursor-grabbing">
       <Surface
         interactive
         tone="container"
@@ -69,6 +73,7 @@ function ExerciseTile({ exercise, copy, onAdd }: { exercise: ExerciseSummary; co
         </div>
         <span className="grid size-8 place-items-center rounded-full bg-[var(--s-primary-container)] text-[var(--s-on-primary-container)] transition-transform group-hover:scale-110"><Plus className="size-4" /></span>
       </Surface>
+      </div>
     </motion.li>
   );
 }
@@ -83,6 +88,17 @@ export function CatalogPanel({ copy, onAdd, searchRef }: { copy: StudioCopy; onA
   const catalog = useExerciseCatalog(filter);
   const facets = useExerciseFacets();
   const items = catalog.data?.pages.flatMap((page) => page.items) ?? [];
+  const createExercise = useCreateExercise();
+  const [creating, setCreating] = useState(false);
+  const hasExactMatch = items.some((exercise) => exercise.name.toLowerCase() === debounced.toLowerCase());
+  const canCreate = Boolean(debounced) && !catalog.isPending && !hasExactMatch;
+
+  function create(input: NewExercise) {
+    createExercise.mutate({ name: input.name, primaryMuscles: [input.primaryMuscle], equipment: input.equipment }, {
+      onSuccess: (exercise) => { setCreating(false); setQuery(""); onAdd(exercise); },
+      onError: () => toast.error(copy.builder.createFailed)
+    });
+  }
 
   const sentinel = useRef<HTMLDivElement>(null);
   const { hasNextPage, isFetchingNextPage, fetchNextPage } = catalog;
@@ -117,6 +133,28 @@ export function CatalogPanel({ copy, onAdd, searchRef }: { copy: StudioCopy; onA
       </div>
 
       <div className="-mx-1 min-h-0 flex-1 overflow-y-auto px-1 pb-4">
+        <AnimatePresence initial={false}>
+          {canCreate && !creating ? (
+            <motion.button
+              key="create-cta"
+              type="button"
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={spatial.fast}
+              onClick={() => setCreating(true)}
+              className="mb-3 flex w-full items-center gap-3 rounded-[var(--s-radius-lg)] bg-[var(--s-primary-container)] p-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--s-primary)]"
+            >
+              <span className="grid size-8 place-items-center rounded-full bg-[var(--s-primary)] text-[var(--s-on-primary)]"><Plus className="size-4" /></span>
+              <span className="min-w-0 truncate text-[15px] font-semibold">{copy.builder.create} “{debounced}”</span>
+            </motion.button>
+          ) : null}
+          {canCreate && creating ? (
+            <div key="create-form" className="mb-3">
+              <CreateExerciseForm copy={copy} defaultName={debounced} muscles={facets.data?.muscles ?? []} equipment={facets.data?.equipment ?? []} pending={createExercise.isPending} onSubmit={create} onCancel={() => setCreating(false)} />
+            </div>
+          ) : null}
+        </AnimatePresence>
         {catalog.isPending ? (
           <ul className="space-y-2" aria-busy>{Array.from({ length: 6 }, (_, index) => <li key={index} className="h-20 animate-pulse rounded-[var(--s-radius-lg)] bg-[var(--s-surface-container)]" />)}</ul>
         ) : (

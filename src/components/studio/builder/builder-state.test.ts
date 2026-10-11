@@ -13,6 +13,15 @@ function withExercises(count: number): BuilderState {
 }
 
 describe("builderReducer", () => {
+  it("inserts at an index, clamping out-of-range values", () => {
+    let state = withExercises(2);
+    state = builderReducer(state, { type: "add", exercise: exercise(9), key: "mid", index: 1 });
+    expect(state.present.items.map((item) => item.key)).toEqual(["k1", "mid", "k2"]);
+    state = builderReducer(state, { type: "add", exercise: exercise(8), key: "first", index: -4 });
+    state = builderReducer(state, { type: "add", exercise: exercise(7), key: "last", index: 99 });
+    expect(state.present.items.map((item) => item.key)).toEqual(["first", "k1", "mid", "k2", "last"]);
+  });
+
   it("adds, patches and removes with undo/redo", () => {
     let state = withExercises(2);
     state = builderReducer(state, { type: "patch", key: "k1", patch: { sets: 5 } });

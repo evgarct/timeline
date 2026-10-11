@@ -1,4 +1,4 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 
 async function seedExercises(request: APIRequest) {
   const make = async (name: string, primaryMuscles: string[], secondaryMuscles: string[]) => {
@@ -12,13 +12,21 @@ async function seedExercises(request: APIRequest) {
 
 type APIRequest = APIRequestContext;
 
+/** The catalog search is a controlled input: a fill before hydration is wiped, so retry until it sticks. */
+async function searchCatalog(page: Page, text: string) {
+  const search = page.getByLabel("Найти упражнение");
+  await expect(async () => {
+    await search.fill(text);
+    await expect(search).toHaveValue(text);
+  }).toPass();
+}
+
 test("builds a template: search, add, superset, save", async ({ page, request }) => {
   await seedExercises(request);
   await page.goto("/ru/studio/templates/new", { waitUntil: "domcontentloaded" });
 
   await page.getByLabel("Название тренировки").fill("E2E Push");
-  const search = page.getByLabel("Найти упражнение");
-  await search.fill("Studio");
+  await searchCatalog(page, "Studio");
   await page.getByRole("button", { name: "Добавить: Studio Bench Press" }).click();
   await page.getByRole("button", { name: "Добавить: Studio Overhead Press" }).click();
 
@@ -42,4 +50,28 @@ test("Studio tokens stay scoped: Today keeps its own background", async ({ page 
   expect(studio).not.toBe("");
   await page.goto("/ru/today", { waitUntil: "domcontentloaded" });
   expect(await page.evaluate(() => document.querySelector('[data-surface="studio"]'))).toBeNull();
+});
+
+test("creates an exercise from the catalog and adds it to the canvas", async ({ page }) => {
+  await page.goto("/ru/studio/templates/new", { waitUntil: "domcontentloaded" });
+  await searchCatalog(page, "Zottman Curl E2E");
+  await page.getByRole("button", { name: /Создать .Zottman Curl E2E./ }).click();
+  await page.getByRole("button", { name: "Бицепс", exact: true }).click();
+  await page.getByRole("form", { name: "Новое упражнение" }).getByRole("button", { name: "Создать", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Убрать: Zottman Curl E2E" })).toBeVisible();
+});
+
+test("dragging a catalog exercise onto the canvas inserts it at the drop position", async ({ page, request }) => {
+  await seedExercises(request);
+  await page.goto("/ru/studio/templates/new", { waitUntil: "domcontentloaded" });
+  await searchCatalog(page, "Studio");
+  await page.getByRole("button", { name: "Добавить: Studio Bench Press" }).click();
+
+  const tile = page.getByRole("button", { name: "Добавить: Studio Overhead Press" });
+  const firstCard = page.locator("[data-card]").first();
+  // Dropping on the upper half of the first card inserts before it.
+  await tile.dragTo(firstCard, { targetPosition: { x: 40, y: 8 } });
+
+  await expect(page.locator("[data-card]")).toHaveCount(2);
+  await expect(page.locator("[data-card]").first()).toContainText("Studio Overhead Press");
 });
