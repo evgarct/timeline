@@ -7,6 +7,8 @@ import com.evgarct.form.data.models.LoadSuggestion
 import com.evgarct.form.data.models.PlannedExerciseDto
 import com.evgarct.form.data.models.ProgressionRule
 import com.evgarct.form.data.models.TemplatePlan
+import com.evgarct.form.data.models.TemplateSchedule
+import com.evgarct.form.data.models.WorkoutTemplate
 import com.evgarct.form.data.models.WorkoutDraft
 import com.evgarct.form.data.models.WorkoutFeedback
 import com.evgarct.form.ui.workout.formatShortDate
@@ -264,5 +266,48 @@ class WorkoutMathTest {
         assertEquals("колено немного ныло", withFeedback.note)
 
         assertNull(done.toRequest(WorkoutFeedback(note = "   "))!!.note)
+    }
+
+    @Test
+    fun coachNoteSurvivesPlanAndSaveAsTemplate() {
+        val plan = TemplatePlan(
+            id = "t1", name = "Push",
+            exercises = listOf(
+                PlannedExerciseDto(
+                    exerciseId = "e1", name = "Bench", note = "  Пауза 1 с на груди  ", repMin = 6, repMax = 10,
+                    videoUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                )
+            )
+        )
+        var n = 0
+        val draft = plan.toDraft("d", 0L, "UTC") { "s${n++}" }
+        assertEquals("Пауза 1 с на груди", draft.exercises[0].coachNote)
+        assertEquals("https://www.youtube.com/watch?v=dQw4w9WgXcQ", draft.exercises[0].videoUrl)
+        // The lifter's own session note stays separate from the trainer's note.
+        assertNull(draft.exercises[0].note)
+
+        val saved = draft.toTemplateRequest("Push")!!
+        assertEquals("Пауза 1 с на груди", saved.exercises[0].note)
+    }
+
+    @Test
+    fun youtubeIdComesFromWatchLinksOnly() {
+        assertEquals("dQw4w9WgXcQ", youtubeVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ"))
+        assertNull(youtubeVideoId("https://example.com/video"))
+    }
+
+    @Test
+    fun schedulePicksTemplatesByWeekdayAndDateRange() {
+        val monday = java.time.LocalDate.of(2026, 10, 5)
+        val templates = listOf(
+            WorkoutTemplate("a", "Mon+Thu", schedule = TemplateSchedule(weekdays = listOf(1, 4))),
+            WorkoutTemplate("b", "Sunday", schedule = TemplateSchedule(weekdays = listOf(0))),
+            WorkoutTemplate("c", "Ended", schedule = TemplateSchedule(weekdays = listOf(1), endDate = "2026-09-30")),
+            WorkoutTemplate("d", "Unscheduled")
+        )
+        assertEquals(listOf("a"), templates.scheduledOn(monday).map { it.id })
+        assertEquals(listOf("b"), templates.scheduledOn(monday.plusDays(6)).map { it.id })
+        assertEquals(listOf("a"), templates.scheduledOn(monday.plusDays(3)).map { it.id })
+        assertEquals(emptyList<String>(), templates.scheduledOn(monday.plusDays(1)).map { it.id })
     }
 }

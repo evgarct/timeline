@@ -68,12 +68,16 @@ import com.evgarct.form.data.models.MuscleVolumeWeek
 import com.evgarct.form.data.models.RecentWorkoutSession
 import com.evgarct.form.data.models.WorkoutTemplate
 import com.evgarct.form.data.models.WorkoutDraft
+import com.evgarct.form.data.workout.scheduledOn
 import com.evgarct.form.data.workout.recordableSetCount
 import com.evgarct.form.data.workout.repsHint
 import com.evgarct.form.data.workout.tonnageKg
 import com.evgarct.form.ui.nutrition.components.SelectAllOnFocusTextField
 import kotlinx.coroutines.delay
+import androidx.compose.ui.platform.testTag
 import java.time.Instant
+import java.time.LocalDate
+import java.time.format.TextStyle as JavaTextStyle
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -213,6 +217,15 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
             )
         }
 
+        if (viewModel.templates.any { it.schedule != null }) {
+            ScheduleSection(
+                templates = viewModel.templates,
+                today = remember { LocalDate.now() },
+                startingId = viewModel.startingTemplateId,
+                onStart = viewModel::startFromTemplate
+            )
+        }
+
         if (viewModel.templates.isNotEmpty()) {
             TemplatesSection(
                 templates = viewModel.templates,
@@ -299,6 +312,70 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
                 TextButton(onClick = { pendingDelete = null }) { Text(stringResource(R.string.common_cancel)) }
             }
         )
+    }
+}
+
+/** What the program plans: the templates for today (tap to start) and a Monday-first overview of the week. */
+@Composable
+internal fun ScheduleSection(
+    templates: List<WorkoutTemplate>,
+    today: LocalDate,
+    startingId: String?,
+    onStart: (String) -> Unit
+) {
+    val colorScheme = MaterialTheme.colorScheme
+    val todays = templates.scheduledOn(today)
+    val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.testTag("schedule_section")) {
+        Eyebrow(stringResource(R.string.workout_schedule_today))
+        if (todays.isEmpty()) {
+            Text(stringResource(R.string.workout_schedule_rest), fontSize = 15.sp, color = colorScheme.onSurfaceVariant)
+        } else {
+            todays.forEach { template ->
+                key(template.id) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(colorScheme.secondaryContainer)
+                            .clickable(enabled = startingId == null) { onStart(template.id) }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            template.name,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = colorScheme.onSecondaryContainer,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = colorScheme.onSecondaryContainer)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Eyebrow(stringResource(R.string.workout_schedule_week))
+        (0..6).forEach { offset ->
+            val date = monday.plusDays(offset.toLong())
+            val names = templates.scheduledOn(date).joinToString(" · ") { it.name }
+            key(date) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        date.dayOfWeek.getDisplayName(JavaTextStyle.SHORT, Locale.getDefault()),
+                        fontSize = 14.sp,
+                        fontWeight = if (date == today) FontWeight.Bold else FontWeight.Medium,
+                        color = if (date == today) colorScheme.primary else colorScheme.onSurfaceVariant,
+                        modifier = Modifier.width(36.dp)
+                    )
+                    Text(
+                        names.ifEmpty { "—" },
+                        fontSize = 14.sp,
+                        color = if (names.isEmpty()) colorScheme.onSurfaceVariant.copy(alpha = 0.5f) else colorScheme.onBackground
+                    )
+                }
+            }
+        }
     }
 }
 

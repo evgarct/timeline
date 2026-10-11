@@ -28,6 +28,7 @@ import com.evgarct.form.data.models.RecentExercise
 import com.evgarct.form.data.models.RecentWorkoutSession
 import com.evgarct.form.data.models.SessionSummary
 import com.evgarct.form.data.models.TemplateExerciseDto
+import com.evgarct.form.data.models.TemplateSchedule
 import com.evgarct.form.data.models.WorkoutDraft
 import com.evgarct.form.data.models.WorkoutFeedback
 import com.evgarct.form.data.models.WorkoutTemplate
@@ -174,6 +175,40 @@ class WorkoutScreenshotTest {
         fixtureDraft().let { d -> d.copy(exercises = d.exercises.mapIndexed { i, e -> if (i == 0) e.copy(note = "Лопатки сведены") else e }) }
     ) {
         save("dark-note")
+    }
+
+    @Test
+    fun darkCoachNoteAndVideo() = darkWorkout(
+        fixtureDraft().let { d ->
+            d.copy(exercises = d.exercises.mapIndexed { i, e ->
+                if (i == 0) e.copy(
+                    coachNote = "Пауза 1 секунда на груди, локти под 45°. Если последний подход идёт легко — прибавь 2,5 кг в следующий раз. Дыхание: вдох на опускании, выдох на жиме.",
+                    videoUrl = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                ) else e
+            })
+        }
+    ) {
+        save("dark-coach-note")
+        rule.onAllNodesWithTag("exercise-media")[0].performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText(string(R.string.workout_watch_video)).assertExists()
+    }
+
+    @Test
+    fun scheduleSection() {
+        val templates = listOf(
+            WorkoutTemplate("t1", "Push A", schedule = TemplateSchedule(weekdays = listOf(1, 4))),
+            WorkoutTemplate("t2", "Pull B", schedule = TemplateSchedule(weekdays = listOf(2, 5))),
+            WorkoutTemplate("t3", "Legs", schedule = TemplateSchedule(weekdays = listOf(3), startDate = "2026-10-01", endDate = "2026-11-30"))
+        )
+        rule.setContent {
+            FormTheme {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    ScheduleSection(templates = templates, today = java.time.LocalDate.of(2026, 10, 8), startingId = null, onStart = {})
+                }
+            }
+        }
+        save("schedule")
     }
 
     @Test

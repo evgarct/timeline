@@ -9,7 +9,9 @@ import com.evgarct.form.data.models.WorkoutFeedback
 import com.evgarct.form.data.models.WorkoutTemplateRequest
 import com.evgarct.form.data.models.WorkoutSessionRequest
 import com.evgarct.form.data.models.WorkoutSetDto
+import com.evgarct.form.data.models.WorkoutTemplate
 import java.time.Instant
+import java.time.LocalDate
 import kotlin.math.round
 
 /** Epley estimate; only meaningful for a positive load and 1..12 reps (matches the server). */
@@ -116,6 +118,8 @@ fun TemplatePlan.toDraft(
             equipment = planned.equipment,
             images = planned.images,
             instructions = planned.instructions,
+            coachNote = planned.note?.trim()?.ifEmpty { null },
+            videoUrl = planned.videoUrl,
             lastDate = planned.lastDate,
             lastSets = planned.lastSets,
             groupLabel = planned.groupLabel,
@@ -151,8 +155,26 @@ fun WorkoutDraft.toTemplateRequest(name: String): WorkoutTemplateRequest? {
                 targetRir = exercise.targetRir,
                 groupId = exercise.sets.firstNotNullOfOrNull { it.groupId },
                 groupLabel = exercise.groupLabel,
-                progression = exercise.progression
+                progression = exercise.progression,
+                // The trainer's note rides along, otherwise re-saving a template from the phone would wipe it.
+                note = exercise.coachNote
             )
         }
     )
+}
+
+/** The 11-character id of a YouTube watch link (`v=` parameter), or null for anything else. */
+fun youtubeVideoId(url: String): String? =
+    Regex("""[?&]v=([A-Za-z0-9_-]{11})""").find(url)?.groupValues?.get(1)
+
+/** Templates trained on [date] (by weekday and date range), in the order the server returned them. */
+fun List<WorkoutTemplate>.scheduledOn(date: LocalDate): List<WorkoutTemplate> {
+    val weekday = date.dayOfWeek.value % 7 // java: Monday = 1 ... Sunday = 7; the schedule uses Sunday = 0
+    val day = date.toString()
+    return filter { template ->
+        val schedule = template.schedule ?: return@filter false
+        !template.isArchived && weekday in schedule.weekdays &&
+            (schedule.startDate == null || day >= schedule.startDate) &&
+            (schedule.endDate == null || day <= schedule.endDate)
+    }
 }

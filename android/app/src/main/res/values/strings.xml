@@ -281,6 +281,14 @@
     <string name="muscle_other">Other</string>
     <string name="timeline_event_workout">Workout</string>
     <string name="workout_templates_title">Templates</string>
+    <string name="workout_schedule_today">Planned for today</string>
+    <string name="workout_schedule_rest">Nothing planned today</string>
+    <string name="workout_schedule_week">This week</string>
+    <string name="workout_coach_note">Coach\'s note</string>
+    <string name="workout_show_more">More</string>
+    <string name="workout_show_less">Less</string>
+    <string name="workout_video">Video</string>
+    <string name="workout_watch_video">Watch video</string>
     <string name="workout_template_exercises">%1$d exercises</string>
     <string name="workout_template_start_error">Could not start from this template</string>
     <string name="workout_template_saved">Template saved</string>

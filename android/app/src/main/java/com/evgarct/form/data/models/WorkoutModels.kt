@@ -13,6 +13,7 @@ data class Exercise(
     val equipment: String? = null,
     val images: List<String> = emptyList(),
     val instructions: List<String> = emptyList(),
+    val videoUrl: String? = null,
     val isArchived: Boolean = false
 )
 
@@ -150,12 +151,21 @@ data class TemplateExerciseDto(
     val note: String? = null
 )
 
+/** Which weekdays a template is trained (JS getDay: 0 = Sunday ... 6 = Saturday), optionally within a date range (yyyy-MM-dd). */
+@Serializable
+data class TemplateSchedule(
+    val weekdays: List<Int> = emptyList(),
+    val startDate: String? = null,
+    val endDate: String? = null
+)
+
 @Serializable
 data class WorkoutTemplate(
     val id: String,
     val name: String,
     val note: String? = null,
     val exercises: List<TemplateExerciseDto> = emptyList(),
+    val schedule: TemplateSchedule? = null,
     val isArchived: Boolean = false
 )
 
@@ -184,6 +194,7 @@ data class PlannedExerciseDto(
     val equipment: String? = null,
     val images: List<String> = emptyList(),
     val instructions: List<String> = emptyList(),
+    val videoUrl: String? = null,
     val sets: Int = 3,
     val weightKg: Double? = null,
     val repMin: Int? = null,
@@ -192,6 +203,8 @@ data class PlannedExerciseDto(
     val groupId: String? = null,
     val groupLabel: String? = null,
     val progression: ProgressionRule? = null,
+    // The coach's note for this exercise in the program (written by the trainer/agent, not the lifter).
+    val note: String? = null,
     val lastDate: String? = null,
     val lastSets: List<LastSetDto> = emptyList(),
     val suggestion: LoadSuggestion = LoadSuggestion()
@@ -237,6 +250,9 @@ data class DraftExercise(
     val lastSets: List<LastSetDto> = emptyList(),
     // Free-text note for this exercise ("Заметки +"); uploaded as the note of its first recorded set.
     val note: String? = null,
+    // The trainer's note from the template: always shown on the card and saved back with "save as template".
+    val coachNote: String? = null,
+    val videoUrl: String? = null,
     // Superset tab text from the template (groups themselves are the sets' groupId).
     val groupLabel: String? = null,
     // Prescription copied from a template (all optional; absent for ad-hoc exercises).
