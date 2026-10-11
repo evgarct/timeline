@@ -1,3 +1,4 @@
+import { youtubeUrlSchema } from "./youtube";
 import { z } from "zod";
 import { normalizeProductText } from "./nutrition";
 
@@ -22,6 +23,9 @@ export const externalRefSchema = z.object({
   id: z.string().trim().min(1).max(200)
 });
 
+/** Longest technique step we store or accept (free-exercise-db has steps well over the old 600). */
+export const MAX_INSTRUCTION_STEP_CHARS = 2000;
+
 export const exerciseInputSchema = z.object({
   id: z.string().uuid().optional(),
   name: z.string().trim().min(1).max(200),
@@ -31,7 +35,9 @@ export const exerciseInputSchema = z.object({
   movementPattern: z.enum(movementPatterns).optional(),
   equipment: z.string().trim().min(1).max(60).optional(),
   images: z.array(z.string().url().refine((value) => value.startsWith("https://"), "images_must_be_https")).max(4).optional(),
-  instructions: z.array(z.string().trim().min(1).max(600)).max(20).optional(),
+  instructions: z.array(z.string().trim().min(1).max(MAX_INSTRUCTION_STEP_CHARS)).max(20).optional(),
+  // Optional how-to video (YouTube only); stored as the canonical watch URL.
+  videoUrl: youtubeUrlSchema.optional(),
   isArchived: z.boolean().default(false),
   searchAliases: z.array(z.string().trim().min(1).max(120)).max(20).default([]),
   externalRef: externalRefSchema.optional()

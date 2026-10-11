@@ -16,7 +16,7 @@ const ru = {
     allow: "Разрешить", deny: "Отклонить", remember: "Больше не спрашивать про сохранение шаблонов",
     saveConfirm: "Агент хочет сохранить шаблон «{name}»", actionConfirm: "Агент хочет выполнить: {action}",
     leaveConfirm: "Агент хочет открыть другую страницу. Несохранённые правки будут потеряны.",
-    allowSaveOn: "Агент сохраняет без вопросов", allowSaveOff: "Агент спрашивает перед сохранением", close: "Закрыть",
+    allowSaveOn: "Агент меняет данные без вопросов", allowSaveOff: "Агент спрашивает перед изменением данных", close: "Закрыть",
     actions: {
       studio_navigate: "Открыл страницу", builder_set_name: "Назвал шаблон", builder_add_exercise: "Добавил упражнение",
       builder_create_exercise: "Создал упражнение", builder_remove_exercise: "Убрал упражнение", builder_move_exercise: "Переставил упражнение",
@@ -68,7 +68,7 @@ const en: StudioCopy = {
     allow: "Allow", deny: "Decline", remember: "Don't ask again before saving templates",
     saveConfirm: "The agent wants to save the template “{name}”", actionConfirm: "The agent wants to: {action}",
     leaveConfirm: "The agent wants to open another page. Unsaved changes will be lost.",
-    allowSaveOn: "The agent saves without asking", allowSaveOff: "The agent asks before saving", close: "Close",
+    allowSaveOn: "The agent changes data without asking", allowSaveOff: "The agent asks before changing data", close: "Close",
     actions: {
       studio_navigate: "Opened a page", builder_set_name: "Named the template", builder_add_exercise: "Added an exercise",
       builder_create_exercise: "Created an exercise", builder_remove_exercise: "Removed an exercise", builder_move_exercise: "Moved an exercise",
@@ -118,7 +118,7 @@ const cs: StudioCopy = {
     allow: "Povolit", deny: "Odmítnout", remember: "Před ukládáním šablon se příště neptat",
     saveConfirm: "Agent chce uložit šablonu „{name}“", actionConfirm: "Agent chce provést: {action}",
     leaveConfirm: "Agent chce otevřít jinou stránku. Neuložené změny budou ztraceny.",
-    allowSaveOn: "Agent ukládá bez ptaní", allowSaveOff: "Agent se před uložením ptá", close: "Zavřít",
+    allowSaveOn: "Agent mění data bez ptaní", allowSaveOff: "Agent se před změnou dat ptá", close: "Zavřít",
     actions: {
       studio_navigate: "Otevřel stránku", builder_set_name: "Pojmenoval šablonu", builder_add_exercise: "Přidal cvik",
       builder_create_exercise: "Vytvořil cvik", builder_remove_exercise: "Odebral cvik", builder_move_exercise: "Přesunul cvik",

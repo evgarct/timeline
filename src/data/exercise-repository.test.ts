@@ -308,6 +308,35 @@ describe("memory exercise repository", () => {
     expect((await repository.searchExercises(userId, "zercher", 1, 30, true)).items).toHaveLength(1);
   });
 
+  it("merges into an existing exercise: omitted fields keep their stored values and the result says what happened", async () => {
+    const first = await repository.upsertExerciseDetailed(userId, {
+      name: "Merge Row", primaryMuscles: ["lats"], searchAliases: ["merge rowing"], instructions: ["Pull."]
+    });
+    expect(first.created).toBe(true);
+
+    const second = await repository.upsertExerciseDetailed(userId, {
+      name: "Merge Row", videoUrl: "https://youtu.be/dQw4w9WgXcQ"
+    });
+    expect(second.created).toBe(false);
+    expect(second.matchedBy).toBe("name");
+    expect(second.changedFields).toEqual(["videoUrl"]);
+    expect(second.exercise.id).toBe(first.exercise.id);
+    expect(second.exercise.videoUrl).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
+    expect(second.exercise.searchAliases).toEqual(["merge rowing"]);
+    expect(second.exercise.instructions).toEqual(["Pull."]);
+    expect(second.exercise.primaryMuscles).toEqual(["lats"]);
+  });
+
+  it("builds search items without technique steps but with image and video flags", async () => {
+    const saved = await repository.upsertExercise(userId, {
+      name: "Compact Fly", images: ["https://cdn.example.test/a.jpg"], instructions: ["Step."], videoUrl: "https://youtu.be/dQw4w9WgXcQ"
+    });
+    const item = repository.exerciseSearchItem(saved);
+    expect(item).toMatchObject({ imageCount: 1, hasVideo: true });
+    expect(item).not.toHaveProperty("instructions");
+    expect(item).not.toHaveProperty("images");
+  });
+
   it("returns an empty session list for a day with no workout", async () => {
     expect(await repository.getWorkoutsForDate(userId, "2026-01-01", "Europe/Prague")).toEqual([]);
   });

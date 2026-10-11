@@ -2,6 +2,9 @@
 // GIFs and videos belong to Gym visual and must never be copied) onto Form's exercise catalog.
 // Kept dependency-free so the seed script can import it directly under Node.
 
+/** Mirrors MAX_INSTRUCTION_STEP_CHARS in exercises.ts (this file must stay import-free). */
+const MAX_INSTRUCTION_STEP_CHARS = 2000;
+
 export interface DatasetExercise {
   id: string;
   name: string;
@@ -142,7 +145,7 @@ export function mapFreeExercise(row: FreeExerciseRow, commitSha: string): Catalo
     movementPattern: inferMovementPattern(row.name, primaryMuscles),
     equipment,
     images: (row.images ?? []).slice(0, 4).map((path) => `${base}${path}`),
-    instructions: (row.instructions ?? []).map((step) => step.trim()).filter(Boolean).slice(0, 20),
+    instructions: (row.instructions ?? []).map((step) => step.trim().slice(0, MAX_INSTRUCTION_STEP_CHARS)).filter(Boolean).slice(0, 20),
     externalRef: { source: freeExerciseSource, id: row.id }
   };
 }

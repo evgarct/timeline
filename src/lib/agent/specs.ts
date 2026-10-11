@@ -2,7 +2,7 @@ import { z } from "zod";
 import { eventTypeSchema } from "@/domain/events";
 import { feedbackCategorySchema, feedbackInputSchema, feedbackStatusSchema } from "@/domain/feedback";
 import { exerciseInputSchema, movementPatterns, setInputSchema } from "@/domain/exercises";
-import { workoutTemplateInputSchema } from "@/domain/workout-templates";
+import { templatePatchSchema, workoutTemplateInputSchema } from "@/domain/workout-templates";
 
 /**
  * One definition per agent tool, shared by every surface: the MCP server registers from it, the WebMCP bridge
@@ -16,7 +16,7 @@ export interface ToolAnnotations {
 }
 
 export interface ToolRest {
-  method: "GET" | "POST" | "PUT" | "DELETE";
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   /** Path with {param} placeholders filled from input fields of the same name. */
   path: string;
   /** Input fields sent as query parameters (GET/DELETE); everything else not in the path goes in the JSON body. */
@@ -60,6 +60,8 @@ const meta: Record<string, Pick<ToolSpec, "annotations" | "rest">> = {
   duplicate_workout_template: { annotations: {}, rest: { method: "POST", path: "/api/templates/{id}/duplicate" } },
   list_exercise_alternatives: { annotations: readOnly, rest: { method: "GET", path: "/api/exercises/{exerciseId}/alternatives", query: ["equipment", "limit"] } },
   preview_template_volume: { annotations: readOnly, rest: { method: "POST", path: "/api/templates/preview-volume" } },
+  update_workout_template: { annotations: { ...idempotent }, rest: { method: "PATCH", path: "/api/templates/{id}" } },
+  get_week_plan: { annotations: readOnly, rest: { method: "GET", path: "/api/schedule/week", query: ["start", "timezone"] } },
   send_feedback: { annotations: {}, rest: { method: "POST", path: "/api/feedback" } },
   list_feedback: { annotations: readOnly, rest: { method: "GET", path: "/api/feedback", query: ["status", "category", "tool", "limit"] } },
   update_feedback: { annotations: { ...idempotent }, rest: { method: "PUT", path: "/api/feedback/{id}" } }
@@ -84,7 +86,7 @@ export const specs = {
   search_exercises: spec({
     name: "search_exercises",
     title: "Search the exercise database",
-    description: "Search the ready exercise database (about 880 exercises from the open free-exercise-db, each with muscles, equipment, movement pattern, two photos and step-by-step technique) plus the user's own additions. THIS IS THE SOURCE FOR BUILDING WORKOUTS: pick exercises from here and use their ids in upsert_workout_template / record_workout_session; do not create new exercises (upsert_exercise) unless nothing fits. query is matched word by word in any order against names and aliases (English names, plus the owner's own wording such as Russian aliases), e.g. \"incline press\"; leave it empty to browse by filter. Filters (all optional, combined with AND): muscle = canonical PRIMARY muscle id, equipment, movementPattern — call list_exercise_filters for the valid values. Each result line shows primary/secondary muscles, equipment, pattern and the id; call get_exercise for the technique steps.",
+    description: "Search the ready exercise database (about 880 exercises from the open free-exercise-db, each with muscles, equipment, movement pattern, two photos and step-by-step technique) plus the user's own additions. THIS IS THE SOURCE FOR BUILDING WORKOUTS: pick exercises from here and use their ids in upsert_workout_template / record_workout_session; do not create new exercises (upsert_exercise) unless nothing fits. query is matched word by word in any order against names and aliases (English names, plus the owner's own wording such as Russian aliases), e.g. \"incline press\"; leave it empty to browse by filter. Filters (all optional, combined with AND): muscle = canonical PRIMARY muscle id, equipment, movementPattern — call list_exercise_filters for the valid values. Each result line shows primary/secondary muscles, equipment, pattern and the id. Results are compact (no technique steps or photos; imageCount and hasVideo say whether they exist): call get_exercise for the technique, photos and video link.",
     input: z.object({
     query: z.string().default(""),
     muscle: z.string().optional().describe("Primary muscle id, e.g. chest, quads, lats, shoulders, abs (see list_exercise_filters)"),
@@ -97,7 +99,7 @@ export const specs = {
   get_exercise: spec({
     name: "get_exercise",
     title: "Get one exercise with technique",
-    description: "Full detail of one exercise from the database: muscles, equipment, movement pattern, numbered technique steps and photo URLs. Use it to explain how to perform an exercise or to choose between candidates from search_exercises.",
+    description: "Full detail of one exercise from the database: muscles, equipment, movement pattern, numbered technique steps, photo URLs and the video link (videoUrl) when there is one. Use it to explain how to perform an exercise or to choose between candidates from search_exercises.",
     input: z.object({ exerciseId: z.string().uuid() })
   }),
   list_exercise_filters: spec({
@@ -109,7 +111,7 @@ export const specs = {
   upsert_exercise: spec({
     name: "upsert_exercise",
     title: "Create or update a personal exercise",
-    description: "Last resort: only use this when search_exercises found nothing suitable in the ready exercise database (the owner does not want exercises hand-created each time). Save an exercise to the user's personal catalog, avoiding duplicates: an explicit id updates that exercise; otherwise an exact externalRef match (a stable id from a source like \"trainero\") is reused if present, else an exact normalized-name match is reused, else a new exercise is created. An ambiguous_exercise error means more than one existing exercise matched by exact name — resolve it with search_exercises and pass an explicit id instead of retrying blindly. Fill primaryMuscles/secondaryMuscles with lowercase canonical muscle names (e.g. chest, back, quads, hamstrings, glutes, shoulders, biceps, triceps, calves, abs), movementPattern (squat|hinge|push|pull|lunge|carry|core|other) and equipment when known — weekly per-muscle volume is computed from them (primary sets count 1, secondary 0.5). Set isArchived: true to hide an exercise from search instead of deleting it (history is kept). Pass images (up to 4 absolute https URLs, e.g. the two frames of an exercise photo) to show a picture of the exercise in the app.",
+    description: "Last resort: only use this when search_exercises found nothing suitable in the ready exercise database (the owner does not want exercises hand-created each time). Save an exercise to the user's personal catalog, avoiding duplicates: an explicit id updates that exercise; otherwise an exact externalRef match (a stable id from a source like \"trainero\") is reused if present, else an exact normalized-name match is reused, else a new exercise is created. An ambiguous_exercise error means more than one existing exercise matched by exact name — resolve it with search_exercises and pass an explicit id instead of retrying blindly. Fill primaryMuscles/secondaryMuscles with lowercase canonical muscle names (e.g. chest, back, quads, hamstrings, glutes, shoulders, biceps, triceps, calves, abs), movementPattern (squat|hinge|push|pull|lunge|carry|core|other) and equipment when known — weekly per-muscle volume is computed from them (primary sets count 1, secondary 0.5). Set isArchived: true to hide an exercise from search instead of deleting it (history is kept). Pass images (up to 4 absolute https URLs, e.g. the two frames of an exercise photo) to show a picture of the exercise in the app. An optional videoUrl (a YouTube link) is shown with the exercise in the app and in Studio. A call that matches an existing exercise (by id, externalRef or exact name) is a MERGE: every field you do not send keeps its stored value (photos, technique, aliases, archived flag), and the result says whether the exercise was created or matched and which fields changed.",
     input: z.object({ exercise: exerciseInputSchema })
   }),
   record_workout_session: spec({
@@ -252,6 +254,21 @@ export const specs = {
     description: "Read-only: given a draft list of exercises with set counts, return total sets and sets per muscle (primary 1 per set, secondary 0.5, the same counting as get_muscle_volume) without saving anything. Use it to check balance before upsert_workout_template, ideally next to get_muscle_volume for what the user already trains per week.",
     input: z.object({
       exercises: z.array(z.object({ exerciseId: z.string().uuid(), sets: z.number().int().min(1).max(20) })).min(1).max(30)
+    })
+  }),
+  update_workout_template: spec({
+    name: "update_workout_template",
+    title: "Change part of a workout template",
+    description: "Change part of a template without resending its exercises (upsert_workout_template replaces the whole list). Template level: name, note, isArchived, and schedule = which weekdays the template is trained (weekdays use 0 = Sunday ... 6 = Saturday, optional startDate/endDate YYYY-MM-DD for a block such as 8 weeks; schedule null removes it). Exercise level: exercises = a list of changes, each addressed by 0-based index or by exerciseId (first match), setting any of sets, weightKg, repMin, repMax, targetRir, groupId, groupLabel, progression or note (null clears an optional field). Read the template first (get_template) to know the indexes. Use upsert_workout_template to add, remove or reorder exercises.",
+    input: z.object({ id: z.string().uuid(), ...templatePatchSchema.shape })
+  }),
+  get_week_plan: spec({
+    name: "get_week_plan",
+    title: "Get the training week plan",
+    description: "The training week (Monday first) in the user's timezone: per day which templates are scheduled (from each template's schedule), the sessions actually logged, and a status: planned (ahead or today), done, missed (scheduled in the past, nothing logged), extra (logged on an unscheduled day) or free (nothing planned, nothing logged). summary.unplannedDays lists the days with no plan: use it to see which weekdays are not planned, then set schedules with update_workout_template. start is any date in the wanted week (default: this week).",
+    input: z.object({
+      start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Any date (YYYY-MM-DD) in the wanted week; default is the current week"),
+      timezone: z.string().min(1).default("UTC").describe("IANA timezone that defines the days, e.g. Europe/Prague")
     })
   }),
   send_feedback: spec({

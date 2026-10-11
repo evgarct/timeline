@@ -17,7 +17,8 @@ import {
   type WorkoutSet
 } from "@/domain/exercises";
 import { workoutEventSchema, type TimelineEvent } from "@/domain/events";
-import { muscleSetTotals, primaryMusclesOf } from "@/domain/muscle-sets";
+import { muscleSetTotals, primaryMusclesOf, rollupMuscle } from "@/domain/muscle-sets";
+import { MAX_INSTRUCTION_STEP_CHARS } from "@/domain/exercises";
 
 interface MemoryExercise extends Exercise {
   userId: string;
@@ -42,7 +43,9 @@ function exerciseFromRow(row: typeof exercises.$inferSelect): Exercise {
     movementPattern: row.movementPattern ?? undefined,
     equipment: row.equipment ?? undefined,
     images: row.images ?? undefined,
-    instructions: row.instructions ?? undefined,
+    // One over-long step (seeded data is not validated) must not make a whole page of results fail to parse.
+    instructions: row.instructions?.slice(0, 20).map((step) => step.slice(0, MAX_INSTRUCTION_STEP_CHARS)),
+    videoUrl: row.videoUrl ?? undefined,
     isArchived: row.isArchived,
     searchAliases: row.searchAliases,
     externalRef: row.externalSource && row.externalId
@@ -144,21 +147,40 @@ async function getExerciseByExternalRef(userId: string, source: string, external
   return row ? exerciseFromRow(row) : undefined;
 }
 
+export interface UpsertExerciseResult {
+  exercise: Exercise;
+  created: boolean;
+  /** How an existing exercise was found (absent when a new one was created). */
+  matchedBy?: "id" | "externalRef" | "name";
+  /** Fields whose stored value differs from before (everything for a new exercise). */
+  changedFields: string[];
+}
+
+const upsertFields = [
+  "name", "muscleGroups", "primaryMuscles", "secondaryMuscles", "movementPattern", "equipment", "images", "instructions",
+  "videoUrl", "isArchived", "searchAliases", "externalRef"
+] as const;
+
 // Dedup precedence mirrors upsertProduct: explicit id, then externalRef (exact, if the caller has a
 // stable third-party id), then exact normalized name — ambiguous exact-name matches are refused
-// rather than guessed, same as products.
-export async function upsertExercise(userId: string, rawInput: ExerciseInput) {
+// rather than guessed, same as products. A match is a MERGE: fields the caller did not send keep their stored
+// value (the seeded catalog rows carry photos and technique that a sparse call must not wipe), and the result says
+// whether the exercise was created or matched, and what changed.
+export async function upsertExerciseDetailed(userId: string, rawInput: ExerciseInput): Promise<UpsertExerciseResult> {
   const input = exerciseInputSchema.parse(rawInput);
+  const given = (key: keyof ExerciseInput) => (rawInput as Record<string, unknown>)[key] !== undefined;
   const normalizedName = normalizeExerciseText(input.name);
-  const normalizedSearchAliases = input.searchAliases.length
-    ? input.searchAliases.map(normalizeExerciseText).join(" | ")
-    : undefined;
   const now = new Date();
 
   let existing: Exercise | undefined;
-  if (input.id) existing = await getExercise(userId, input.id);
+  let matchedBy: UpsertExerciseResult["matchedBy"];
+  if (input.id) {
+    existing = await getExercise(userId, input.id);
+    if (existing) matchedBy = "id";
+  }
   if (!existing && input.externalRef) {
     existing = await getExerciseByExternalRef(userId, input.externalRef.source, input.externalRef.id);
+    if (existing) matchedBy = "externalRef";
   }
   if (!existing && !input.externalRef) {
     // Archived exercises still count: re-submitting an archived name must reuse it, not fork its history.
@@ -166,23 +188,39 @@ export async function upsertExercise(userId: string, rawInput: ExerciseInput) {
     const exact = result.items.filter((exercise) => normalizeExerciseText(exercise.name) === normalizedName);
     if (exact.length > 1) throw new Error("ambiguous_exercise");
     existing = exact[0];
+    if (existing) matchedBy = "name";
   }
 
   const exercise = exerciseSchema.parse({
-    ...input,
-    // Legacy clients only send muscleGroups; keep the canonical field populated for per-muscle analytics.
-    primaryMuscles: input.primaryMuscles ?? input.muscleGroups,
     id: existing?.id ?? randomUUID(),
+    // a name match is, by definition, the same name up to case and accents: keep the stored spelling
+    name: matchedBy === "name" && existing ? existing.name : input.name,
+    muscleGroups: input.muscleGroups ?? existing?.muscleGroups,
+    // Legacy clients only send muscleGroups; keep the canonical field populated for per-muscle analytics.
+    primaryMuscles: input.primaryMuscles ?? input.muscleGroups ?? existing?.primaryMuscles,
+    secondaryMuscles: input.secondaryMuscles ?? existing?.secondaryMuscles,
+    movementPattern: input.movementPattern ?? existing?.movementPattern,
+    equipment: input.equipment ?? existing?.equipment,
+    images: input.images ?? existing?.images,
+    instructions: input.instructions ?? existing?.instructions,
+    videoUrl: input.videoUrl ?? existing?.videoUrl,
+    // re-submitting an archived exercise revives it unless the caller says otherwise
+    isArchived: given("isArchived") ? input.isArchived : false,
+    searchAliases: given("searchAliases") ? input.searchAliases : existing?.searchAliases ?? [],
+    externalRef: input.externalRef ?? existing?.externalRef,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now
   });
+  const normalizedSearchAliases = exercise.searchAliases.length ? exercise.searchAliases.map(normalizeExerciseText).join(" | ") : null;
+  const changedFields = upsertFields.filter((field) => JSON.stringify(exercise[field]) !== JSON.stringify(existing?.[field]));
+  const outcome = { exercise, created: !existing, matchedBy, changedFields: [...changedFields] };
 
   if (useMemory || !database) {
     const index = memoryExercises.findIndex((item) => item.userId === userId && item.id === exercise.id);
     const stored = { ...exercise, userId };
     if (index >= 0) memoryExercises[index] = stored;
     else memoryExercises.unshift(stored);
-    return exercise;
+    return outcome;
   }
 
   const values = {
@@ -197,6 +235,7 @@ export async function upsertExercise(userId: string, rawInput: ExerciseInput) {
     equipment: exercise.equipment,
     images: exercise.images,
     instructions: exercise.instructions,
+    videoUrl: exercise.videoUrl,
     isArchived: exercise.isArchived,
     searchAliases: exercise.searchAliases,
     normalizedSearchAliases,
@@ -217,6 +256,7 @@ export async function upsertExercise(userId: string, rawInput: ExerciseInput) {
       equipment: values.equipment,
       images: values.images,
       instructions: values.instructions,
+      videoUrl: values.videoUrl,
       isArchived: values.isArchived,
       searchAliases: values.searchAliases,
       normalizedSearchAliases: values.normalizedSearchAliases,
@@ -225,7 +265,22 @@ export async function upsertExercise(userId: string, rawInput: ExerciseInput) {
       updatedAt: values.updatedAt
     }
   });
-  return exercise;
+  return outcome;
+}
+
+export async function upsertExercise(userId: string, rawInput: ExerciseInput) {
+  return (await upsertExerciseDetailed(userId, rawInput)).exercise;
+}
+
+/** Several exercises by id in one query (templates list their exercises by id only). */
+export async function getExercisesByIds(userId: string, ids: string[]): Promise<Map<string, Exercise>> {
+  const wanted = [...new Set(ids)];
+  if (!wanted.length) return new Map();
+  if (useMemory || !database) {
+    return new Map(memoryExercises.filter((exercise) => exercise.userId === userId && wanted.includes(exercise.id)).map((exercise) => [exercise.id, exercise]));
+  }
+  const rows = await database.select().from(exercises).where(and(eq(exercises.userId, userId), inArray(exercises.id, wanted)));
+  return new Map(rows.map((row) => [row.id, exerciseFromRow(row)]));
 }
 
 type SetRow = typeof workoutSets.$inferSelect;
@@ -720,7 +775,7 @@ export async function listRecentWorkoutSessions(
 type ExerciseRecord = NonNullable<Awaited<ReturnType<typeof getExercise>>>;
 
 /** What picking a replacement needs. Technique steps, photos and aliases stay behind get_exercise. */
-function compactExercise(exercise: ExerciseRecord) {
+export function compactExercise(exercise: ExerciseRecord) {
   return {
     id: exercise.id,
     name: exercise.name,
@@ -730,6 +785,11 @@ function compactExercise(exercise: ExerciseRecord) {
     equipment: exercise.equipment,
     movementPattern: exercise.movementPattern
   };
+}
+
+/** A search hit for agents: what is needed to pick an exercise. Photos and technique stay behind get_exercise. */
+export function exerciseSearchItem(exercise: ExerciseRecord) {
+  return { ...compactExercise(exercise), searchAliases: exercise.searchAliases, imageCount: exercise.images?.length ?? 0, hasVideo: Boolean(exercise.videoUrl) };
 }
 
 /**
@@ -830,9 +890,9 @@ export async function getMuscleVolume(
     if (!row.completed || row.setType === "warmup") continue;
     const bucket = byWeek.get(mondayOf(dateKey(row.occurredAt, row.timezone)));
     if (!bucket) continue;
-    const primary = row.primary.length ? row.primary : ["other"];
+    const primary = [...new Set((row.primary.length ? row.primary : ["other"]).map(rollupMuscle))];
     for (const muscle of primary) bucket[muscle] = (bucket[muscle] ?? 0) + 1;
-    for (const muscle of row.secondary) {
+    for (const muscle of new Set(row.secondary.map(rollupMuscle))) {
       if (!primary.includes(muscle)) bucket[muscle] = (bucket[muscle] ?? 0) + 0.5;
     }
   }

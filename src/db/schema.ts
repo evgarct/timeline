@@ -61,6 +61,7 @@ export const exercises = pgTable("exercises", {
   images: jsonb("images").$type<string[]>(),
   // Technique steps, in order, shown in the exercise sheet of the workout screen.
   instructions: jsonb("instructions").$type<string[]>(),
+  videoUrl: text("video_url"),
   isArchived: boolean("is_archived").default(false).notNull(),
   searchAliases: jsonb("search_aliases").notNull().default([]),
   normalizedSearchAliases: text("normalized_search_aliases"),
@@ -102,6 +103,8 @@ export const workoutTemplates = pgTable("workout_templates", {
   normalizedName: text("normalized_name").notNull(),
   note: text("note"),
   exercises: jsonb("exercises").notNull(),
+  // When the template is meant to be trained (see templateScheduleSchema); null = unscheduled.
+  schedule: jsonb("schedule").$type<{ weekdays: number[]; startDate?: string; endDate?: string }>(),
   isArchived: boolean("is_archived").default(false).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull()

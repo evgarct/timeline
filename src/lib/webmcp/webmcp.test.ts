@@ -112,6 +112,23 @@ describe("REST bridge", () => {
     expect(onWrite).toHaveBeenCalledTimes(1);
   });
 
+  it("asks before any data change unless the page allows it, but never before reads or feedback", async () => {
+    const fetchImpl = vi.fn(async () => Response.json({ id: "t1" })) as unknown as typeof fetch;
+    const confirm = vi.fn(async () => false);
+    let ask = true;
+    const tools = Object.fromEntries(restBridgeTools({ fetchImpl, confirm, confirmWrites: () => ask }).map((tool) => [tool.name, tool]));
+    const id = "11111111-1111-4111-8111-111111111111";
+
+    await expect(tools.update_workout_template.execute({ id, note: "x" })).rejects.toMatchObject({ code: "user_declined" });
+    await tools.get_template.execute({ id });
+    await tools.send_feedback.execute({ category: "suggestion", summary: "x" });
+    expect(confirm).toHaveBeenCalledTimes(1);
+
+    ask = false;
+    await expect(tools.update_workout_template.execute({ id, note: "x" })).resolves.toBeDefined();
+    expect(confirm).toHaveBeenCalledTimes(1);
+  });
+
   it("passes the call's abort signal to the request", async () => {
     const fetchImpl = vi.fn(async () => Response.json({ items: [] })) as unknown as typeof fetch;
     const tools = Object.fromEntries(restBridgeTools({ fetchImpl }).map((tool) => [tool.name, tool]));
