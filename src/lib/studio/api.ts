@@ -60,7 +60,17 @@ export function useCreateExercise() {
   });
 }
 
-export const fetchExercise = (id: string) => request<ExerciseSummary>(`/api/exercises/${encodeURIComponent(id)}`);
+/** Sets the exercise's YouTube link (PUT merges: everything else on the exercise keeps its stored value). */
+export function useSetExerciseVideo() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name, videoUrl }: { id: string; name: string; videoUrl: string }) =>
+      request<ExerciseSummary>(`/api/exercises/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify({ name, videoUrl }) }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["studio", "exercises"] })
+  });
+}
+
+export const fetchExercise =(id: string) => request<ExerciseSummary>(`/api/exercises/${encodeURIComponent(id)}`);
 
 export const useExerciseFacets = () => useQuery({ queryKey: ["studio", "facets"], queryFn: () => request<ExerciseFacets>("/api/exercises/facets"), staleTime: 60_000 });
 

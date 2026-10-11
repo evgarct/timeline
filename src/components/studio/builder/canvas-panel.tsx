@@ -22,7 +22,9 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function ExerciseCard({ item, index, items, copy, dispatch }: { item: BuilderItem; index: number; items: BuilderItem[]; copy: StudioCopy; dispatch: Dispatch<BuilderAction> }) {
+type OpenDetail = (exercise: ExerciseSummary, coachNote?: string) => void;
+
+function ExerciseCard({ item, index, items, copy, dispatch, onOpenDetail }: { item: BuilderItem; index: number; items: BuilderItem[]; copy: StudioCopy; dispatch: Dispatch<BuilderAction>; onOpenDetail?: OpenDetail }) {
   const controls = useDragControls();
   const [dragging, setDragging] = useState(false);
   const next = items[index + 1];
@@ -88,12 +90,18 @@ function ExerciseCard({ item, index, items, copy, dispatch }: { item: BuilderIte
           >
             <GripVertical className="size-4" />
           </button>
-          <div className="relative size-14 shrink-0 overflow-hidden rounded-[var(--s-radius-sm)] bg-[var(--s-surface-container-highest)]">
+          <button
+            type="button"
+            aria-label={`${copy.builder.openDetail}: ${item.exercise.name}`}
+            title={copy.builder.openDetail}
+            onClick={() => onOpenDetail?.(item.exercise, item.note)}
+            className="relative size-[72px] shrink-0 cursor-zoom-in overflow-hidden rounded-[var(--s-radius-sm)] bg-[var(--s-surface-container-highest)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--s-primary)]"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element -- remote catalog frame */}
             {photo ? <img src={photo} alt="" className="size-full object-cover" /> : null}
-          </div>
+          </button>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[17px] font-semibold">{item.exercise.name}</div>
+            <div className="line-clamp-2 text-[17px] font-semibold leading-snug">{item.exercise.name}</div>
             <div className="truncate text-[12px] text-[var(--s-on-surface-variant)]">{muscles}</div>
           </div>
           <span className="s-eyebrow hidden sm:block">{index + 1}</span>
@@ -111,14 +119,19 @@ function ExerciseCard({ item, index, items, copy, dispatch }: { item: BuilderIte
           <Field label={copy.builder.progression}><Stepper label={copy.builder.progression} value={item.progressionKg} min={0} max={50} step={0.5} optional onChange={(progressionKg) => patch({ progressionKg: progressionKg || undefined })} /></Field>
         </div>
 
-        <input
-          value={item.note ?? ""}
-          onChange={(event) => patch({ note: event.target.value })}
-          placeholder={copy.builder.note}
-          aria-label={copy.builder.note}
-          maxLength={500}
-          className="mt-3 h-10 w-full rounded-[var(--s-radius-sm)] bg-transparent px-3 text-sm outline-none ring-1 ring-[var(--s-outline-variant)] transition-shadow placeholder:text-[var(--s-on-surface-variant)] focus:ring-2 focus:ring-[var(--s-primary)]"
-        />
+        <div className="mt-3">
+          <Field label={copy.builder.coachNote}>
+            <textarea
+              value={item.note ?? ""}
+              onChange={(event) => patch({ note: event.target.value })}
+              placeholder={copy.builder.note}
+              aria-label={copy.builder.coachNote}
+              maxLength={500}
+              rows={item.note && item.note.length > 70 ? 3 : 1}
+              className="w-full resize-y rounded-[var(--s-radius-sm)] bg-transparent px-3 py-2 text-sm outline-none ring-1 ring-[var(--s-outline-variant)] transition-shadow placeholder:text-[var(--s-on-surface-variant)] focus:ring-2 focus:ring-[var(--s-primary)]"
+            />
+          </Field>
+        </div>
       </Surface>
 
       {next ? (
@@ -143,7 +156,7 @@ function ExerciseCard({ item, index, items, copy, dispatch }: { item: BuilderIte
   );
 }
 
-export function CanvasPanel({ items, copy, dispatch, onDropExercise }: { items: BuilderItem[]; copy: StudioCopy; dispatch: Dispatch<BuilderAction>; onDropExercise?: (exercise: ExerciseSummary, index: number) => void }) {
+export function CanvasPanel({ items, copy, dispatch, onDropExercise, onOpenDetail }: { items: BuilderItem[]; copy: StudioCopy; dispatch: Dispatch<BuilderAction>; onDropExercise?: (exercise: ExerciseSummary, index: number) => void; onOpenDetail?: OpenDetail }) {
   const container = useRef<HTMLDivElement>(null);
   const [drop, setDrop] = useState<{ index: number; y: number } | null>(null);
 
@@ -189,7 +202,7 @@ export function CanvasPanel({ items, copy, dispatch, onDropExercise }: { items: 
       ) : (
         <Reorder.Group axis="y" values={items.map((item) => item.key)} onReorder={(keys) => dispatch({ type: "reorder", keys })} className="m-0 p-0">
           <AnimatePresence initial={false}>
-            {items.map((item, index) => <ExerciseCard key={item.key} item={item} index={index} items={items} copy={copy} dispatch={dispatch} />)}
+            {items.map((item, index) => <ExerciseCard key={item.key} item={item} index={index} items={items} copy={copy} dispatch={dispatch} onOpenDetail={onOpenDetail} />)}
           </AnimatePresence>
         </Reorder.Group>
       )}

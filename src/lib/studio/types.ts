@@ -11,6 +11,8 @@ export interface ExerciseSummary {
   equipment?: string;
   images?: string[];
   instructions?: string[];
+  /** Canonical YouTube watch URL of an optional how-to video. */
+  videoUrl?: string;
 }
 
 export interface ExercisePage {

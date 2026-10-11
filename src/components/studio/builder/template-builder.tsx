@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "motion/react";
-import { Redo2, Undo2 } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Plus, Redo2, Undo2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -22,6 +22,9 @@ import { createBuilderStore, useBuilderState } from "./builder-store";
 import { CanvasPanel } from "./canvas-panel";
 import { CatalogPanel } from "./catalog-panel";
 import { InspectorPanel } from "./inspector-panel";
+import { useCatalogPreference } from "./catalog-pref";
+import { ExerciseDetail } from "./exercise-detail";
+import { TemplatesNav } from "./templates-nav";
 
 type Pane = "catalog" | "canvas" | "summary";
 const DRAFT_KEY = "studio:template-draft:new";
@@ -41,6 +44,12 @@ export function TemplateBuilder({ locale, templateId, initialDoc }: { locale: Lo
   const { dispatch } = store;
   const [pane, setPane] = useState<Pane>("canvas");
   const searchRef = useRef<HTMLInputElement>(null);
+  // Wide screens: the catalog is mostly needed while composing, so an existing template starts with it folded away
+  // until the person chooses otherwise (the choice is remembered).
+  const [catalogPref, setCatalogPref] = useCatalogPreference();
+  const catalogOpen = catalogPref ?? !initialDoc?.items.length;
+  const [detail, setDetail] = useState<{ exercise: ExerciseSummary; coachNote?: string; fromCatalog: boolean } | null>(null);
+  const closeDetail = useCallback(() => setDetail(null), []);
   const save = useSaveTemplate();
   const { present: doc } = state;
   useReportDirty(state.dirty);
@@ -65,12 +74,12 @@ export function TemplateBuilder({ locale, templateId, initialDoc }: { locale: Lo
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       const meta = event.metaKey || event.ctrlKey;
-      if (meta && event.key.toLowerCase() === "k") { event.preventDefault(); setPane("catalog"); setTimeout(() => searchRef.current?.focus(), 0); }
+      if (meta && event.key.toLowerCase() === "k") { event.preventDefault(); setPane("catalog"); setCatalogPref(true); setTimeout(() => searchRef.current?.focus(), 0); }
       else if (meta && event.key.toLowerCase() === "z" && !(event.target instanceof HTMLInputElement)) { event.preventDefault(); dispatch({ type: event.shiftKey ? "redo" : "undo" }); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [dispatch]);
+  }, [dispatch, setCatalogPref]);
 
   useEffect(() => {
     if (!state.dirty) return;
@@ -121,6 +130,7 @@ export function TemplateBuilder({ locale, templateId, initialDoc }: { locale: Lo
 
   return (
     <div className="mx-auto flex h-[calc(100dvh-2rem)] max-w-[1600px] flex-col gap-4 px-4 py-4 lg:px-6">
+      <TemplatesNav locale={locale} copy={copy} templateId={templateId} />
       <header className="flex flex-wrap items-center gap-3">
         <div className="min-w-0 flex-1">
           <input
@@ -153,17 +163,39 @@ export function TemplateBuilder({ locale, templateId, initialDoc }: { locale: Lo
         ))}
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-5 lg:grid-cols-[340px_minmax(0,1fr)_320px]">
-        <section aria-label={copy.builder.catalog} className={cn("min-h-0 flex-col", pane === "catalog" ? "flex" : "hidden lg:flex")}>
-          <CatalogPanel copy={copy} onAdd={add} searchRef={searchRef} />
+      <div className={cn("grid min-h-0 flex-1 gap-5 transition-[grid-template-columns] duration-300", catalogOpen ? "lg:grid-cols-[340px_minmax(0,1fr)_320px]" : "lg:grid-cols-[56px_minmax(0,1fr)_320px]")}>
+        <section aria-label={copy.builder.catalog} data-catalog-open={catalogOpen} className={cn("min-h-0 flex-col", pane === "catalog" ? "flex" : "hidden lg:flex")}>
+          {catalogOpen ? (
+            <div className="mb-2 hidden justify-end lg:flex">
+              <button type="button" aria-label={copy.builder.collapseCatalog} title={copy.builder.collapseCatalog} onClick={() => setCatalogPref(false)} className="grid size-9 place-items-center rounded-full text-[var(--s-on-surface-variant)] outline-none hover:bg-[var(--s-surface-container)] focus-visible:ring-2 focus-visible:ring-[var(--s-primary)]">
+                <PanelLeftClose className="size-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="hidden flex-col items-center gap-2 lg:flex">
+              <button type="button" aria-label={copy.builder.expandCatalog} title={`${copy.builder.expandCatalog}  ⌘K`} onClick={() => { setCatalogPref(true); setTimeout(() => searchRef.current?.focus(), 0); }} className="grid size-11 place-items-center rounded-full bg-[var(--s-primary-container)] text-[var(--s-on-primary-container)] outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-[var(--s-primary)]">
+                <PanelLeftOpen className="size-5" />
+              </button>
+              <button type="button" aria-label={copy.builder.add} onClick={() => setCatalogPref(true)} className="grid size-11 place-items-center rounded-full text-[var(--s-on-surface-variant)] outline-none hover:bg-[var(--s-surface-container)] focus-visible:ring-2 focus-visible:ring-[var(--s-primary)]">
+                <Plus className="size-5" />
+              </button>
+            </div>
+          )}
+          <div className={cn("min-h-0 flex-1 flex-col", catalogOpen ? "flex" : "flex lg:hidden")}>
+            <CatalogPanel copy={copy} onAdd={add} onOpenDetail={(exercise) => setDetail({ exercise, fromCatalog: true })} searchRef={searchRef} />
+          </div>
         </section>
         <section aria-label={doc.name || copy.templates.title} className={cn("min-h-0 overflow-y-auto pb-24 pr-1", pane === "canvas" ? "block" : "hidden lg:block")}>
-          <CanvasPanel items={doc.items} copy={copy} dispatch={dispatch} onDropExercise={(exercise, index) => dispatch({ type: "add", exercise, key: crypto.randomUUID(), index })} />
+          <CanvasPanel items={doc.items} copy={copy} dispatch={dispatch} onOpenDetail={(exercise, coachNote) => setDetail({ exercise, coachNote, fromCatalog: false })} onDropExercise={(exercise, index) => dispatch({ type: "add", exercise, key: crypto.randomUUID(), index })} />
         </section>
         <section aria-label={copy.builder.summary} className={cn("min-h-0 overflow-y-auto pb-6", pane === "summary" ? "block" : "hidden lg:block")}>
           <InspectorPanel items={doc.items} copy={copy} />
         </section>
       </div>
+
+      <AnimatePresence>
+        {detail ? <ExerciseDetail key={detail.exercise.id} exercise={detail.exercise} copy={copy} coachNote={detail.coachNote} onClose={closeDetail} onAdd={detail.fromCatalog ? add : undefined} /> : null}
+      </AnimatePresence>
     </div>
   );
 }
