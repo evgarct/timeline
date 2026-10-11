@@ -32,6 +32,19 @@ describe("listExerciseAlternatives", () => {
     expect(found?.items.map((item) => item.name)).toEqual(["Alt Dumbbell Press", "Alt Cable Fly"]);
   });
 
+  it("returns compact entries without technique, photos or aliases", async () => {
+    await exerciseRepo.upsertExercise(userId, { name: "Alt Compact Press", primaryMuscles: ["chest"], movementPattern: "push", equipment: "barbell", images: ["https://example.com/a.jpg"], instructions: ["Step one"] });
+    const found = await exerciseRepo.listExerciseAlternatives(userId, ids.bench);
+    const entries = [found!.exercise, ...found!.items];
+    for (const entry of entries) {
+      expect(Object.keys(entry).sort()).toEqual(["equipment", "id", "movementPattern", "muscleGroups", "name", "primaryMuscles", "secondaryMuscles"]);
+      expect(entry).not.toHaveProperty("instructions");
+      expect(entry).not.toHaveProperty("images");
+      expect(entry).not.toHaveProperty("searchAliases");
+    }
+    expect(found!.items.find((item) => item.name === "Alt Compact Press")).toBeDefined();
+  });
+
   it("honours an equipment constraint and reports an unknown exercise", async () => {
     const found = await exerciseRepo.listExerciseAlternatives(userId, ids.bench, { equipment: "cable" });
     expect(found?.items.map((item) => item.name)).toEqual(["Alt Cable Fly"]);

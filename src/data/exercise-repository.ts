@@ -717,15 +717,31 @@ export async function listRecentWorkoutSessions(
   });
 }
 
+type ExerciseRecord = NonNullable<Awaited<ReturnType<typeof getExercise>>>;
+
+/** What picking a replacement needs. Technique steps, photos and aliases stay behind get_exercise. */
+function compactExercise(exercise: ExerciseRecord) {
+  return {
+    id: exercise.id,
+    name: exercise.name,
+    primaryMuscles: exercise.primaryMuscles,
+    secondaryMuscles: exercise.secondaryMuscles,
+    muscleGroups: exercise.muscleGroups,
+    equipment: exercise.equipment,
+    movementPattern: exercise.movementPattern
+  };
+}
+
 /**
  * Exercises that could replace `exerciseId`: same first primary muscle, ranked by matching movement pattern,
  * then matching equipment (or the equipment the caller asked for). The exercise itself and archived ones are left out.
+ * Entries are compact (see compactExercise); an agent that wants the technique calls get_exercise for the chosen one.
  */
 export async function listExerciseAlternatives(userId: string, exerciseId: string, options: { equipment?: string; limit?: number } = {}) {
   const base = await getExercise(userId, exerciseId);
   if (!base) return undefined;
   const primary = primaryMusclesOf(base)[0];
-  if (!primary) return { exercise: base, items: [] as Array<NonNullable<typeof base>> };
+  if (!primary) return { exercise: compactExercise(base), items: [] as Array<ReturnType<typeof compactExercise>> };
   const candidates = (await searchExercises(userId, "", 1, 100, false, { muscle: primary, equipment: options.equipment })).items
     .filter((candidate) => candidate.id !== base.id);
   const wantedEquipment = options.equipment?.toLowerCase() ?? base.equipment?.toLowerCase();
@@ -733,7 +749,7 @@ export async function listExerciseAlternatives(userId: string, exerciseId: strin
     (base.movementPattern && candidate.movementPattern === base.movementPattern ? 2 : 0)
     + (wantedEquipment && candidate.equipment?.toLowerCase() === wantedEquipment ? 1 : 0);
   const items = candidates.sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name)).slice(0, options.limit ?? 10);
-  return { exercise: base, items };
+  return { exercise: compactExercise(base), items: items.map(compactExercise) };
 }
 
 /** Sets per muscle for a not-yet-saved plan (primary 1, secondary 0.5 per set), so a draft can be judged before it is written. */
