@@ -6,7 +6,8 @@ export const MAX_PROGRESS_PHOTOS = 12;
 export const MAX_AGENT_UPLOAD_BYTES = 4_000_000;
 
 export const agentUploadLinkSchema = z.object({
-  kind: z.literal("progress_photo").default("progress_photo"),
+  // `inbody` keeps the original bytes (PDF/JPEG/PNG/HEIC), `progress_photo` is normalized to a JPEG pair.
+  kind: z.enum(["progress_photo", "inbody"]).default("progress_photo"),
   fileName: z.string().min(1).max(255).optional()
 });
 
@@ -86,6 +87,16 @@ export function progressObjectKeys(userId: string, assetId: string) {
   const base = `users/${userNamespace(userId)}/progress/${assetId}`;
   return { objectKey: `${base}/full.jpg`, thumbnailObjectKey: `${base}/thumbnail.jpg` };
 }
+
+const MEDIA_EXTENSIONS: Record<StoredMediaType, string> = {
+  "application/pdf": "pdf",
+  "image/heic": "heic",
+  "image/heif": "heif",
+  "image/jpeg": "jpg",
+  "image/png": "png"
+};
+
+export const mediaExtension = (type: StoredMediaType) => MEDIA_EXTENSIONS[type];
 
 export function inBodyObjectKey(userId: string, assetId: string, extension: string) {
   return `users/${userNamespace(userId)}/inbody/${assetId}/original.${extension}`;

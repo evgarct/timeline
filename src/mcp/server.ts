@@ -11,6 +11,11 @@ import {
   updateEvent
 } from "@/data/repository";
 import { redactMediaUrls, taskScheduleSchema, timelineEventSchema } from "@/domain/events";
+import { getBodyComposition } from "@/data/body-composition";
+import { getMediaAsset } from "@/data/media-repository";
+import { bodyCompositionText, parseMetricsParam } from "@/domain/body-composition";
+import { inBodyHeadline, inBodyLine, inBodyText } from "@/domain/inbody";
+import { createDownloadUrl, isR2Configured } from "@/lib/r2";
 import {
   deleteFoodEntry,
   getFoodEntry,
@@ -169,8 +174,14 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
       completed: isTaskCompleted(schedule.eventType, events)
     }));
     const latest = ["progress_photo", "measurements", "inbody"].map((type) => latestEvent(events, type as never));
-    const current = includePhotoUrls ? latest : latest.map((event) => redactMediaUrls(event));
-    const tasksText = `${due.filter((task) => task.completed).length}/${due.length} tasks completed`;
+    // The InBody sheet has about 150 readings: Today carries only the headline ones (get_event / get_body_composition have the rest).
+    const compact = (event: (typeof latest)[number]) => (event?.type === "inbody" ? { ...event, metrics: inBodyHeadline(event) } : event);
+    const current = (includePhotoUrls ? latest : latest.map((event) => redactMediaUrls(event))).map(compact);
+    const latestInBody = latest.find((event) => event?.type === "inbody");
+    const bodyText = latestInBody?.type === "inbody"
+      ? ` · last InBody ${latestInBody.occurredAt.toISOString().slice(0, 10)}: ${inBodyLine(latestInBody)} (get_body_composition for the trend)`
+      : "";
+    const tasksText = `${due.filter((task) => task.completed).length}/${due.length} tasks completed${bodyText}`;
     let nutrition: { date: string; totals: ReturnType<typeof aggregateNutrients> } | undefined;
     if (timezone) {
       const date = new Intl.DateTimeFormat("en-CA", {
@@ -197,6 +208,7 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
         if (event.mood) parts.push(`mood ${event.mood}`);
       }
       if (event.type === "measurements" && event.values.weightKg) parts.push(`${event.values.weightKg} kg`);
+      if (event.type === "inbody") parts.push(inBodyLine(event), `${event.metrics.length} readings`);
       if (event.note) parts.push(`note: ${event.note}`);
       return parts.join(" | ");
     });
@@ -216,18 +228,27 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
   }, async ({ id }) => {
     const event = await getEvent(userId, id);
     if (!event) return { content: [{ type: "text" as const, text: "Event not found" }], isError: true };
+    // An InBody sheet has about 150 readings: a grouped one-line-per-category text beats the generic JSON.
+    if (event.type === "inbody") return result("Timeline event", "InBody test", redactMediaUrls(event), [], { id: event.id, text: inBodyText(event) });
     return result("Timeline event", event.type.replace("_", " "), event);
   });
 
   server.registerTool("create_event", {
     title: "Create event",
-    description: "Create a progress photo, workout, measurements, or InBody event. A progress photo needs managed assets: call create_photo_upload for each picture first and pass the returned assetIds in photos (set occurredAt to the real date of the photo). For InBody, send the original file reference in source.url and all extracted metrics; do not ask the server to OCR it.",
+    description: "Create a progress photo, workout, measurements, or InBody event. A progress photo needs managed assets: call create_photo_upload for each picture first and pass the returned assetIds in photos (set occurredAt to the real date of the photo). An InBody test needs its original file: call create_inbody_upload first (its description lists every metric key and how to fill them), pass the returned assetId in source.assetId, set occurredAt to the test date printed on the sheet, and send ALL readings of the sheet as metrics; do not ask the server to OCR it. Read the tests back with get_body_composition.",
     inputSchema: { event: z.record(z.string(), z.unknown()) }
   }, async ({ event }) => {
     const parsed = timelineEventSchema.safeParse(event);
     if (!parsed.success) return { content: [{ type: "text" as const, text: parsed.error.message }], isError: true };
-    const created = await createEvent(userId, parsed.data);
-    return result("Event created", created.type.replace("_", " "), created);
+    try {
+      const created = await createEvent(userId, parsed.data);
+      if (created.type === "inbody") {
+        return result("Event created", "InBody test", redactMediaUrls(created), [], { id: created.id, text: `InBody test saved (id: ${created.id}, ${created.metrics.length} readings, ${created.occurredAt.toISOString().slice(0, 16)}).` });
+      }
+      return result("Event created", created.type.replace("_", " "), created);
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : "event_save_failed");
+    }
   });
 
   server.registerTool("update_event", {
@@ -237,7 +258,15 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
   }, async ({ event }) => {
     const parsed = timelineEventSchema.safeParse(event);
     if (!parsed.success) return { content: [{ type: "text" as const, text: parsed.error.message }], isError: true };
-    return result("Event updated", parsed.data.type.replace("_", " "), await updateEvent(userId, parsed.data));
+    try {
+      const updated = await updateEvent(userId, parsed.data);
+      if (updated.type === "inbody") {
+        return result("Event updated", "InBody test", redactMediaUrls(updated), [], { id: updated.id, text: `InBody test updated (id: ${updated.id}, ${updated.metrics.length} readings, ${updated.extraction.reviewed ? "reviewed" : "not yet reviewed"}).` });
+      }
+      return result("Event updated", parsed.data.type.replace("_", " "), updated);
+    } catch (error) {
+      return fail(error instanceof Error ? error.message : "event_save_failed");
+    }
   });
 
   server.registerTool("delete_event", {
@@ -884,6 +913,42 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
       const code = error instanceof AgentUploadError ? error.code : "upload_link_failed";
       return fail(code === "storage_quota_exceeded" ? "storage_quota_exceeded: the user's photo storage is full" : code === "storage_not_configured" ? "storage_not_configured: photo storage is not set up in this environment" : code);
     }
+  });
+
+  registerSpec(server, specs.create_inbody_upload, async (input) => {
+    try {
+      const link = await createAgentUploadLink(userId, { fileName: input.fileName, kind: "inbody" });
+      const text = [
+        `Upload link ready (assetId: ${link.assetId}, valid until ${link.expiresAt}, at most ${link.maxBytes} bytes, single use).`,
+        `1. POST the original file bytes (JPEG, PNG, HEIC/HEIF or PDF, untouched): fetch("${link.uploadUrl}", { method: "POST", body: blob }); the answer has mimeType and sizeBytes.`,
+        `2. create_event { type: "inbody", id: <stable uuid>, occurredAt: <test date/time printed on the sheet>, timezone: <IANA>, source: { assetId: "${link.assetId}", mimeType: <from the answer>, fileName: <file name> }, metrics: [{ key, value, ...}], extraction: { method: "mcp_agent", reviewed: false } }.`,
+        `uploadUrl: ${link.uploadUrl}`
+      ].join("\n");
+      return result("InBody upload link", `asset ${link.assetId}`, link, [], { id: link.assetId, text });
+    } catch (error) {
+      const code = error instanceof AgentUploadError ? error.code : "upload_link_failed";
+      return fail(code === "storage_quota_exceeded" ? "storage_quota_exceeded: the user's storage is full" : code === "storage_not_configured" ? "storage_not_configured: file storage is not set up in this environment" : code);
+    }
+  });
+
+  registerSpec(server, specs.get_body_composition, async ({ from, to, metrics, timezone }) => {
+    if (!isValidTimeZone(timezone)) return fail("invalid_timezone");
+    const range = parseRange(from, to);
+    if ("error" in range) return fail(range.error);
+    const tests = await getBodyComposition(userId, { ...range, timezone, metrics: parseMetricsParam(metrics) });
+    return result("Body composition", `${tests.length} InBody tests`, { tests }, [], { text: bodyCompositionText(tests) });
+  });
+
+  registerSpec(server, specs.get_inbody_original, async ({ eventId }) => {
+    const event = (await listEvents(userId, { type: "inbody" }, { hydrate: false })).find((item) => item.id === eventId);
+    if (!event || event.type !== "inbody") return fail("event_not_found");
+    if (!event.source.assetId) return fail("original_unavailable: this test has no stored file");
+    const asset = await getMediaAsset(userId, event.source.assetId);
+    if (!asset || asset.status !== "ready" || !isR2Configured) return fail("original_unavailable");
+    const url = await createDownloadUrl(asset.objectKey);
+    return result("InBody original", asset.originalFileName, { eventId, fileName: asset.originalFileName, mimeType: asset.mimeType, sizeBytes: asset.sizeBytes, url }, [], {
+      id: eventId, text: `Original of the ${event.occurredAt.toISOString().slice(0, 10)} test: ${asset.originalFileName} (${asset.mimeType}, ${asset.sizeBytes} bytes). Download link (valid about one hour, do not store it): ${url}`
+    });
   });
 
   registerSpec(server, specs.send_feedback, async (input) => {

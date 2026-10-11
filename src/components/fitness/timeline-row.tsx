@@ -1,6 +1,9 @@
 import Link from "next/link";
 import type { TimelineEvent } from "@/domain/events";
 import { describeQuantity } from "@/domain/nutrition";
+import { inBodyHeadline } from "@/domain/inbody";
+import { defaultLocale, isLocale } from "@/i18n/config";
+import { getInBodyCopy, metricLabel, type InBodyCopy } from "@/i18n/inbody-messages";
 import type { Copy } from "@/i18n/messages";
 import { EventIcon } from "./icon";
 import { MediaStrip } from "./media-strip";
@@ -15,7 +18,7 @@ function titleFor(event: TimelineEvent, copy: Copy) {
   }[event.type];
 }
 
-function detailsFor(event: TimelineEvent, copy: Copy) {
+function detailsFor(event: TimelineEvent, copy: Copy, inbodyCopy: InBodyCopy) {
   if (event.type === "workout") return event.muscleGroups.join(" · ");
   if (event.type === "measurements") {
     const pieces = [];
@@ -24,9 +27,9 @@ function detailsFor(event: TimelineEvent, copy: Copy) {
     return pieces.join(" · ");
   }
   if (event.type === "inbody") {
-    return event.metrics
-      .filter((metric) => ["weight", "percent_body_fat"].includes(metric.key))
-      .map((metric) => `${metric.value}${metric.unit ? ` ${metric.unit}` : ""}`)
+    return inBodyHeadline(event)
+      .filter((metric) => ["weight", "skeletal_muscle_mass", "percent_body_fat", "inbody_score"].includes(metric.key))
+      .map((metric) => `${metricLabel(inbodyCopy, metric)} ${metric.value}${metric.unit && metric.unit !== "points" ? ` ${metric.unit}` : ""}`)
       .join(" · ");
   }
   if (event.type === "nutrition_entry") {
@@ -56,7 +59,7 @@ export function TimelineRow({
         <EventIcon type={event.type} />
         <span className="min-w-0 flex-1">
           <span className="block text-sm font-medium">{titleFor(event, copy)}</span>
-          <span className="block truncate text-xs text-muted-foreground">{detailsFor(event, copy)}</span>
+          <span className="block truncate text-xs text-muted-foreground">{detailsFor(event, copy, getInBodyCopy(isLocale(locale) ? locale : defaultLocale))}</span>
           {event.type === "progress_photo" ? (
             <span className="mt-2 block max-w-48">
               <MediaStrip photos={event.photos} openLabel={copy.openGallery} interactive={false} />

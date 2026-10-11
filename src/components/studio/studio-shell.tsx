@@ -2,7 +2,7 @@
 
 import { MotionConfig, motion } from "motion/react";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { Dumbbell, LayoutDashboard, MessageSquareText, Moon, Sun } from "lucide-react";
+import { Activity, Dumbbell, LayoutDashboard, MessageSquareText, Moon, Sun } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useMemo, useState, type ReactNode } from "react";
@@ -60,6 +60,7 @@ function ShellContent({ locale, children }: { locale: Locale; children: ReactNod
   const base = `/${locale}/studio`;
   const items = [
     { href: base, label: copy.nav.dashboard, icon: LayoutDashboard, active: pathname === base },
+    { href: `${base}/body`, label: copy.nav.body, icon: Activity, active: pathname.startsWith(`${base}/body`) },
     { href: `${base}/templates`, label: copy.nav.templates, icon: Dumbbell, active: pathname.startsWith(`${base}/templates`) },
     { href: `${base}/feedback`, label: copy.nav.feedback, icon: MessageSquareText, active: pathname.startsWith(`${base}/feedback`), badge: newFeedback }
   ];

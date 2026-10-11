@@ -14,11 +14,12 @@ export interface ShellToolDeps {
   onWrite: () => void;
 }
 
-export type StudioPage = "dashboard" | "templates" | "new_template" | "template" | "other";
+export type StudioPage = "dashboard" | "body" | "templates" | "new_template" | "template" | "other";
 
 export function pageOf(pathname: string, locale: string): StudioPage {
   const base = `/${locale}/studio`;
   if (pathname === base || pathname === `${base}/`) return "dashboard";
+  if (pathname === `${base}/body`) return "body";
   if (pathname === `${base}/templates`) return "templates";
   if (pathname === `${base}/templates/new`) return "new_template";
   if (pathname.startsWith(`${base}/templates/`)) return "template";
@@ -40,6 +41,7 @@ export function shellTools(deps: ShellToolDeps): WebMcpTool[] {
     }),
     toWebMcpTool(studioSpecs.studio_navigate, async ({ to, templateId }) => {
       const path = to === "dashboard" ? base
+        : to === "body" ? `${base}/body`
         : to === "templates" ? `${base}/templates`
           : to === "new_template" ? `${base}/templates/new`
             : templateId ? `${base}/templates/${String(templateId)}` : undefined;

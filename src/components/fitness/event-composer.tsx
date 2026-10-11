@@ -352,7 +352,16 @@ export function EventComposer({
                     {metrics.map((metric) => (
                       <div key={metric.key} className="grid grid-cols-[1fr_7rem] items-center gap-2">
                         <span className="text-sm">{metric.label}</span>
-                        <Input defaultValue={`${metric.value}`} aria-label={metric.label} />
+                        <Input
+                          inputMode="decimal"
+                          defaultValue={`${metric.value}`}
+                          aria-label={metric.label}
+                          onChange={(event) => {
+                            // A corrected reading replaces the OCR one; an unreadable entry keeps the last good value.
+                            const value = Number.parseFloat(event.target.value.replace(",", "."));
+                            if (Number.isFinite(value)) setMetrics((current) => current.map((item) => item.key === metric.key ? { ...item, value } : item));
+                          }}
+                        />
                       </div>
                     ))}
                   </div>

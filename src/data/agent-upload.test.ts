@@ -37,6 +37,7 @@ describe("agent photo upload", () => {
 
     const done = await upload.ingestAgentUpload(tokenOf(link.uploadUrl), await picture());
     expect(done).toMatchObject({ assetId: link.assetId, width: 300, height: 200 });
+    if (done.kind !== "progress_photo") throw new Error("expected a photo result");
     expect(done.palette.background).toMatch(/^#[0-9a-f]{6}$/);
     expect([...stored.values()].every((object) => object.type === "image/jpeg")).toBe(true);
     expect(stored.size).toBe(2);
@@ -77,5 +78,40 @@ describe("agent photo upload", () => {
     expect(stored.size).toBe(0);
     // the failed attempts did not use up the link
     await expect(upload.ingestAgentUpload(tokenOf(link.uploadUrl), await picture())).resolves.toMatchObject({ assetId: link.assetId });
+  });
+});
+
+describe("agent InBody original upload", () => {
+  const pdf = () => new TextEncoder().encode("%PDF-1.4\n% fabricated sheet\n%%EOF");
+
+  it("stores a PDF byte for byte, keeps its extension and records the sniffed type", async () => {
+    const link = await upload.createAgentUploadLink(userId, { kind: "inbody", fileName: "inbody-2026-06-20.pdf" });
+    expect(link.kind).toBe("inbody");
+    const bytes = pdf();
+    const done = await upload.ingestAgentUpload(tokenOf(link.uploadUrl), bytes);
+    expect(done).toEqual({ kind: "inbody", assetId: link.assetId, mimeType: "application/pdf", sizeBytes: bytes.byteLength });
+
+    expect(stored.size).toBe(1);
+    const [[key, object]] = [...stored.entries()];
+    expect(key).toMatch(/\/inbody\/.+\/original\.pdf$/);
+    expect(object).toEqual({ size: bytes.byteLength, type: "application/pdf" });
+    const asset = await media.getMediaAsset(userId, link.assetId);
+    expect(asset).toMatchObject({ kind: "inbody", status: "ready", mimeType: "application/pdf", sizeBytes: bytes.byteLength, width: null });
+    expect(asset?.thumbnailObjectKey).toBeNull();
+  });
+
+  it("keeps a JPEG exactly as sent (no re-encoding) and works once per link", async () => {
+    const link = await upload.createAgentUploadLink(userId, { kind: "inbody", fileName: "sheet.jpg" });
+    const jpeg = new Uint8Array(await picture());
+    await expect(upload.ingestAgentUpload(tokenOf(link.uploadUrl), jpeg)).resolves.toMatchObject({ mimeType: "image/jpeg", sizeBytes: jpeg.byteLength });
+    expect([...stored.values()][0].size).toBe(jpeg.byteLength);
+    await expect(upload.ingestAgentUpload(tokenOf(link.uploadUrl), jpeg)).rejects.toMatchObject({ code: "asset_unavailable" });
+  });
+
+  it("refuses bytes that are not a supported file without using up the link", async () => {
+    const link = await upload.createAgentUploadLink(userId, { kind: "inbody" });
+    await expect(upload.ingestAgentUpload(tokenOf(link.uploadUrl), new TextEncoder().encode("hello"))).rejects.toMatchObject({ code: "unsupported_file" });
+    expect(stored.size).toBe(0);
+    await expect(upload.ingestAgentUpload(tokenOf(link.uploadUrl), pdf())).resolves.toMatchObject({ assetId: link.assetId });
   });
 });

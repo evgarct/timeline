@@ -20,16 +20,16 @@ export const studioSpecs = {
   studio_get_context: studioSpec({
     name: "studio_get_context",
     title: "Where am I in Studio",
-    description: "Current Studio page (dashboard, templates list, template builder), locale, theme and whether the builder has unsaved changes. Call it first so you know which page tools are available.",
+    description: "Current Studio page (dashboard, body, templates list, template builder), locale, theme and whether the builder has unsaved changes. Call it first so you know which page tools are available.",
     input: z.object({}),
     annotations: readOnly
   }),
   studio_navigate: studioSpec({
     name: "studio_navigate",
     title: "Open a Studio page",
-    description: "Navigate the visible Studio UI: dashboard, the templates list, a new template in the builder, or an existing template (pass templateId). If the builder has unsaved changes the user is asked to confirm leaving; on a refusal nothing changes.",
+    description: "Navigate the visible Studio UI: dashboard, the Body page (InBody tests and trends), the templates list, a new template in the builder, or an existing template (pass templateId). If the builder has unsaved changes the user is asked to confirm leaving; on a refusal nothing changes.",
     input: z.object({
-      to: z.enum(["dashboard", "templates", "new_template", "template"]),
+      to: z.enum(["dashboard", "body", "templates", "new_template", "template"]),
       templateId: z.string().uuid().optional().describe("Required when to is \"template\"")
     }),
     annotations: consequential
@@ -119,6 +119,19 @@ export const studioSpecs = {
     title: "Select an exercise for the strength chart",
     description: "Show the e1RM progress chart for an exercise id (one the user has logged).",
     input: z.object({ exerciseId: z.string().uuid() })
+  }),
+  body_get_view: studioSpec({
+    name: "body_get_view",
+    title: "Read what the Body page shows",
+    description: "What the human sees on the Body page: the metric picked for the trend chart with one point per InBody test (date, value, change since the previous test), the list of tests with their headline numbers and what happened between them (diet, steps, workouts, photos). Only available on the Body page; call get_body_composition for the full data.",
+    input: z.object({}),
+    annotations: readOnly
+  }),
+  body_select_metric: studioSpec({
+    name: "body_select_metric",
+    title: "Select a metric on the Body page",
+    description: "Show the trend chart for one metric key (for example weight, skeletal_muscle_mass, body_fat_mass, percent_body_fat, visceral_fat_level, basal_metabolic_rate); the keys on offer are listed by body_get_view.",
+    input: z.object({ key: z.string().min(1) })
   })
 } as const;
 

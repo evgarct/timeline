@@ -1,7 +1,7 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
 import type { z } from "zod";
-import { and, count, desc, eq, ilike, inArray, isNotNull, or } from "drizzle-orm";
+import { and, count, desc, eq, gte, ilike, inArray, isNotNull, lte, or } from "drizzle-orm";
 import { database } from "@/db/client";
 import { events, products } from "@/db/schema";
 import {
@@ -413,6 +413,29 @@ export async function listFoodEntries(
     dateKey(entry.occurredAt, timezone) === date
     && (!options.mealType || entry.mealType === options.mealType)
   ));
+}
+
+/**
+ * Every food entry whose local day (in `timezone`) falls between two dates, inclusive (YYYY-MM-DD). One query for the
+ * whole range, so trend views do not call `listFoodEntries` once per day.
+ */
+export async function listFoodEntriesInRange(userId: string, fromDate: string, toDate: string, timezone: string) {
+  // Pad the database window by a day each side: the local-day filter below decides the exact bounds.
+  const padMs = 86_400_000;
+  const from = new Date(Date.parse(`${fromDate}T00:00:00Z`) - padMs);
+  const to = new Date(Date.parse(`${toDate}T23:59:59Z`) + padMs);
+  const all: NutritionEntryEvent[] = useMemory || !database
+    ? memoryEntries.filter((entry) => entry.userId === userId && entry.occurredAt >= from && entry.occurredAt <= to)
+    : (await database.select().from(events).where(and(
+        eq(events.userId, userId),
+        eq(events.type, "nutrition_entry"),
+        gte(events.occurredAt, from),
+        lte(events.occurredAt, to)
+      )).orderBy(desc(events.occurredAt))).map(entryFromRow);
+  return all.filter((entry) => {
+    const day = dateKey(entry.occurredAt, timezone);
+    return day >= fromDate && day <= toDate;
+  });
 }
 
 export async function getFoodEntry(userId: string, id: string) {

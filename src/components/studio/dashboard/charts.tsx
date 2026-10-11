@@ -43,12 +43,15 @@ export function LineChart({ points, unit }: { points: Point[]; unit: string }) {
   const width = 600;
   const height = 200;
   const pad = 24;
+  // Room on the right for the min and max of the range.
+  const padRight = 52;
   if (points.length < 2) return null;
   const values = points.map((point) => point.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
-  const span = Math.max(1, max - min);
-  const x = (index: number) => pad + (index / (points.length - 1)) * (width - pad * 2);
+  // A narrow range (a ratio like 0.82) must still fill the plot, so only a flat line falls back to 1.
+  const span = max - min || 1;
+  const x = (index: number) => pad + (index / (points.length - 1)) * (width - pad - padRight);
   const y = (value: number) => height - pad - ((value - min) / span) * (height - pad * 2);
   const d = points.map((point, index) => `${index ? "L" : "M"}${x(index).toFixed(1)} ${y(point.value).toFixed(1)}`).join(" ");
   const last = points.length - 1;
@@ -62,7 +65,7 @@ export function LineChart({ points, unit }: { points: Point[]; unit: string }) {
           <stop offset="100%" stopColor="var(--s-primary)" stopOpacity="0" />
         </linearGradient>
       </defs>
-      {[0, 0.5, 1].map((t) => <line key={t} x1={pad} x2={width - pad} y1={pad + t * (height - pad * 2)} y2={pad + t * (height - pad * 2)} stroke="var(--s-outline-variant)" strokeDasharray="3 5" />)}
+      {[0, 0.5, 1].map((t) => <line key={t} x1={pad} x2={width - padRight} y1={pad + t * (height - pad * 2)} y2={pad + t * (height - pad * 2)} stroke="var(--s-outline-variant)" strokeDasharray="3 5" />)}
       <motion.path d={`${d} L${x(last)} ${height - pad} L${x(0)} ${height - pad} Z`} fill={`url(#${id}-fill)`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={effects.slow} />
       <motion.path d={d} fill="none" stroke="var(--s-primary)" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 0.9, ease: [0.2, 0, 0, 1] }} />
       {points.map((point, index) => (
@@ -70,8 +73,10 @@ export function LineChart({ points, unit }: { points: Point[]; unit: string }) {
           <title>{`${point.label}: ${point.value} ${unit}`}</title>
         </motion.circle>
       ))}
+      <text x={width - padRight + 8} y={pad + 4} fontSize="11" fill="var(--s-on-surface-variant)">{max}</text>
+      <text x={width - padRight + 8} y={height - pad + 4} fontSize="11" fill="var(--s-on-surface-variant)">{min}</text>
       <text x={pad} y={height - 4} fontSize="11" fill="var(--s-on-surface-variant)">{points[0].label}</text>
-      <text x={width - pad} y={height - 4} fontSize="11" textAnchor="end" fill="var(--s-on-surface-variant)">{points[last].label}</text>
+      <text x={width - padRight} y={height - 4} fontSize="11" textAnchor="end" fill="var(--s-on-surface-variant)">{points[last].label}</text>
     </svg>
   );
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { INBODY_CATEGORIES, INBODY_SEGMENTS, inBodyDefinition, inBodyMetricIdentity } from "./inbody-catalog";
 import { nutritionEntryPayloadSchema } from "./nutrition";
 
 export const eventTypeSchema = z.enum(["progress_photo", "workout", "measurements", "inbody", "nutrition_entry"]);
@@ -65,15 +66,39 @@ export const measurementsEventSchema = baseEventSchema.extend({
   })
 });
 
+/**
+ * One reading from the sheet. Agents may send just `key` + `value` (+ reference range, evaluation, segment, frequency):
+ * label, unit and category are filled from the catalog so tests stay comparable.
+ */
 export const inbodyMetricSchema = z.object({
   key: z.string().min(1),
-  label: z.string().min(1),
+  label: z.string().min(1).optional(),
   value: z.number(),
   unit: z.string().optional(),
   referenceMin: z.number().optional(),
   referenceMax: z.number().optional(),
-  segment: z.enum(["left_arm", "right_arm", "trunk", "left_leg", "right_leg"]).optional(),
-  category: z.enum(["composition", "obesity", "control", "research", "segmental_lean", "segmental_fat", "impedance", "other"])
+  segment: z.enum(INBODY_SEGMENTS).optional(),
+  frequencyKhz: z.number().positive().optional(),
+  // The sheet's own verdict for segmental lean/fat and for BMI/PBF.
+  evaluation: z.enum(["under", "normal", "over"]).optional(),
+  category: z.enum(INBODY_CATEGORIES).optional()
+}).superRefine((metric, ctx) => {
+  const definition = inBodyDefinition(metric.key);
+  if (definition?.segmental && !metric.segment) {
+    ctx.addIssue({ code: "custom", message: `${metric.key} needs a segment (left_arm, right_arm, trunk, left_leg or right_leg)`, path: ["segment"] });
+  }
+  if (definition?.frequency && !metric.frequencyKhz) {
+    ctx.addIssue({ code: "custom", message: `${metric.key} needs frequencyKhz (20 or 100)`, path: ["frequencyKhz"] });
+  }
+}).transform((metric) => {
+  const definition = inBodyDefinition(metric.key);
+  const unit = metric.unit ?? definition?.unit;
+  return {
+    ...metric,
+    label: metric.label ?? definition?.label ?? metric.key,
+    ...(unit === undefined ? {} : { unit }),
+    category: metric.category ?? definition?.category ?? ("other" as const)
+  };
 });
 
 export const inbodyEventSchema = baseEventSchema.extend({
@@ -86,7 +111,24 @@ export const inbodyEventSchema = baseEventSchema.extend({
   }).refine((source) => source.assetId || source.url, {
     message: "InBody source requires a managed asset or display URL"
   }),
-  metrics: z.array(inbodyMetricSchema).min(1),
+  metrics: z.array(inbodyMetricSchema).min(1).superRefine((metrics, ctx) => {
+    const seen = new Set<string>();
+    metrics.forEach((metric, index) => {
+      const identity = inBodyMetricIdentity(metric);
+      if (seen.has(identity)) {
+        ctx.addIssue({ code: "custom", message: `Duplicate metric ${metric.key}${metric.segment ? ` (${metric.segment})` : ""}`, path: [index] });
+      }
+      seen.add(identity);
+    });
+  }),
+  // Header of the printed sheet: which device, who it was measured for.
+  report: z.object({
+    device: z.string().min(1).optional(),
+    testId: z.string().min(1).optional(),
+    heightCm: z.number().positive().optional(),
+    ageYears: z.number().int().positive().optional(),
+    gender: z.enum(["male", "female"]).optional()
+  }).optional(),
   extraction: z.object({
     method: z.enum(["mcp_agent", "local_ocr", "manual"]),
     reviewed: z.boolean()

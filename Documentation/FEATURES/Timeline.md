@@ -6,6 +6,10 @@ Timeline is the body archive: photographs, measurements, and InBody records in o
 
 Progress-photo sessions render as large inline visual records, using the signed thumbnail in the scrolling archive and loading full media only in the existing gallery. A session opens the gallery on tap; private URLs remain transient display data.
 
+## InBody
+
+An `inbody` event holds every reading of the printed sheet, its date and the original file. The Timeline row shows the headline numbers; the event page shows each section with its normal range and the change since the previous test. Trends, the original and the diet/steps/training/photos between tests are described in `FEATURES/InBody.md`.
+
 ## Measurements
 
 The native editor creates a `measurements` Timeline event for a selected date. Every field is optional, but at least one value is required. The personal workflow uses weight, chest, waist, abdomen, relaxed and flexed arm, forearm, hips, thigh, and calf. A single arm/leg value is persisted to both existing left/right schema fields; the archive presents one value while both sides match.

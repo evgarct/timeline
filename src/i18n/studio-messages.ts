@@ -21,13 +21,14 @@ const ru = {
       studio_navigate: "Открыл страницу", builder_set_name: "Назвал шаблон", builder_add_exercise: "Добавил упражнение",
       builder_create_exercise: "Создал упражнение", builder_remove_exercise: "Убрал упражнение", builder_move_exercise: "Переставил упражнение",
       builder_update_exercise: "Изменил упражнение", builder_link_superset: "Изменил суперсет", builder_undo: "Отменил изменение",
-      builder_redo: "Вернул изменение", builder_save: "Сохранил шаблон", dashboard_select_week: "Выбрал неделю", dashboard_select_exercise: "Выбрал упражнение",
+      builder_redo: "Вернул изменение", builder_save: "Сохранил шаблон", dashboard_select_week: "Выбрал неделю", dashboard_select_exercise: "Выбрал упражнение", body_select_metric: "Выбрал показатель тела",
+      create_inbody_upload: "Загрузил оригинал InBody",
       record_workout_session: "Записал тренировку", update_workout_session: "Исправил тренировку", delete_workout_session: "Удалил тренировку",
       upsert_workout_template: "Сохранил шаблон", rename_workout_template: "Переименовал шаблон", duplicate_workout_template: "Дублировал шаблон",
       delete_workout_template: "Удалил шаблон", upsert_exercise: "Сохранил упражнение"
     } as Record<string, string>
   },
-  nav: { dashboard: "Обзор", templates: "Шаблоны", feedback: "Фидбек", today: "Сегодня", theme: "Тема" },
+  nav: { dashboard: "Обзор", body: "Тело", templates: "Шаблоны", feedback: "Фидбек", today: "Сегодня", theme: "Тема" },
   common: { save: "Сохранить", saving: "Сохраняем…", saved: "Сохранено", cancel: "Отмена", delete: "Удалить", edit: "Править", retry: "Повторить", loading: "Загрузка…", empty: "Пока пусто", sets: "подходов", kg: "кг", reps: "повт.", exercises: "упражнений", sessions: "тренировок", undo: "Отменить", redo: "Вернуть" },
   templates: {
     title: "Шаблоны тренировок", eyebrow: "Силовые", new: "Новый шаблон", empty: "Шаблонов пока нет", emptyHint: "Собери первый в билдере — он сразу появится в приложении.", open: "Открыть билдер",
@@ -77,13 +78,14 @@ const en: StudioCopy = {
       studio_navigate: "Opened a page", builder_set_name: "Named the template", builder_add_exercise: "Added an exercise",
       builder_create_exercise: "Created an exercise", builder_remove_exercise: "Removed an exercise", builder_move_exercise: "Moved an exercise",
       builder_update_exercise: "Changed an exercise", builder_link_superset: "Changed a superset", builder_undo: "Undid a change",
-      builder_redo: "Redid a change", builder_save: "Saved the template", dashboard_select_week: "Selected a week", dashboard_select_exercise: "Selected an exercise",
+      builder_redo: "Redid a change", builder_save: "Saved the template", dashboard_select_week: "Selected a week", dashboard_select_exercise: "Selected an exercise", body_select_metric: "Selected a body metric",
+      create_inbody_upload: "Uploaded an InBody original",
       record_workout_session: "Logged a workout", update_workout_session: "Corrected a workout", delete_workout_session: "Deleted a workout",
       upsert_workout_template: "Saved a template", rename_workout_template: "Renamed a template", duplicate_workout_template: "Duplicated a template",
       delete_workout_template: "Deleted a template", upsert_exercise: "Saved an exercise"
     } as Record<string, string>
   },
-  nav: { dashboard: "Overview", templates: "Templates", feedback: "Feedback", today: "Today", theme: "Theme" },
+  nav: { dashboard: "Overview", body: "Body", templates: "Templates", feedback: "Feedback", today: "Today", theme: "Theme" },
   common: { save: "Save", saving: "Saving…", saved: "Saved", cancel: "Cancel", delete: "Delete", edit: "Edit", retry: "Retry", loading: "Loading…", empty: "Nothing here yet", sets: "sets", kg: "kg", reps: "reps", exercises: "exercises", sessions: "sessions", undo: "Undo", redo: "Redo" },
   templates: {
     title: "Workout templates", eyebrow: "Strength", new: "New template", empty: "No templates yet", emptyHint: "Build the first one in the builder — it shows up in the app right away.", open: "Open builder",
@@ -131,13 +133,14 @@ const cs: StudioCopy = {
       studio_navigate: "Otevřel stránku", builder_set_name: "Pojmenoval šablonu", builder_add_exercise: "Přidal cvik",
       builder_create_exercise: "Vytvořil cvik", builder_remove_exercise: "Odebral cvik", builder_move_exercise: "Přesunul cvik",
       builder_update_exercise: "Změnil cvik", builder_link_superset: "Změnil superset", builder_undo: "Vrátil změnu",
-      builder_redo: "Obnovil změnu", builder_save: "Uložil šablonu", dashboard_select_week: "Vybral týden", dashboard_select_exercise: "Vybral cvik",
+      builder_redo: "Obnovil změnu", builder_save: "Uložil šablonu", dashboard_select_week: "Vybral týden", dashboard_select_exercise: "Vybral cvik", body_select_metric: "Vybral tělesný ukazatel",
+      create_inbody_upload: "Nahrál originál InBody",
       record_workout_session: "Zapsal trénink", update_workout_session: "Opravil trénink", delete_workout_session: "Smazal trénink",
       upsert_workout_template: "Uložil šablonu", rename_workout_template: "Přejmenoval šablonu", duplicate_workout_template: "Duplikoval šablonu",
       delete_workout_template: "Smazal šablonu", upsert_exercise: "Uložil cvik"
     } as Record<string, string>
   },
-  nav: { dashboard: "Přehled", templates: "Šablony", feedback: "Zpětná vazba", today: "Dnes", theme: "Motiv" },
+  nav: { dashboard: "Přehled", body: "Tělo", templates: "Šablony", feedback: "Zpětná vazba", today: "Dnes", theme: "Motiv" },
   common: { save: "Uložit", saving: "Ukládám…", saved: "Uloženo", cancel: "Zrušit", delete: "Smazat", edit: "Upravit", retry: "Zkusit znovu", loading: "Načítání…", empty: "Zatím prázdné", sets: "sérií", kg: "kg", reps: "opak.", exercises: "cviků", sessions: "tréninků", undo: "Zpět", redo: "Znovu" },
   templates: {
     title: "Tréninkové šablony", eyebrow: "Síla", new: "Nová šablona", empty: "Zatím žádné šablony", emptyHint: "Vytvoř první v builderu — hned se objeví v aplikaci.", open: "Otevřít builder",
