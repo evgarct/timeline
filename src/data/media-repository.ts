@@ -81,6 +81,24 @@ export async function markMediaAssetReady(userId: string, id: string) {
   return asset ?? null;
 }
 
+/**
+ * Marks a pending asset ready after the server stored its (already normalized) objects, recording the real sizes
+ * and dimensions of what was written. Null when the asset is missing or not pending (a link works once).
+ */
+export async function completeUploadedMediaAsset(userId: string, id: string, stored: { width: number; height: number; sizeBytes: number; thumbnailSizeBytes: number }) {
+  if (useMemory) {
+    const asset = memoryAssets.find((item) => item.userId === userId && item.id === id && item.status === "pending");
+    if (!asset) return null;
+    Object.assign(asset, { ...stored, status: "ready", updatedAt: new Date() });
+    return asset;
+  }
+  const [asset] = await requireDatabase().update(mediaAssets)
+    .set({ ...stored, status: "ready", updatedAt: new Date() })
+    .where(and(eq(mediaAssets.userId, userId), eq(mediaAssets.id, id), eq(mediaAssets.status, "pending")))
+    .returning();
+  return asset ?? null;
+}
+
 export async function attachMediaAssets(userId: string, eventId: string, ids: string[]) {
   if (!ids.length) return;
   if (useMemory) {

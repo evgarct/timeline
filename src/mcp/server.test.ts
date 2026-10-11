@@ -377,6 +377,15 @@ describe("send_feedback, list_feedback and update_feedback", () => {
     expect(withUrls).toContain("/demo/progress-front.png");
   });
 
+  it("offers create_photo_upload and says plainly when photo storage is not configured", async () => {
+    const client = await connectClient();
+    const tools = (await client.listTools()).tools.map((tool) => tool.name);
+    expect(tools).toContain("create_photo_upload");
+    const response = await client.callTool({ name: "create_photo_upload", arguments: {} }) as { isError?: boolean; content: Array<{ text: string }> };
+    expect(response.isError).toBe(true);
+    expect(response.content[0].text).toContain("storage_not_configured");
+  });
+
   it("rejects an invalid category through the tool schema", async () => {
     const client = await connectClient();
     await expect(client.callTool({ name: "send_feedback", arguments: { category: "rant", summary: "x" } })).resolves.toMatchObject({ isError: true });
