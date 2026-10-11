@@ -81,6 +81,46 @@ export async function markMediaAssetReady(userId: string, id: string) {
   return asset ?? null;
 }
 
+const CLAIM_LEASE_MS = 60_000;
+
+/**
+ * Takes the exclusive right to write a pending asset's objects, so a retried upload cannot overwrite the object
+ * another request is writing. A never-claimed asset has `updatedAt === createdAt`; a claim moves `updatedAt` forward
+ * and holds for a lease, after which a stalled claim can be taken over. No schema change: the claim is the timestamp.
+ * Returns null when someone else holds it or the asset is not pending.
+ */
+export async function claimPendingMediaAsset(userId: string, id: string, now = new Date()) {
+  const staleBefore = new Date(now.getTime() - CLAIM_LEASE_MS);
+  if (useMemory) {
+    const asset = memoryAssets.find((item) => item.userId === userId && item.id === id && item.status === "pending");
+    if (!asset || (asset.updatedAt.getTime() !== asset.createdAt.getTime() && asset.updatedAt > staleBefore)) return null;
+    asset.updatedAt = now;
+    return asset;
+  }
+  const [asset] = await requireDatabase().update(mediaAssets)
+    .set({ updatedAt: now })
+    .where(and(
+      eq(mediaAssets.userId, userId),
+      eq(mediaAssets.id, id),
+      eq(mediaAssets.status, "pending"),
+      or(sql`${mediaAssets.updatedAt} = ${mediaAssets.createdAt}`, lt(mediaAssets.updatedAt, staleBefore))
+    ))
+    .returning();
+  return asset ?? null;
+}
+
+/** Gives a claim back after a failed write so the same link can be retried at once. */
+export async function releaseMediaAssetClaim(userId: string, id: string) {
+  if (useMemory) {
+    const asset = memoryAssets.find((item) => item.userId === userId && item.id === id && item.status === "pending");
+    if (asset) asset.updatedAt = asset.createdAt;
+    return;
+  }
+  await requireDatabase().update(mediaAssets)
+    .set({ updatedAt: sql`${mediaAssets.createdAt}` })
+    .where(and(eq(mediaAssets.userId, userId), eq(mediaAssets.id, id), eq(mediaAssets.status, "pending")));
+}
+
 /**
  * Marks a pending asset ready after the server stored its (already normalized) objects, recording the real sizes
  * and dimensions of what was written. Null when the asset is missing or not pending (a link works once).

@@ -7,6 +7,7 @@ const statusByCode: Record<string, number> = {
   asset_unavailable: 409,
   payload_too_large: 413,
   invalid_image: 422,
+  unsupported_heic: 415,
   empty_body: 400
 };
 

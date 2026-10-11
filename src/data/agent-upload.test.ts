@@ -49,6 +49,25 @@ describe("agent photo upload", () => {
     await expect(upload.ingestAgentUpload(tokenOf(link.uploadUrl), await picture())).rejects.toMatchObject({ code: "asset_unavailable" });
   });
 
+  it("lets only one of two concurrent uploads to the same link write", async () => {
+    const link = await upload.createAgentUploadLink(userId, {});
+    const token = tokenOf(link.uploadUrl);
+    const results = await Promise.allSettled([
+      upload.ingestAgentUpload(token, await picture()),
+      upload.ingestAgentUpload(token, await picture())
+    ]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    const failure = results.find((result) => result.status === "rejected") as PromiseRejectedResult;
+    expect(failure.reason).toMatchObject({ code: "asset_unavailable" });
+    expect(stored.size).toBe(2); // one full + one thumbnail, written once
+  });
+
+  it("names HEIC explicitly instead of a generic invalid-image error", async () => {
+    const link = await upload.createAgentUploadLink(userId, {});
+    const heic = new TextEncoder().encode("\0\0\0\u0018ftypheic\0\0\0\0");
+    await expect(upload.ingestAgentUpload(tokenOf(link.uploadUrl), heic)).rejects.toMatchObject({ code: "unsupported_heic" });
+  });
+
   it("refuses a forged token, an empty body, an oversized body and bytes that are not a picture", async () => {
     const link = await upload.createAgentUploadLink(userId, {});
     await expect(upload.ingestAgentUpload("forged.token", await picture())).rejects.toMatchObject({ code: "invalid_token" });
