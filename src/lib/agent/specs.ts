@@ -239,7 +239,7 @@ export const specs = {
   list_exercise_alternatives: spec({
     name: "list_exercise_alternatives",
     title: "Find alternatives for an exercise",
-    description: "Exercises that can replace one in a plan: same primary muscle, ranked by the same movement pattern and then the same equipment. Pass equipment to constrain it (for example \"dumbbell\" when the barbell is taken). Use it for \"swap this exercise\" requests, then put the chosen id into upsert_workout_template.",
+    description: "Exercises that can replace one in a plan: same primary muscle, ranked by the same movement pattern and then the same equipment. Pass equipment to constrain it (for example \"dumbbell\" when the barbell is taken). Use it for \"swap this exercise\" requests, then put the chosen id into upsert_workout_template. Entries are compact (id, name, muscles, equipment, movement pattern); call get_exercise for the technique of the one you pick.",
     input: z.object({
       exerciseId: z.string().uuid(),
       equipment: z.string().optional(),
