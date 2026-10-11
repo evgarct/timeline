@@ -39,7 +39,7 @@ export function buildRequest(spec: ToolSpec, input: Record<string, unknown>) {
  * so the browser copilot gets the data and write tools the MCP server has without a second implementation.
  */
 export function restBridgeTools(deps: BridgeDeps = {}, specs: ToolSpec[] = allSpecs): WebMcpTool[] {
-  return specs.filter((spec) => spec.rest).map((spec) => toWebMcpTool(spec, async (input) => {
+  return specs.filter((spec) => spec.rest).map((spec) => toWebMcpTool(spec, async (input, options) => {
     if (spec.annotations.destructiveHint && deps.confirm && !(await deps.confirm(spec.title))) {
       throw new ToolError("user_declined", "The user declined this action.");
     }
@@ -48,6 +48,8 @@ export function restBridgeTools(deps: BridgeDeps = {}, specs: ToolSpec[] = allSp
     const response = await fetchImpl(url, {
       method,
       credentials: "same-origin",
+      // A cancelled tool call must not leave a write running in the background.
+      signal: options?.signal,
       headers: body === undefined ? undefined : { "content-type": "application/json" },
       body: body === undefined ? undefined : JSON.stringify(body)
     });

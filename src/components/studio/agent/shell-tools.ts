@@ -53,7 +53,10 @@ export function shellTools(deps: ShellToolDeps): WebMcpTool[] {
     }, { consequential: true }),
     ...restBridgeTools({
       confirm: (title) => agentStore.requestConfirm(copy.agent.actionConfirm.replace("{action}", title)),
-      onWrite: deps.onWrite
+      onWrite: (spec) => {
+        agentStore.record(spec.name);
+        deps.onWrite();
+      }
     })
   ];
 }

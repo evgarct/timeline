@@ -112,6 +112,14 @@ describe("REST bridge", () => {
     expect(onWrite).toHaveBeenCalledTimes(1);
   });
 
+  it("passes the call's abort signal to the request", async () => {
+    const fetchImpl = vi.fn(async () => Response.json({ items: [] })) as unknown as typeof fetch;
+    const tools = Object.fromEntries(restBridgeTools({ fetchImpl }).map((tool) => [tool.name, tool]));
+    const controller = new AbortController();
+    await tools.list_workout_templates.execute({}, { signal: controller.signal });
+    expect((fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0][1]).toMatchObject({ signal: controller.signal });
+  });
+
   it("exposes only specs with a REST mapping", () => {
     const names = restBridgeTools().map((tool) => tool.name);
     expect(names).toContain("search_exercises");

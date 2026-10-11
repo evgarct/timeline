@@ -1,6 +1,6 @@
 import type { Decorator, Meta, StoryObj } from "@storybook/nextjs-vite";
 import { MotionConfig } from "motion/react";
-import { useReducer, useState } from "react";
+import { useEffect, useReducer, useState } from "react";
 import { getStudioCopy } from "@/i18n/studio-messages";
 import { ConsistencyGrid, LineChart, WeekBars } from "./dashboard/charts";
 import { builderReducer, initialState, type BuilderDoc } from "./builder/builder-state";
@@ -9,6 +9,7 @@ import { CanvasPanel } from "./builder/canvas-panel";
 import { CreateExerciseForm } from "./builder/create-exercise";
 import { DropIndicator } from "./builder/drop-indicator";
 import { InspectorPanel } from "./builder/inspector-panel";
+import { agentStore } from "./agent/agent-store";
 import { MuscleMap } from "./ds/muscle-map";
 import { Chip, Eyebrow, NumberTicker, SerifNumber, Stepper, StudioButton, Surface } from "./ds/primitives";
 
@@ -160,3 +161,12 @@ function DragDemo({ empty }: { empty?: boolean }) {
 /** Drag a tile from the left onto the canvas: hit-testing, insertion line and the drop itself. */
 export const DragFromCatalog: Story = { render: () => <DragDemo /> };
 export const DragIntoEmptyCanvas: Story = { render: () => <DragDemo empty /> };
+
+function AgentTouched() {
+  // Marks a known card ("a") as the one the copilot just changed, so the glow can be reviewed in isolation.
+  useEffect(() => { agentStore.record("builder_update_exercise", "Barbell Bench Press", "a"); }, []);
+  return <BuilderPieces doc={seedDoc} />;
+}
+
+/** The glow plays once on the card the agent touched last (data-testid="agent-highlight"). */
+export const AgentTouchedCard: Story = { render: () => <AgentTouched /> };
