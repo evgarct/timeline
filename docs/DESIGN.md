@@ -77,6 +77,17 @@ This document is the design source of truth for UI work in this repository. Read
 - Storage usage in Settings: show quota as compact profile metadata, not as a separate billing page.
 - Landing/product bridge: landing primary CTA opens the product for signed-in users; product header keeps a compact link back to landing.
 
+## Studio (web strength builder and dashboards)
+
+Studio is the desktop-first web surface for workouts. It deliberately differs from the calm mobile Today surface: brighter, more motion, still on the Android brand.
+
+- Scope: tokens live under `[data-surface="studio"]` (`src/styles/studio-tokens.css`) and are semantic M3-style roles (`--s-surface-container`, `--s-primary-container`, `--s-outline-variant`). Dark mode redefines the roles; never pick a light colour inside a component.
+- Brand parity with Android: Paper `#F2EEE6` / Ink `#15130F` / Trace `#806450`, serif for titles and hero numbers (`SerifNumber`: value serif, unit sans at 0.45x), tabular digits on every number, eyebrow = 11px/600/+0.1em uppercase, radii 14/16/20/24/28. Depth comes from surface-container tiers, not shadows.
+- Brighter web layer (Studio only): soft Trace glow on hover/active/PR and a radial page gradient. Glow and gradients are always derived from `--s-primary` and never carry meaning.
+- Motion = Material 3 Expressive springs ported from Android (`src/lib/motion/tokens.ts`, values from androidx `ExpressiveMotionTokens`): spatial (position/size/layout) fast 800/0.6, default 380/0.8, slow 200/0.8; effects (opacity/colour) are critically damped 3800/1600/800. Collapse = tween 220ms + fade 150ms, as on Android. Everything honours `prefers-reduced-motion`.
+- Interaction: filter chips share a `layoutId` pill that glides between chips; cards lift 2px on hover; buttons scale to 0.96 on press; lists reorder with layout animations and a dragged card gets scale 1.02 plus a glow.
+- Muscle map: same outlines and region mapping as Android (`MuscleMap.kt`), neutral 12% / secondary 40% / primary 100%; the dashboard reuses it as a heat map via a per-muscle intensity.
+- Charts are plain SVG/CSS with the same springs (bars grow, lines draw their stroke); no chart dependency. Volume stays neutral: no goals, streaks or good/bad colouring.
 ## Update Process
 
 - Before UI work: read this file and follow the existing product feel.
