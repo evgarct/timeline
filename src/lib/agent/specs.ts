@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { eventTypeSchema } from "@/domain/events";
+import { agentUploadLinkSchema } from "@/domain/media";
 import { feedbackCategorySchema, feedbackInputSchema, feedbackStatusSchema } from "@/domain/feedback";
 import { exerciseInputSchema, movementPatterns, setInputSchema } from "@/domain/exercises";
 import { templatePatchSchema, workoutTemplateInputSchema } from "@/domain/workout-templates";
@@ -62,6 +63,7 @@ const meta: Record<string, Pick<ToolSpec, "annotations" | "rest">> = {
   preview_template_volume: { annotations: readOnly, rest: { method: "POST", path: "/api/templates/preview-volume" } },
   update_workout_template: { annotations: { ...idempotent }, rest: { method: "PATCH", path: "/api/templates/{id}" } },
   get_week_plan: { annotations: readOnly, rest: { method: "GET", path: "/api/schedule/week", query: ["start", "timezone"] } },
+  create_photo_upload: { annotations: {}, rest: { method: "POST", path: "/api/uploads/agent-link" } },
   send_feedback: { annotations: {}, rest: { method: "POST", path: "/api/feedback" } },
   list_feedback: { annotations: readOnly, rest: { method: "GET", path: "/api/feedback", query: ["status", "category", "tool", "limit"] } },
   update_feedback: { annotations: { ...idempotent }, rest: { method: "PUT", path: "/api/feedback/{id}" } }
@@ -270,6 +272,12 @@ export const specs = {
       start: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe("Any date (YYYY-MM-DD) in the wanted week; default is the current week"),
       timezone: z.string().min(1).default("UTC").describe("IANA timezone that defines the days, e.g. Europe/Prague")
     })
+  }),
+  create_photo_upload: spec({
+    name: "create_photo_upload",
+    title: "Get a link to upload a progress photo",
+    description: "Upload ONE progress photo so it can be attached to a progress_photo event (create_event refuses a photo without a managed asset). Returns assetId and a one-time uploadUrl (valid 15 minutes, this site, no login needed). POST the picture bytes (JPEG, PNG or WebP, at most maxBytes, about 4 MB; downscale large pictures first; iPhone HEIC/HEIF originals are refused with unsupported_heic, so convert them to JPEG in the browser first, for example by drawing them on a canvas and exporting JPEG) to uploadUrl with fetch(uploadUrl, { method: \"POST\", body: blob }): the server strips metadata, corrects orientation, makes the full and thumbnail JPEGs and answers { assetId, width, height, palette }. Then call create_event with { type: \"progress_photo\", id: <a stable uuid per source message so a retry cannot duplicate it>, occurredAt: <the real date and time of the photo, ISO 8601>, timezone: <IANA, e.g. Europe/Prague>, photos: [{ id: <any short id>, assetId, palette, alt: <short description> }] }. Photos taken at the same time can share one event (up to 12 photos): upload each, then list all assetIds in one create_event. One upload link serves one picture; call this tool again for the next one. Never upload other people's pictures, collages or screenshots unless the user asked for them.",
+    input: agentUploadLinkSchema
   }),
   send_feedback: spec({
     name: "send_feedback",

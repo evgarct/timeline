@@ -2,6 +2,13 @@ import { z } from "zod";
 
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 export const MAX_PROGRESS_PHOTOS = 12;
+/** Largest picture an agent may POST to its upload link (Vercel functions accept bodies up to 4.5 MB). */
+export const MAX_AGENT_UPLOAD_BYTES = 4_000_000;
+
+export const agentUploadLinkSchema = z.object({
+  kind: z.literal("progress_photo").default("progress_photo"),
+  fileName: z.string().min(1).max(255).optional()
+});
 
 export const storedMediaTypeSchema = z.enum([
   "application/pdf",

@@ -60,6 +60,7 @@ import { isTaskCompleted, latestEvent } from "@/domain/timeline";
 import { resolveMcpUser } from "@/data/repository";
 import { listDailyActivity } from "@/data/daily-activity-repository";
 import { createFeedback, listFeedback, updateFeedback } from "@/data/feedback-repository";
+import { AgentUploadError, createAgentUploadLink } from "@/data/agent-upload";
 import type { Feedback } from "@/domain/feedback";
 import { parseRange } from "@/lib/agent/range";
 import { specs, type ToolSpec } from "@/lib/agent/specs";
@@ -220,7 +221,7 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
 
   server.registerTool("create_event", {
     title: "Create event",
-    description: "Create a progress photo, workout, measurements, or InBody event. For InBody, send the original file reference in source.url and all extracted metrics; do not ask the server to OCR it.",
+    description: "Create a progress photo, workout, measurements, or InBody event. A progress photo needs managed assets: call create_photo_upload for each picture first and pass the returned assetIds in photos (set occurredAt to the real date of the photo). For InBody, send the original file reference in source.url and all extracted metrics; do not ask the server to OCR it.",
     inputSchema: { event: z.record(z.string(), z.unknown()) }
   }, async ({ event }) => {
     const parsed = timelineEventSchema.safeParse(event);
@@ -867,6 +868,22 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
     });
     const text = [`Week of ${plan.weekStart} (${plan.timezone}); today ${plan.today}`, ...lines, `Unplanned days: ${plan.summary.unplannedDays.join(", ") || "none"}`].join("\n");
     return result("Week plan", `Week of ${plan.weekStart}`, plan, [], { text, withData: true });
+  });
+
+  registerSpec(server, specs.create_photo_upload, async (input) => {
+    try {
+      const link = await createAgentUploadLink(userId, { fileName: input.fileName });
+      const text = [
+        `Upload link ready (assetId: ${link.assetId}, valid until ${link.expiresAt}, at most ${link.maxBytes} bytes).`,
+        `1. POST the picture bytes (JPEG, PNG or WebP): fetch("${link.uploadUrl}", { method: "POST", body: blob }); the answer has width, height and palette.`,
+        `2. create_event { type: "progress_photo", id: <stable uuid>, occurredAt: <ISO date of the photo>, timezone: <IANA>, photos: [{ id: "p1", assetId: "${link.assetId}", palette: <from the answer>, alt: <short text> }] }.`,
+        `uploadUrl: ${link.uploadUrl}`
+      ].join("\n");
+      return result("Photo upload link", `asset ${link.assetId}`, link, [], { id: link.assetId, text });
+    } catch (error) {
+      const code = error instanceof AgentUploadError ? error.code : "upload_link_failed";
+      return fail(code === "storage_quota_exceeded" ? "storage_quota_exceeded: the user's photo storage is full" : code === "storage_not_configured" ? "storage_not_configured: photo storage is not set up in this environment" : code);
+    }
   });
 
   registerSpec(server, specs.send_feedback, async (input) => {

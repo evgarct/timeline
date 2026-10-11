@@ -10,7 +10,7 @@ const pages = ["/ru", "/ru/today", "/ru/studio", "/ru/studio/templates", "/ru/st
 const apis = [
   "/api/events", "/api/exercises", "/api/exercises/facets", `/api/exercises/${id}`, `/api/exercises/${id}/history`, `/api/exercises/${id}/alternatives`,
   "/api/templates", `/api/templates/${id}`, `/api/templates/${id}/plan`, `/api/templates/${id}/duplicate`, "/api/templates/preview-volume",
-  "/api/workouts", `/api/workouts/${id}`, "/api/workouts/volume", "/api/feedback", "/api/feedback/counts", `/api/feedback/${id}`, "/api/openapi.json"
+  "/api/uploads/agent-link", "/api/uploads/agent/warmup", "/api/workouts", `/api/workouts/${id}`, "/api/workouts/volume", "/api/feedback", "/api/feedback/counts", `/api/feedback/${id}`, "/api/openapi.json"
 ];
 
 export default async function globalSetup() {
