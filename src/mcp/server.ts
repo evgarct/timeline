@@ -67,7 +67,7 @@ import { listDailyActivity } from "@/data/daily-activity-repository";
 import { createFeedback, listFeedback, updateFeedback } from "@/data/feedback-repository";
 import { AgentUploadError, createAgentUploadLink } from "@/data/agent-upload";
 import type { Feedback } from "@/domain/feedback";
-import { parseRange } from "@/lib/agent/range";
+import { parseRange, parseRangeInTimezone } from "@/lib/agent/range";
 import { specs, type ToolSpec } from "@/lib/agent/specs";
 
 function hashToken(token: string) {
@@ -933,7 +933,7 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
 
   registerSpec(server, specs.get_body_composition, async ({ from, to, metrics, timezone }) => {
     if (!isValidTimeZone(timezone)) return fail("invalid_timezone");
-    const range = parseRange(from, to);
+    const range = parseRangeInTimezone(from, to, timezone);
     if ("error" in range) return fail(range.error);
     const tests = await getBodyComposition(userId, { ...range, timezone, metrics: parseMetricsParam(metrics) });
     return result("Body composition", `${tests.length} InBody tests`, { tests }, [], { text: bodyCompositionText(tests) });

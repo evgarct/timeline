@@ -38,16 +38,20 @@ export async function getBodyComposition(userId: string, query: BodyCompositionQ
   const windowTo = shiftDate(lastDate, Math.max(PHOTO_AFTER_DAYS, MEASUREMENT_WINDOW_DAYS));
   const range = { from: new Date(`${windowFrom}T00:00:00Z`), to: new Date(`${windowTo}T23:59:59Z`) };
 
+  // Workouts are cut by UTC instants but counted by local day: fetch a day more each side and let the local date decide.
+  const workoutFrom = new Date(`${shiftDate(firstDate, -1)}T00:00:00Z`);
+  const workoutTo = new Date(`${shiftDate(lastDate, 1)}T23:59:59Z`);
   const [photos, measurements, food, activity, workouts] = await Promise.all([
     listEvents(userId, { type: "progress_photo", ...range }, { hydrate: false }),
     listEvents(userId, { type: "measurements", ...range }, { hydrate: false }),
     listFoodEntriesInRange(userId, firstDate, lastDate, query.timezone),
     listDailyActivity(userId, firstDate, lastDate),
-    listRecentWorkoutSessions(userId, 2000, { from: new Date(`${firstDate}T00:00:00Z`), to: new Date(`${lastDate}T23:59:59Z`) })
+    listRecentWorkoutSessions(userId, 2000, { from: workoutFrom, to: workoutTo })
   ]);
 
   const tests = buildBodyComposition({
     events,
+    baseline: sorted[0],
     photos: photos.map((event) => ({ id: event.id, occurredAt: event.occurredAt })),
     measurements: measurements.flatMap((event) => event.type === "measurements" ? [{ id: event.id, occurredAt: event.occurredAt, values: event.values }] : []),
     food: food.map((entry) => ({ occurredAt: entry.occurredAt, timezone: entry.timezone, nutrients: entry.productSnapshot.nutrients })),

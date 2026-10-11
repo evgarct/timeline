@@ -62,6 +62,8 @@ export interface BodyCompositionTest {
 
 export interface BodyCompositionInputs {
   events: InBodyEvent[];
+  /** The first test ever, when `events` is a window that starts later (default: the oldest of `events`). */
+  baseline?: InBodyEvent;
   photos: Array<{ id: string; occurredAt: Date }>;
   measurements: Array<{ id: string; occurredAt: Date; values: Record<string, number | undefined> }>;
   /** Food entries with their nutrient snapshot (already scaled to the eaten amount). */
@@ -130,7 +132,9 @@ export function buildBodyComposition(input: BodyCompositionInputs): BodyComposit
   }));
 
   const readings = (event: InBodyEvent) => new Map(event.metrics.map((metric) => [inBodyMetricIdentity(metric), metric]));
-  const first = tests[0] ? readings(tests[0]) : new Map<string, InBodyMetric>();
+  // The change "since the first test" is measured from the very first test ever, even when a date window hides it.
+  const baselineEvent = input.baseline ?? tests[0];
+  const first = baselineEvent ? readings(baselineEvent) : new Map<string, InBodyMetric>();
 
   return tests.map((event, index): BodyCompositionTest => {
     const timezone = event.timezone || input.timezone;
@@ -142,7 +146,7 @@ export function buildBodyComposition(input: BodyCompositionInputs): BodyComposit
     const metrics = event.metrics.filter((metric) => wanted(metric, filter)).map((metric): BodyMetricReading => {
       const identity = inBodyMetricIdentity(metric);
       const before = previousReadings?.get(identity)?.value;
-      const start = index > 0 ? first.get(identity)?.value : undefined;
+      const start = event.id === baselineEvent?.id ? undefined : first.get(identity)?.value;
       return {
         ref: metricRef(metric),
         key: metric.key,

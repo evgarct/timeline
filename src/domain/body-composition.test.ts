@@ -104,6 +104,16 @@ describe("buildBodyComposition", () => {
     expect(tests[0].measurement).toBeUndefined();
   });
 
+  it("measures the change since the first test from the very first test when a window hides it", () => {
+    const [oldest, middle, newest] = [...events].sort((a, b) => a.occurredAt.getTime() - b.occurredAt.getTime());
+    const windowed = buildBodyComposition({ ...inputs, events: [middle, newest], baseline: oldest });
+    const weight = (index: number) => windowed[index].metrics.find((metric) => metric.key === "weight")!;
+    expect(weight(0)).toMatchObject({ value: 75.3, deltaFromFirst: -3.7 });
+    expect(weight(1)).toMatchObject({ value: 85.1, deltaFromPrevious: 9.8, deltaFromFirst: 6.1 });
+    // without a baseline the oldest test of the window is the reference
+    expect(buildBodyComposition({ ...inputs, events: [middle, newest] })[1].metrics.find((metric) => metric.key === "weight")?.deltaFromFirst).toBe(9.8);
+  });
+
   it("reads days in the requested timezone", () => {
     expect(localDate(new Date("2026-03-01T23:30:00Z"), "Europe/Prague")).toBe("2026-03-02");
     expect(localDate(new Date("2026-03-01T23:30:00Z"), "UTC")).toBe("2026-03-01");
