@@ -1,0 +1,109 @@
+/*
+ * Form Studio design tokens. Mirrors the Android brand (android/.../core/theme/Color.kt) and its
+ * Material 3 roles. Scoped to [data-surface="studio"] so Today/Timeline keep their own tokens.
+ * Roles, not raw colours: dark mode redefines the role, components never pick a "light" colour.
+ */
+[data-surface="studio"] {
+  /* Brand */
+  --s-paper: #f2eee6;
+  --s-ink: #15130f;
+  --s-light-ink: #fbf9f4;
+  --s-trace: #806450;
+
+  /* Roles: light */
+  --s-background: #f2eee6;
+  --s-on-background: #15130f;
+  --s-surface: #fdfbf7;
+  --s-surface-container: #f7f3ea;
+  --s-surface-container-high: #ede7db;
+  --s-surface-container-highest: #e5ddcd;
+  --s-on-surface-variant: #6b655c;
+  --s-outline: #8f887c;
+  --s-outline-variant: #dcd4c4;
+  --s-primary: #806450;
+  --s-on-primary: #fbf9f4;
+  --s-primary-container: rgb(128 100 80 / 0.18);
+  --s-on-primary-container: #15130f;
+  --s-error: #d9534f;
+  --s-success: #4e9e68;
+  --s-warning: #e5a93c;
+  --s-info: #5b8def;
+
+  /* Glow / aurora: the "brighter web" layer. Always derived from --s-primary. */
+  --s-glow: rgb(128 100 80 / 0.28);
+  --s-page-gradient:
+    radial-gradient(60rem 36rem at 12% -8%, rgb(128 100 80 / 0.16), transparent 60%),
+    radial-gradient(44rem 30rem at 100% 0%, rgb(91 141 239 / 0.08), transparent 55%);
+
+  /* Shape (Android radii) */
+  --s-radius-sm: 14px;
+  --s-radius-md: 16px;
+  --s-radius-lg: 20px;
+  --s-radius-xl: 24px;
+  --s-radius-sheet: 28px;
+
+  --s-font-serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, "Times New Roman", serif;
+  --s-font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+
+  background: var(--s-background);
+  background-image: var(--s-page-gradient);
+  background-attachment: fixed;
+  color: var(--s-on-background);
+  font-family: var(--s-font-sans);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  [data-surface="studio"]:not([data-theme="light"]) {
+    --s-background: #15130f;
+    --s-on-background: #fbf9f4;
+    --s-surface: #1c1a16;
+    --s-surface-container: #24211c;
+    --s-surface-container-high: #2c2822;
+    --s-surface-container-highest: #36312a;
+    --s-on-surface-variant: #9e978e;
+    --s-outline: #68635b;
+    --s-outline-variant: #38342d;
+    --s-primary: #a88469;
+    --s-on-primary: #15130f;
+    --s-primary-container: rgb(128 100 80 / 0.32);
+    --s-on-primary-container: #fbf9f4;
+    --s-glow: rgb(168 132 105 / 0.34);
+    --s-page-gradient:
+      radial-gradient(60rem 36rem at 12% -8%, rgb(128 100 80 / 0.26), transparent 60%),
+      radial-gradient(44rem 30rem at 100% 0%, rgb(91 141 239 / 0.1), transparent 55%);
+    color-scheme: dark;
+  }
+}
+
+[data-surface="studio"][data-theme="dark"] {
+  --s-background: #15130f;
+  --s-on-background: #fbf9f4;
+  --s-surface: #1c1a16;
+  --s-surface-container: #24211c;
+  --s-surface-container-high: #2c2822;
+  --s-surface-container-highest: #36312a;
+  --s-on-surface-variant: #9e978e;
+  --s-outline: #68635b;
+  --s-outline-variant: #38342d;
+  --s-primary: #a88469;
+  --s-on-primary: #15130f;
+  --s-primary-container: rgb(128 100 80 / 0.32);
+  --s-on-primary-container: #fbf9f4;
+  --s-glow: rgb(168 132 105 / 0.34);
+  --s-page-gradient:
+    radial-gradient(60rem 36rem at 12% -8%, rgb(128 100 80 / 0.26), transparent 60%),
+    radial-gradient(44rem 30rem at 100% 0%, rgb(91 141 239 / 0.1), transparent 55%);
+  color-scheme: dark;
+}
+
+[data-surface="studio"] .s-serif { font-family: var(--s-font-serif); font-weight: 400; }
+[data-surface="studio"] .s-num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
+[data-surface="studio"] .s-eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase;
+  color: color-mix(in srgb, var(--s-on-background) 50%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-surface="studio"] * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+}

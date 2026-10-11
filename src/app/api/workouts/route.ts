@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   const date = url.searchParams.get("date");
   const timezone = url.searchParams.get("timezone");
   if (!date && !timezone) {
-    const limit = Math.min(50, Math.max(1, Number.parseInt(url.searchParams.get("limit") ?? "20", 10) || 20));
+    const limit = Math.min(200, Math.max(1, Number.parseInt(url.searchParams.get("limit") ?? "20", 10) || 20));
     return Response.json({ sessions: await listRecentWorkoutSessions(userId, limit) });
   }
   if (!date || !dateRegex.test(date) || !timezone) {
