@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, gte, isNull, lte } from "drizzle-orm";
 import { database } from "@/db/client";
 import { events, mcpOauthClients, mcpTokens, taskSchedules } from "@/db/schema";
 import { seedEvents, seedSchedules } from "./seed";
@@ -17,9 +17,40 @@ const memorySchedules = [...seedSchedules];
 const memoryMcpClients = new Map<string, { redirectUris: string[]; clientName?: string }>();
 const useMemory = process.env.E2E_DEMO_MODE === "true" || !database;
 
-export async function listEvents(userId: string): Promise<TimelineEvent[]> {
-  if (useMemory || !database) return Promise.all(memoryEvents.map((event) => hydrateEventMedia(userId, event)));
-  const rows = await database.select().from(events).where(eq(events.userId, userId)).orderBy(desc(events.occurredAt));
+export interface EventFilter {
+  type?: TimelineEvent["type"];
+  /** Inclusive bounds on occurredAt. */
+  from?: Date;
+  to?: Date;
+  limit?: number;
+  offset?: number;
+}
+
+const isFiltered = (filter: EventFilter) => Object.values(filter).some((value) => value !== undefined);
+
+/** Newest first. Without a filter this is the whole timeline, as before; filters are applied in the query. */
+export async function listEvents(userId: string, filter: EventFilter = {}): Promise<TimelineEvent[]> {
+  if (useMemory || !database) {
+    let list = [...memoryEvents];
+    if (isFiltered(filter)) {
+      const start = filter.offset ?? 0;
+      list = list
+        .filter((event) => (!filter.type || event.type === filter.type)
+          && (!filter.from || event.occurredAt >= filter.from) && (!filter.to || event.occurredAt <= filter.to))
+        .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
+        .slice(start, filter.limit === undefined ? undefined : start + filter.limit);
+    }
+    return Promise.all(list.map((event) => hydrateEventMedia(userId, event)));
+  }
+  let query = database.select().from(events).where(and(
+    eq(events.userId, userId),
+    filter.type ? eq(events.type, filter.type) : undefined,
+    filter.from ? gte(events.occurredAt, filter.from) : undefined,
+    filter.to ? lte(events.occurredAt, filter.to) : undefined
+  )).orderBy(desc(events.occurredAt)).$dynamic();
+  if (filter.limit !== undefined) query = query.limit(filter.limit);
+  if (filter.offset) query = query.offset(filter.offset);
+  const rows = await query;
   const parsed = rows.map((row) => timelineEventSchema.parse({
     id: row.id,
     type: row.type,

@@ -1,4 +1,5 @@
 import { getCurrentUserId } from "@/lib/current-user";
+import { parseRange } from "@/lib/agent/range";
 import { getWorkoutsForDate, listRecentWorkoutSessions, recordWorkoutSession } from "@/data/exercise-repository";
 import { isValidTimeZone, recordWorkoutSessionInputSchema } from "@/domain/exercises";
 
@@ -13,7 +14,9 @@ export async function GET(request: Request) {
   const timezone = url.searchParams.get("timezone");
   if (!date && !timezone) {
     const limit = Math.min(200, Math.max(1, Number.parseInt(url.searchParams.get("limit") ?? "20", 10) || 20));
-    return Response.json({ sessions: await listRecentWorkoutSessions(userId, limit) });
+    const range = parseRange(url.searchParams.get("from"), url.searchParams.get("to"));
+    if ("error" in range) return Response.json({ error: range.error }, { status: 400 });
+    return Response.json({ sessions: await listRecentWorkoutSessions(userId, limit, range) });
   }
   if (!date || !dateRegex.test(date) || !timezone) {
     return Response.json({ error: "date_and_timezone_required" }, { status: 400 });

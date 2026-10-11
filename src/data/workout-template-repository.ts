@@ -110,6 +110,18 @@ export async function upsertTemplate(userId: string, rawInput: WorkoutTemplateIn
   return template;
 }
 
+/** A copy under a free name ("X (copy)", "X (copy 2)"...): upsertTemplate would otherwise treat an equal name as an update. */
+export async function duplicateTemplate(userId: string, id: string, name?: string): Promise<WorkoutTemplate | undefined> {
+  const source = await getTemplate(userId, id);
+  if (!source) return undefined;
+  const base = name?.trim() || source.name;
+  let candidate = name?.trim() || `${source.name} (copy)`;
+  for (let attempt = 2; await findTemplateByName(userId, normalizeTemplateName(candidate)); attempt += 1) {
+    candidate = `${base} (copy ${attempt})`;
+  }
+  return upsertTemplate(userId, { name: candidate, note: source.note, exercises: source.exercises, isArchived: false });
+}
+
 export async function deleteTemplate(userId: string, id: string): Promise<boolean> {
   if (!(await getTemplate(userId, id))) return false;
   if (useMemory || !database) {

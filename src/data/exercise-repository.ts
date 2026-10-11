@@ -17,6 +17,7 @@ import {
   type WorkoutSet
 } from "@/domain/exercises";
 import { workoutEventSchema, type TimelineEvent } from "@/domain/events";
+import { muscleSetTotals, primaryMusclesOf } from "@/domain/muscle-sets";
 
 interface MemoryExercise extends Exercise {
   userId: string;
@@ -646,14 +647,17 @@ export interface RecentWorkoutSession {
 }
 
 // Newest-first session list for the clients' history view. Three queries total regardless of limit.
-export async function listRecentWorkoutSessions(userId: string, limit = 20): Promise<RecentWorkoutSession[]> {
+export async function listRecentWorkoutSessions(
+  userId: string, limit = 20, range: { from?: Date; to?: Date } = {}
+): Promise<RecentWorkoutSession[]> {
   let eventList: Array<ReturnType<typeof eventFromRow>>;
   let setList: WorkoutSet[] & Array<{ eventId?: string }>;
   const names = new Map<string, string>();
 
   if (useMemory || !database) {
     eventList = memoryWorkoutEvents
-      .filter((event) => event.userId === userId && event.type === "workout")
+      .filter((event) => event.userId === userId && event.type === "workout"
+        && (!range.from || event.occurredAt >= range.from) && (!range.to || event.occurredAt <= range.to))
       .sort((a, b) => b.occurredAt.getTime() - a.occurredAt.getTime())
       .slice(0, limit) as typeof eventList;
     const ids = new Set(eventList.map((event) => event.id));
@@ -661,7 +665,9 @@ export async function listRecentWorkoutSessions(userId: string, limit = 20): Pro
     for (const exercise of memoryExercises) if (exercise.userId === userId) names.set(exercise.id, exercise.name);
   } else {
     const rows = await database.select().from(events).where(and(
-      eq(events.userId, userId), eq(events.type, "workout")
+      eq(events.userId, userId), eq(events.type, "workout"),
+      range.from ? gte(events.occurredAt, range.from) : undefined,
+      range.to ? lte(events.occurredAt, range.to) : undefined
     )).orderBy(desc(events.occurredAt)).limit(limit);
     eventList = rows.map(eventFromRow);
     if (!eventList.length) return [];
@@ -709,6 +715,37 @@ export async function listRecentWorkoutSessions(userId: string, limit = 20): Pro
       summary
     }];
   });
+}
+
+/**
+ * Exercises that could replace `exerciseId`: same first primary muscle, ranked by matching movement pattern,
+ * then matching equipment (or the equipment the caller asked for). The exercise itself and archived ones are left out.
+ */
+export async function listExerciseAlternatives(userId: string, exerciseId: string, options: { equipment?: string; limit?: number } = {}) {
+  const base = await getExercise(userId, exerciseId);
+  if (!base) return undefined;
+  const primary = primaryMusclesOf(base)[0];
+  if (!primary) return { exercise: base, items: [] as Array<NonNullable<typeof base>> };
+  const candidates = (await searchExercises(userId, "", 1, 100, false, { muscle: primary, equipment: options.equipment })).items
+    .filter((candidate) => candidate.id !== base.id);
+  const wantedEquipment = options.equipment?.toLowerCase() ?? base.equipment?.toLowerCase();
+  const score = (candidate: (typeof candidates)[number]) =>
+    (base.movementPattern && candidate.movementPattern === base.movementPattern ? 2 : 0)
+    + (wantedEquipment && candidate.equipment?.toLowerCase() === wantedEquipment ? 1 : 0);
+  const items = candidates.sort((a, b) => score(b) - score(a) || a.name.localeCompare(b.name)).slice(0, options.limit ?? 10);
+  return { exercise: base, items };
+}
+
+/** Sets per muscle for a not-yet-saved plan (primary 1, secondary 0.5 per set), so a draft can be judged before it is written. */
+export async function previewTemplateVolume(userId: string, entries: Array<{ exerciseId: string; sets: number }>) {
+  const items: Array<{ sets: number; exercise: NonNullable<Awaited<ReturnType<typeof getExercise>>> }> = [];
+  const missing: string[] = [];
+  for (const entry of entries) {
+    const exercise = await getExercise(userId, entry.exerciseId);
+    if (exercise) items.push({ sets: entry.sets, exercise });
+    else missing.push(entry.exerciseId);
+  }
+  return { totalSets: items.reduce((sum, item) => sum + item.sets, 0), byMuscle: muscleSetTotals(items), missing };
 }
 
 export interface MuscleVolumeWeek {
