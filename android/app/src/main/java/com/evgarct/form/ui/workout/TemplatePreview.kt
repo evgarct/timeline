@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -95,7 +96,13 @@ internal fun TemplatePreview(plan: TemplatePlan, onBack: () -> Unit, onStart: ()
                 .padding(horizontal = 20.dp, vertical = 12.dp)
                 .height(56.dp)
                 .testTag("template_start"),
-            shape = RoundedCornerShape(18.dp)
+            shape = RoundedCornerShape(18.dp),
+            // Same pair as the template rows and the "start workout" button: the default primary/onPrimary
+            // is light text on a light green in the dark theme and reads as disabled.
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colorScheme.primaryContainer,
+                contentColor = colorScheme.onPrimaryContainer
+            )
         ) {
             Text(stringResource(R.string.workout_start), fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         }
