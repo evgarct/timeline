@@ -60,6 +60,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -108,6 +109,7 @@ internal fun ActiveContent(
     viewModel: WorkoutViewModel,
     nothingLogged: Boolean,
     onAddExercise: () -> Unit,
+    onReplaceExercise: (DraftExercise) -> Unit,
     onFinish: () -> Unit,
     onSaveTemplate: () -> Unit,
     templateMessage: TemplateMessage?,
@@ -152,7 +154,8 @@ internal fun ActiveContent(
                                         index = exercises.indexOfFirst { it.exerciseId == exercise.exerciseId },
                                         count = exercises.size,
                                         viewModel = viewModel,
-                                        onOpenDetail = { detail = exercise }
+                                        onOpenDetail = { detail = exercise },
+                                        onReplace = { onReplaceExercise(exercise) }
                                     )
                                 }
                             }
@@ -164,7 +167,8 @@ internal fun ActiveContent(
                             index = exercises.indexOfFirst { it.exerciseId == exercise.exerciseId },
                             count = exercises.size,
                             viewModel = viewModel,
-                            onOpenDetail = { detail = exercise }
+                            onOpenDetail = { detail = exercise },
+                            onReplace = { onReplaceExercise(exercise) }
                         )
                     }
                 }
@@ -344,9 +348,14 @@ private fun ExerciseCard(
     index: Int,
     count: Int,
     viewModel: WorkoutViewModel,
-    onOpenDetail: () -> Unit
+    onOpenDetail: () -> Unit,
+    onReplace: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
+    if (exercise.skipped) {
+        SkippedCard(exercise = exercise, onUndo = { viewModel.skipExercise(exercise.exerciseId, skip = false) })
+        return
+    }
     var menuOpen by remember { mutableStateOf(false) }
     var noteOpen by remember(exercise.exerciseId) { mutableStateOf(!exercise.note.isNullOrBlank()) }
     val allDone = exercise.sets.isNotEmpty() && exercise.sets.all { it.done }
@@ -409,6 +418,22 @@ private fun ExerciseCard(
                         }
                     )
                     DropdownMenuItem(
+                        colors = com.evgarct.form.core.theme.formMenuItemColors(),
+                        text = { Text(stringResource(R.string.workout_replace)) },
+                        onClick = {
+                            menuOpen = false
+                            onReplace()
+                        }
+                    )
+                    DropdownMenuItem(
+                        colors = com.evgarct.form.core.theme.formMenuItemColors(),
+                        text = { Text(stringResource(R.string.workout_skip)) },
+                        onClick = {
+                            menuOpen = false
+                            viewModel.skipExercise(exercise.exerciseId)
+                        }
+                    )
+                    DropdownMenuItem(
                     colors = com.evgarct.form.core.theme.formMenuItemColors(),
                         text = { Text(stringResource(R.string.workout_remove_exercise), color = colorScheme.error) },
                         onClick = {
@@ -432,8 +457,8 @@ private fun ExerciseCard(
             )
         }
 
-        exercise.coachNote?.let { CoachNote(it) }
-
+        // The coach note and the technique live in the detail sheet (tap the pictures): they made the
+        // whole workout one very long scroll when shown on every card.
         SetTable(exercise = exercise, viewModel = viewModel)
 
         if (noteOpen) {
@@ -447,6 +472,34 @@ private fun ExerciseCard(
                 maxLines = 4
             )
         }
+    }
+}
+
+/** A skipped exercise collapses to one line so it stops taking scroll space; Undo brings the full card back. */
+@Composable
+private fun SkippedCard(exercise: DraftExercise, onUndo: () -> Unit) {
+    val colorScheme = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("skipped_exercise")
+            .clip(RoundedCornerShape(24.dp))
+            .background(colorScheme.surfaceContainer)
+            .padding(start = 16.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                exercise.name,
+                fontSize = 15.sp,
+                color = colorScheme.onSurfaceVariant,
+                textDecoration = TextDecoration.LineThrough,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(stringResource(R.string.workout_skipped), fontSize = 12.sp, color = colorScheme.onSurfaceVariant)
+        }
+        TextButton(onClick = onUndo) { Text(stringResource(R.string.workout_undo)) }
     }
 }
 

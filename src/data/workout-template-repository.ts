@@ -74,7 +74,7 @@ async function findTemplateByName(userId: string, normalizedName: string) {
 // must already exist (unknown_exercise), so a template can never point at nothing.
 export async function upsertTemplate(userId: string, rawInput: WorkoutTemplateInput): Promise<WorkoutTemplate> {
   const input = workoutTemplateInputSchema.parse(rawInput);
-  for (const id of new Set(input.exercises.map((entry) => entry.exerciseId))) {
+  for (const id of new Set(input.exercises.flatMap((entry) => [entry.exerciseId, ...(entry.alternatives ?? [])]))) {
     if (!(await getExercise(userId, id))) throw new Error("unknown_exercise");
   }
 
@@ -145,7 +145,20 @@ function chooseLoad(entry: TemplateExercise, lastSets: Array<{ reps?: number; we
   return fromHistory;
 }
 
-export interface PlannedExercise extends TemplateExercise {
+/** An alternative as the phone needs it to swap the exercise in: everything an exercise card shows. */
+export interface PlannedAlternative {
+  exerciseId: string;
+  name: string;
+  primaryMuscles: string[];
+  secondaryMuscles: string[];
+  equipment?: string;
+  images: string[];
+  instructions: string[];
+  videoUrl?: string;
+}
+
+export interface PlannedExercise extends Omit<TemplateExercise, "alternatives"> {
+  alternatives: PlannedAlternative[];
   name: string;
   primaryMuscles: string[];
   secondaryMuscles: string[];
@@ -164,12 +177,28 @@ export async function planTemplate(userId: string, id: string) {
   const template = await getTemplate(userId, id);
   if (!template) return undefined;
   const exercises: PlannedExercise[] = [];
+  const alternativeDetails = await getExercisesByIds(userId, template.exercises.flatMap((entry) => entry.alternatives ?? []));
   for (const entry of template.exercises) {
     const exercise = await getExercise(userId, entry.exerciseId);
     const last = await getLastSession(userId, entry.exerciseId);
     const lastSets = last?.sets ?? [];
+    const alternatives = (entry.alternatives ?? []).flatMap((alternativeId): PlannedAlternative[] => {
+      const alternative = alternativeDetails.get(alternativeId);
+      if (!alternative) return [];
+      return [{
+        exerciseId: alternativeId,
+        name: alternative.name,
+        primaryMuscles: alternative.primaryMuscles ?? alternative.muscleGroups ?? [],
+        secondaryMuscles: alternative.secondaryMuscles ?? [],
+        equipment: alternative.equipment,
+        images: alternative.images ?? [],
+        instructions: alternative.instructions ?? [],
+        videoUrl: alternative.videoUrl
+      }];
+    });
     exercises.push({
       ...entry,
+      alternatives,
       name: exercise?.name ?? "Unknown exercise",
       primaryMuscles: exercise?.primaryMuscles ?? exercise?.muscleGroups ?? [],
       secondaryMuscles: exercise?.secondaryMuscles ?? [],
@@ -229,6 +258,7 @@ export interface TemplateExercisePatch {
   groupLabel?: string | null;
   progression?: TemplateExercise["progression"] | null;
   note?: string | null;
+  alternatives?: string[] | null;
 }
 
 export interface TemplatePatch {
@@ -239,7 +269,7 @@ export interface TemplatePatch {
   exercises?: TemplateExercisePatch[];
 }
 
-const clearable = ["weightKg", "repMin", "repMax", "targetRir", "groupId", "groupLabel", "progression", "note"] as const;
+const clearable = ["weightKg", "repMin", "repMax", "targetRir", "groupId", "groupLabel", "progression", "note", "alternatives"] as const;
 
 /**
  * Partial update: change the name/note/schedule/archive flag and individual exercises without resending the whole

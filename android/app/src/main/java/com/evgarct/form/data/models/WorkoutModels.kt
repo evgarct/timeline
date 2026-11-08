@@ -148,7 +148,9 @@ data class TemplateExerciseDto(
     val groupId: String? = null,
     val groupLabel: String? = null,
     val progression: ProgressionRule? = null,
-    val note: String? = null
+    val note: String? = null,
+    // Exercise ids the agent offered as swaps; kept on "save as template" so re-saving does not drop them.
+    val alternatives: List<String>? = null
 )
 
 /** Which weekdays a template is trained (JS getDay: 0 = Sunday ... 6 = Saturday), optionally within a date range (yyyy-MM-dd). */
@@ -185,6 +187,19 @@ data class LoadSuggestion(val weightKg: Double? = null, val reason: String = "no
 @Serializable
 data class LastSetDto(val reps: Int? = null, val weightKg: Double? = null)
 
+/** An agent-provided swap candidate with everything an exercise card shows. */
+@Serializable
+data class AlternativeExercise(
+    val exerciseId: String,
+    val name: String,
+    val primaryMuscles: List<String> = emptyList(),
+    val secondaryMuscles: List<String> = emptyList(),
+    val equipment: String? = null,
+    val images: List<String> = emptyList(),
+    val instructions: List<String> = emptyList(),
+    val videoUrl: String? = null
+)
+
 @Serializable
 data class PlannedExerciseDto(
     val exerciseId: String,
@@ -205,6 +220,7 @@ data class PlannedExerciseDto(
     val progression: ProgressionRule? = null,
     // The coach's note for this exercise in the program (written by the trainer/agent, not the lifter).
     val note: String? = null,
+    val alternatives: List<AlternativeExercise> = emptyList(),
     val lastDate: String? = null,
     val lastSets: List<LastSetDto> = emptyList(),
     val suggestion: LoadSuggestion = LoadSuggestion()
@@ -260,7 +276,11 @@ data class DraftExercise(
     val repMax: Int? = null,
     val targetRir: Int? = null,
     val suggestedWeightKg: Double? = null,
-    val progression: ProgressionRule? = null
+    val progression: ProgressionRule? = null,
+    // The lifter skipped this exercise today: its sets are not recorded and the card collapses.
+    val skipped: Boolean = false,
+    // Swap candidates from the template (written by the agent on request), offered first in "Replace".
+    val alternatives: List<AlternativeExercise> = emptyList()
 )
 
 @Serializable

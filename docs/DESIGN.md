@@ -25,6 +25,8 @@ This document is the design source of truth for UI work in this repository. Read
 - Use native date input for day-level progress-photo dates; save day-level photos at local noon to avoid timezone drift.
 - Icon-only buttons need accessible labels and should use existing lucide icons through shadcn `Button`.
 - For portal, drawer, dialog, and lightbox UI, verify the rendered element in the real document, not only the component tree.
+- Opening something is never starting it: an action with a side effect (a workout and its clock) sits behind an explicit button on a read-only preview; a tap on a list row only opens the preview (Android Train tab, 2026-11).
+- Long secondary text (coach note, technique) lives in the detail view, not on every repeated card; a card in a long session list keeps pictures and the inputs only. The lifter's own "Skip" collapses a card to one line with Undo; "Replace" offers the agent's alternatives first and then the full picker.
 
 ## Media And Wallpaper
 

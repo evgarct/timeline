@@ -234,6 +234,13 @@
     <string name="workout_add_exercise">Добавить упражнение</string>
     <string name="workout_add_set">Добавить подход</string>
     <string name="workout_remove_exercise">Убрать упражнение</string>
+    <string name="workout_skip">Пропустить</string>
+    <string name="workout_skipped">Пропущено</string>
+    <string name="workout_undo">Вернуть</string>
+    <string name="workout_replace">Заменить</string>
+    <string name="workout_replace_title">Заменить на</string>
+    <string name="workout_replace_other">Выбрать другое упражнение</string>
+    <string name="workout_alternatives_line">Альтернативы: %1$s</string>
     <string name="workout_remove_set">Убрать подход</string>
     <string name="workout_superset">Суперсет со следующим</string>
     <string name="workout_unlink">Разорвать суперсет</string>

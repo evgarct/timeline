@@ -10,7 +10,9 @@ import com.evgarct.form.data.models.DraftExercise
 import com.evgarct.form.data.models.DraftSet
 import com.evgarct.form.data.models.MuscleVolumeWeek
 import com.evgarct.form.data.models.Exercise
+import com.evgarct.form.data.models.AlternativeExercise
 import com.evgarct.form.data.models.RecentWorkoutSession
+import com.evgarct.form.data.models.TemplatePlan
 import com.evgarct.form.data.models.WorkoutTemplate
 import com.evgarct.form.data.models.WorkoutDraft
 import com.evgarct.form.data.models.WorkoutFeedback
@@ -57,6 +59,10 @@ class WorkoutViewModel : ViewModel() {
     var templateMessage by mutableStateOf<TemplateMessage?>(null)
         private set
 
+    /** The template being looked at before the lifter presses Start (null when no preview is open). */
+    var previewPlan by mutableStateOf<TemplatePlan?>(null)
+        private set
+
     var isLoading by mutableStateOf(false)
         private set
 
@@ -93,24 +99,39 @@ class WorkoutViewModel : ViewModel() {
         ))
     }
 
-    /** Starts a session from a template: prescribed sets, last-time sets and a progression-based weight suggestion. */
-    fun startFromTemplate(templateId: String) {
+    /**
+     * Opens a template for a look without starting anything: loads its plan (prescription, last-time sets,
+     * suggested weights) into [previewPlan]. A workout only begins with [startFromPreview].
+     */
+    fun openTemplate(templateId: String) {
         if (draft != null || startingTemplateId != null) return
         startingTemplateId = templateId
         viewModelScope.launch {
             repository.templatePlan(templateId)
                 .onSuccess { plan ->
                     plan.exercises.forEach { preloadImages(it.images) }
-                    commit(plan.toDraft(
-                        draftId = UUID.randomUUID().toString(),
-                        startedAtMillis = System.currentTimeMillis(),
-                        timezone = TimeZone.getDefault().id,
-                        newId = { UUID.randomUUID().toString() }
-                    ))
+                    previewPlan = plan
                 }
                 .onFailure { templateMessage = TemplateMessage.START_FAILED }
             startingTemplateId = null
         }
+    }
+
+    fun closePreview() {
+        previewPlan = null
+    }
+
+    /** Starts the session from the previewed template: the clock and the draft begin here, not when the template was opened. */
+    fun startFromPreview() {
+        val plan = previewPlan ?: return
+        if (draft != null) return
+        previewPlan = null
+        commit(plan.toDraft(
+            draftId = UUID.randomUUID().toString(),
+            startedAtMillis = System.currentTimeMillis(),
+            timezone = TimeZone.getDefault().id,
+            newId = { UUID.randomUUID().toString() }
+        ))
     }
 
     fun saveAsTemplate(name: String) {
@@ -148,11 +169,74 @@ class WorkoutViewModel : ViewModel() {
             sets = listOf(newSet())
         )))
         preloadImages(exercise.images)
-        // Prefill from the last session without blocking the UI; a failure just leaves empty fields.
+        prefillFromHistory(exercise.id)
+    }
+
+    /** The lifter does not do this exercise today. The card collapses and its sets are not recorded; [skip] = false undoes it. */
+    fun skipExercise(exerciseId: String, skip: Boolean = true) = updateExercise(exerciseId) { it.copy(skipped = skip) }
+
+    /** Replaces an exercise with one from the picker. */
+    fun replaceExercise(oldExerciseId: String, exercise: Exercise) = swapExercise(
+        oldExerciseId, exercise.id, exercise.name, exercise.primaryMuscles, exercise.secondaryMuscles,
+        exercise.equipment, exercise.images, exercise.instructions, exercise.videoUrl
+    )
+
+    /** Replaces an exercise with one of the alternatives the agent put into the template. */
+    fun replaceWithAlternative(oldExerciseId: String, alternative: AlternativeExercise) = swapExercise(
+        oldExerciseId, alternative.exerciseId, alternative.name, alternative.primaryMuscles, alternative.secondaryMuscles,
+        alternative.equipment, alternative.images, alternative.instructions, alternative.videoUrl
+    )
+
+    /**
+     * Swaps the exercise in place, so the order, superset group, set count and rep range survive. What belongs
+     * to the old movement (history, suggested weight, coach note, alternatives) is dropped; reps and ticked sets stay.
+     */
+    private fun swapExercise(
+        oldExerciseId: String,
+        newExerciseId: String,
+        name: String,
+        primaryMuscles: List<String>,
+        secondaryMuscles: List<String>,
+        equipment: String?,
+        images: List<String>,
+        instructions: List<String>,
+        videoUrl: String?
+    ) {
+        val current = draft ?: return
+        if (oldExerciseId == newExerciseId || current.exercises.any { it.exerciseId == newExerciseId }) return
+        commit(current.copy(exercises = current.exercises.map { entry ->
+            if (entry.exerciseId != oldExerciseId) entry else entry.copy(
+                exerciseId = newExerciseId,
+                name = name,
+                primaryMuscles = primaryMuscles,
+                secondaryMuscles = secondaryMuscles,
+                equipment = equipment,
+                images = images,
+                instructions = instructions,
+                videoUrl = videoUrl,
+                skipped = false,
+                sets = entry.sets.map { set -> if (set.done) set else set.copy(weightKg = null) },
+                lastTopWeightKg = null,
+                bestE1rmKg = null,
+                lastDate = null,
+                lastSets = emptyList(),
+                lastReps = emptyList(),
+                suggestedWeightKg = null,
+                progression = null,
+                coachNote = null,
+                alternatives = emptyList()
+            )
+        }))
+        preloadImages(images)
+        prefillFromHistory(newExerciseId)
+    }
+
+    /** Fills weight/reps from the exercise's last session without blocking the UI; a failure just leaves empty fields. */
+    private fun prefillFromHistory(exerciseId: String) {
         viewModelScope.launch {
-            repository.exerciseHistory(exercise.id).onSuccess { history ->
+            repository.exerciseHistory(exerciseId).onSuccess { history ->
                 val top = history.recentSessions.firstOrNull()?.topWeightKg
-                updateExercise(exercise.id) { entry ->
+                updateExercise(exerciseId) { entry ->
                     entry.copy(
                         lastTopWeightKg = top,
                         bestE1rmKg = history.bestE1rmKg,

@@ -48,10 +48,15 @@ fun SelectAllOnFocusTextField(
     BasicTextField(
         value = fieldValue,
         onValueChange = { new ->
-            fieldValue = if (pendingSelectAll) {
+            // Only a selection/cursor-only event (the focusing tap) may be turned into select-all.
+            // If the text itself changed, the user already typed: that character must stay a plain
+            // insertion, otherwise it is selected and the next keystroke overwrites it.
+            val selectionOnly = new.text == fieldValue.text
+            fieldValue = if (pendingSelectAll && selectionOnly) {
                 pendingSelectAll = false
                 new.copy(selection = TextRange(0, new.text.length))
             } else {
+                pendingSelectAll = false
                 new
             }
             onValueChange(fieldValue.text)
@@ -60,6 +65,8 @@ fun SelectAllOnFocusTextField(
             if (state.isFocused) {
                 pendingSelectAll = true
                 fieldValue = fieldValue.copy(selection = TextRange(0, fieldValue.text.length))
+            } else {
+                pendingSelectAll = false
             }
         },
         singleLine = singleLine,

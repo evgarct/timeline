@@ -243,6 +243,13 @@ describe("agent tools added with the spec registry", () => {
     const templateId = idIn(template);
 
     expect(text(await call(client, "get_template", { id: templateId }))).toContain("Agent Push");
+
+    // Alternatives are visible in the text content of both get_template and the plan, with names and ids.
+    await call(client, "update_workout_template", { id: templateId, exercises: [{ index: 0, alternatives: [dumbbell] }] });
+    const withAlternatives = text(await call(client, "get_template", { id: templateId }));
+    expect(withAlternatives).toContain("Agent Bench alternatives: Agent Dumbbell Press");
+    expect(withAlternatives).toContain(dumbbell);
+    expect(text(await call(client, "plan_workout_from_template", { id: templateId }))).toContain(`alternatives: Agent Dumbbell Press (id: ${dumbbell})`);
     const copy = text(await call(client, "duplicate_workout_template", { id: templateId }));
     expect(copy).toContain("Agent Push (copy)");
     expect(idIn(copy)).not.toBe(templateId);

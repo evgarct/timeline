@@ -1,5 +1,6 @@
 package com.evgarct.form.data.workout
 
+import com.evgarct.form.data.models.AlternativeExercise
 import com.evgarct.form.data.models.DraftExercise
 import com.evgarct.form.data.models.DraftSet
 import com.evgarct.form.data.models.LastSetDto
@@ -288,6 +289,34 @@ class WorkoutMathTest {
 
         val saved = draft.toTemplateRequest("Push")!!
         assertEquals("Пауза 1 с на груди", saved.exercises[0].note)
+    }
+
+    @Test
+    fun skippedExerciseNeverReachesTheSavedSessionEvenIfItsSetsWereTicked() {
+        val workout = draft(
+            DraftExercise("squat", "Squat", listOf("quads"), listOf(DraftSet("a", reps = 5, weightKg = 100.0, done = true)), skipped = true),
+            DraftExercise("row", "Row", listOf("lats"), listOf(DraftSet("b", reps = 8, weightKg = 60.0, done = true)))
+        )
+        val request = workout.toRequest()!!
+        assertEquals(listOf("row"), request.sets.map { it.exerciseId })
+        assertEquals(listOf("lats"), request.muscleGroups)
+        assertEquals(1, workout.recordableSetCount())
+        assertEquals(480.0, workout.tonnageKg(), 0.001)
+        // Skipping everything leaves nothing to save.
+        assertNull(workout.copy(exercises = workout.exercises.map { it.copy(skipped = true) }).toRequest())
+    }
+
+    @Test
+    fun alternativesTravelFromThePlanIntoTheDraftAndBackIntoASavedTemplate() {
+        val alternative = AlternativeExercise(exerciseId = "ext", name = "Leg Extensions", primaryMuscles = listOf("quads"))
+        val plan = TemplatePlan(
+            id = "t", name = "Legs",
+            exercises = listOf(PlannedExerciseDto(exerciseId = "press", name = "Leg Press", sets = 3, alternatives = listOf(alternative)))
+        )
+        val started = plan.toDraft("d", 1L, "Europe/Prague") { "id" }
+        assertEquals(listOf(alternative), started.exercises[0].alternatives)
+        val saved = started.toTemplateRequest("Legs")!!
+        assertEquals(listOf("ext"), saved.exercises[0].alternatives)
     }
 
     @Test

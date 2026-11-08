@@ -22,7 +22,9 @@ export const templateExerciseSchema = z.object({
   // Human label shown on the superset tab (e.g. "Суперсет на пресс"); falls back to a generic "Superset".
   groupLabel: z.string().trim().min(1).max(80).optional(),
   progression: progressionRuleSchema.optional(),
-  note: z.string().max(500).optional()
+  note: z.string().max(500).optional(),
+  // Exercises the lifter may swap this one for (equipment taken, injury). Created by an agent on request; the phone offers them first in "Replace".
+  alternatives: z.array(z.string().uuid()).max(5).optional()
 }).refine((value) => value.repMin === undefined || value.repMax === undefined || value.repMin <= value.repMax, {
   message: "repMin_must_not_exceed_repMax", path: ["repMin"]
 });
@@ -80,7 +82,8 @@ export const templateExercisePatchSchema = z.object({
   groupId: z.string().trim().min(1).max(60).nullable().optional(),
   groupLabel: z.string().trim().min(1).max(80).nullable().optional(),
   progression: progressionRuleSchema.nullable().optional(),
-  note: z.string().max(500).nullable().optional()
+  note: z.string().max(500).nullable().optional(),
+  alternatives: z.array(z.string().uuid()).max(5).nullable().optional()
 }).refine((patch) => patch.index !== undefined || patch.exerciseId !== undefined, { message: "index_or_exerciseId_required" });
 
 export const templatePatchSchema = z.object({
