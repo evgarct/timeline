@@ -28,7 +28,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.ExpandLess
 import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.MoreVert
-import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
@@ -72,7 +72,6 @@ import com.evgarct.form.data.workout.scheduledOn
 import com.evgarct.form.data.workout.recordableSetCount
 import com.evgarct.form.data.workout.repsHint
 import com.evgarct.form.data.workout.tonnageKg
-import com.evgarct.form.ui.nutrition.components.SelectAllOnFocusTextField
 import kotlinx.coroutines.delay
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.platform.testTag
@@ -95,10 +94,15 @@ fun WorkoutScreen(viewModel: WorkoutViewModel = viewModel()) {
     var showSaveTemplate by remember { mutableStateOf(false) }
     var showFeedback by remember { mutableStateOf(false) }
     var nothingLogged by remember { mutableStateOf(false) }
+    // The exercise whose "Replace" menu item was tapped (its alternatives sheet / picker is open).
+    var replacing by remember { mutableStateOf<DraftExercise?>(null) }
 
     val draft = viewModel.draft
+    val preview = viewModel.previewPlan
     Box(modifier = Modifier.fillMaxSize().imePadding()) {
-        if (draft == null) {
+        if (draft == null && preview != null) {
+            TemplatePreview(plan = preview, onBack = viewModel::closePreview, onStart = viewModel::startFromPreview)
+        } else if (draft == null) {
             IdleContent(viewModel)
         } else {
             ActiveContent(
@@ -106,6 +110,7 @@ fun WorkoutScreen(viewModel: WorkoutViewModel = viewModel()) {
                 viewModel = viewModel,
                 nothingLogged = nothingLogged,
                 onAddExercise = { showPicker = true },
+                onReplaceExercise = { replacing = it },
                 onFinish = {
                     // Nothing marked done: say so; otherwise ask for feedback first, then upload.
                     nothingLogged = draft.recordableSetCount() == 0
@@ -125,6 +130,21 @@ fun WorkoutScreen(viewModel: WorkoutViewModel = viewModel()) {
             onSelect = { exercise ->
                 viewModel.addExercise(exercise)
                 showPicker = false
+            }
+        )
+    }
+
+    replacing?.let { target ->
+        ReplaceExerciseSheet(
+            exercise = target,
+            onDismiss = { replacing = null },
+            onAlternative = { alternative ->
+                viewModel.replaceWithAlternative(target.exerciseId, alternative)
+                replacing = null
+            },
+            onPick = { exercise ->
+                viewModel.replaceExercise(target.exerciseId, exercise)
+                replacing = null
             }
         )
     }
@@ -234,7 +254,7 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
                 templates = viewModel.templates,
                 today = today,
                 startingId = viewModel.startingTemplateId,
-                onStart = viewModel::startFromTemplate
+                onStart = viewModel::openTemplate
             )
         }
 
@@ -243,7 +263,7 @@ private fun IdleContent(viewModel: WorkoutViewModel) {
                 templates = viewModel.templates,
                 startingId = viewModel.startingTemplateId,
                 startFailed = viewModel.templateMessage == TemplateMessage.START_FAILED,
-                onStart = viewModel::startFromTemplate
+                onStart = viewModel::openTemplate
             )
         }
 
@@ -361,7 +381,7 @@ internal fun ScheduleSection(
                             color = colorScheme.onSecondaryContainer,
                             modifier = Modifier.weight(1f)
                         )
-                        Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = colorScheme.onSecondaryContainer)
+                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = colorScheme.onSecondaryContainer)
                     }
                 }
             }
@@ -428,7 +448,7 @@ internal fun TemplatesSection(
                         if (startingId == template.id) {
                             CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                         } else {
-                            Icon(Icons.Rounded.PlayArrow, contentDescription = null, tint = colorScheme.onPrimaryContainer)
+                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = colorScheme.onPrimaryContainer)
                         }
                     }
                 }

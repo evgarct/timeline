@@ -41,6 +41,31 @@ describe("memory workout template repository", () => {
     })).rejects.toThrow("unknown_exercise");
   });
 
+  it("stores alternatives, validates them, plans them with details and patches them", async () => {
+    const press = await exercises.upsertExercise(userId, { name: "Alt Leg Press", primaryMuscles: ["quads"] });
+    const extension = await exercises.upsertExercise(userId, { name: "Alt Leg Extension", primaryMuscles: ["quads"], equipment: "machine" });
+
+    await expect(templates.upsertTemplate(userId, {
+      name: "Alt Ghost", exercises: [{ exerciseId: press.id, alternatives: ["6f1c1c4e-3b6e-4b6b-8f0e-2a4f5f9d7a11"] }]
+    })).rejects.toThrow("unknown_exercise");
+
+    const created = await templates.upsertTemplate(userId, {
+      name: "Alt Legs", exercises: [{ exerciseId: press.id, sets: 3, alternatives: [extension.id] }]
+    });
+    expect(created.exercises[0].alternatives).toEqual([extension.id]);
+
+    const plan = await templates.planTemplate(userId, created.id);
+    expect(plan?.exercises[0].alternatives).toEqual([
+      expect.objectContaining({ exerciseId: extension.id, name: "Alt Leg Extension", primaryMuscles: ["quads"], equipment: "machine" })
+    ]);
+
+    // Re-saving a different field through a patch keeps the alternatives; null clears them.
+    const kept = await templates.patchTemplate(userId, created.id, { exercises: [{ index: 0, sets: 4 }] });
+    expect(kept?.exercises[0]).toMatchObject({ sets: 4, alternatives: [extension.id] });
+    const cleared = await templates.patchTemplate(userId, created.id, { exercises: [{ index: 0, alternatives: null }] });
+    expect(cleared?.exercises[0].alternatives).toBeUndefined();
+  });
+
   it("keeps the schedule when a template is re-saved without one, and clears it with null", async () => {
     const row = await exercises.upsertExercise(userId, { name: "Schedule Row" });
     const created = await templates.upsertTemplate(userId, {

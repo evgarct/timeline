@@ -30,10 +30,13 @@ fun repsHint(exercise: DraftExercise, setIndex: Int): Int? =
 fun DraftSet.e1rmKg(): Double? =
     if (setType == "warmup" || weightKg == null || reps == null) null else estimateOneRepMaxKg(weightKg, reps)
 
-fun WorkoutDraft.recordableSetCount(): Int = exercises.sumOf { exercise -> exercise.sets.count { it.isRecordable() } }
+/** Exercises the lifter is actually doing today: a skipped one never reaches the saved session. */
+private val WorkoutDraft.activeExercises: List<DraftExercise> get() = exercises.filterNot { it.skipped }
+
+fun WorkoutDraft.recordableSetCount(): Int = activeExercises.sumOf { exercise -> exercise.sets.count { it.isRecordable() } }
 
 fun WorkoutDraft.tonnageKg(): Double = round(
-    exercises.sumOf { exercise ->
+    activeExercises.sumOf { exercise ->
         exercise.sets
             .filter { it.isRecordable() && it.setType != "warmup" }
             .sumOf { (it.weightKg ?: 0.0) * (it.reps ?: 0) }
@@ -42,7 +45,7 @@ fun WorkoutDraft.tonnageKg(): Double = round(
 
 /** Distinct primary muscles of the exercises that actually have recorded sets, capped at the server's limit of 8. */
 fun WorkoutDraft.muscleGroups(): List<String> {
-    val muscles = exercises
+    val muscles = activeExercises
         .filter { exercise -> exercise.sets.any { it.isRecordable() } }
         .flatMap { it.primaryMuscles }
         .distinct()
@@ -57,7 +60,7 @@ fun WorkoutDraft.muscleGroups(): List<String> {
  */
 fun WorkoutDraft.toRequest(feedback: WorkoutFeedback = WorkoutFeedback()): WorkoutSessionRequest? {
     var index = 0
-    val sets = exercises.flatMap { exercise: DraftExercise ->
+    val sets = activeExercises.flatMap { exercise: DraftExercise ->
         exercise.sets.filter { it.isRecordable() }.mapIndexed { position, set ->
             index += 1
             WorkoutSetDto(
@@ -127,7 +130,8 @@ fun TemplatePlan.toDraft(
             repMax = planned.repMax,
             targetRir = planned.targetRir,
             suggestedWeightKg = planned.suggestion.weightKg,
-            progression = planned.progression
+            progression = planned.progression,
+            alternatives = planned.alternatives
         )
     }
 )
@@ -157,7 +161,9 @@ fun WorkoutDraft.toTemplateRequest(name: String): WorkoutTemplateRequest? {
                 groupLabel = exercise.groupLabel,
                 progression = exercise.progression,
                 // The trainer's note rides along, otherwise re-saving a template from the phone would wipe it.
-                note = exercise.coachNote
+                note = exercise.coachNote,
+                // Same reason: re-saving must not wipe the agent's swap candidates.
+                alternatives = exercise.alternatives.map { it.exerciseId }.ifEmpty { null }
             )
         }
     )

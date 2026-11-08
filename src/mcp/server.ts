@@ -763,7 +763,11 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
       const load = exercise.suggestion.weightKg !== undefined ? `${exercise.suggestion.weightKg} kg (${exercise.suggestion.reason})` : "no history";
       return `${exercise.name}: ${exercise.sets} x ${range}${exercise.targetRir !== undefined ? ` @RIR ${exercise.targetRir}` : ""}, ${load}`;
     });
-    return result("Workout plan", plan.name, plan, [], { text: [plan.name, ...lines].join("\n"), withData: true });
+    const planLines = plan.exercises.flatMap((exercise, index) => [
+      lines[index],
+      ...(exercise.alternatives.length ? [`  alternatives: ${exercise.alternatives.map((alternative) => `${alternative.name} (id: ${alternative.exerciseId})`).join(", ")}`] : [])
+    ]);
+    return result("Workout plan", plan.name, plan, [], { text: [plan.name, ...planLines].join("\n"), withData: true });
   });
 
   registerSpec(server, specs.get_exercise_history, async ({ exerciseId, limit }) => {
@@ -781,8 +785,12 @@ export function createTimelineMcpServer(userId: string, context: McpRequestConte
     const stored = await getTemplate(userId, id);
     if (!stored) return fail("template_not_found");
     const [template] = await withExerciseDetails(userId, [stored]);
+    const alternativeLines = await Promise.all(template.exercises.filter((entry) => entry.alternatives?.length).map(async (entry) => {
+      const named = await Promise.all(entry.alternatives!.map(async (id) => `${(await getExercise(userId, id))?.name ?? "Unknown exercise"} (id: ${id})`));
+      return `  ${entry.name} alternatives: ${named.join(", ")}`;
+    }));
     return result("Workout template", template.name, template, [], {
-      id: template.id, text: `${template.name} (id: ${template.id}, ${template.exercises.length} exercises)`, withData: true
+      id: template.id, text: [`${template.name} (id: ${template.id}, ${template.exercises.length} exercises)`, ...alternativeLines].join("\n"), withData: true
     });
   });
 

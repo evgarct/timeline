@@ -234,6 +234,13 @@
     <string name="workout_add_exercise">Add exercise</string>
     <string name="workout_add_set">Add set</string>
     <string name="workout_remove_exercise">Remove exercise</string>
+    <string name="workout_skip">Skip</string>
+    <string name="workout_skipped">Skipped</string>
+    <string name="workout_undo">Undo</string>
+    <string name="workout_replace">Replace</string>
+    <string name="workout_replace_title">Replace with</string>
+    <string name="workout_replace_other">Choose another exercise</string>
+    <string name="workout_alternatives_line">Alternatives: %1$s</string>
     <string name="workout_superset">Superset with next</string>
     <string name="workout_unlink">Unlink superset</string>
     <string name="workout_kg">kg</string>

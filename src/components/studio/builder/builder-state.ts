@@ -16,6 +16,8 @@ export interface BuilderItem {
   /** Double-progression increment; undefined = no rule. */
   progressionKg?: number;
   note?: string;
+  /** Agent-created swap candidates; the builder does not edit them but must keep them when saving. */
+  alternatives?: string[];
 }
 
 export interface BuilderDoc {
@@ -149,7 +151,8 @@ export function toTemplateInput(doc: BuilderDoc, id?: string): WorkoutTemplateIn
         groupId: item.groupId,
         groupLabel: item.groupLabel,
         progression: item.progressionKg ? { type: "double" as const, incrementKg: item.progressionKg } : undefined,
-        note: item.note || undefined
+        note: item.note || undefined,
+        alternatives: item.alternatives?.length ? item.alternatives : undefined
       };
     })
   };
@@ -170,7 +173,8 @@ export function docFromTemplate(template: StoredTemplate, catalog: Map<string, E
       groupId: entry.groupId,
       groupLabel: entry.groupLabel,
       progressionKg: entry.progression?.incrementKg,
-      note: entry.note
+      note: entry.note,
+      alternatives: entry.alternatives
     }))
   };
 }
